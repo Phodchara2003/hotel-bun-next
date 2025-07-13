@@ -1,0 +1,30 @@
+{
+  "name": "hotel-booking-backend",
+  "version": "1.0.0",
+  "description": "Hotel booking system backend with Bun and Elysia",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "bun run --watch src/index.js",
+    "start": "bun src/index.js",
+    "db:migrate": "bun src/db/migrate.js"
+  },
+  "dependencies": {
+    "@elysiajs/bearer": "^1.3.0",
+    "@elysiajs/cors": "^1.3.3",
+    "@elysiajs/jwt": "^1.3.1",
+    "@elysiajs/swagger": "^1.3.1",
+    "@neondatabase/serverless": "^1.0.1",
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^17.0.1",
+    "elysia": "^1.3.5",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.16.3",
+    "pg-types": "^4.0.2",
+    "postgres": "^3.4.7",
+    "zod": "^3.25.71"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  }
+}
