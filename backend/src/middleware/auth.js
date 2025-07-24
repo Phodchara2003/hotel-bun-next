@@ -2,13 +2,8 @@ import { verifyToken } from '../utils/auth.js';
 import { sql } from '../db/database.js';
 import 'dotenv/config';
 
-export const authMiddleware = async ({ headers, set }) => {
+export const authMiddleware = async ({ headers, set, request }) => {
   console.log('=== AUTH MIDDLEWARE START ===');
-  console.log('Headers received:', Object.keys(headers));
-  
-  // TEMPORARY: Return hardcoded user for testing
-  console.log('BYPASSING AUTH - RETURNING HARDCODED ADMIN');
-  return { id: 1, email: 'admin@example.com', first_name: 'Admin', last_name: 'User', role: 'admin' };
   
   const authHeader = headers.authorization;
   console.log('Authorization header:', authHeader);

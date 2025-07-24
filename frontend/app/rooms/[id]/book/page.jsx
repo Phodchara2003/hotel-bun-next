@@ -10,7 +10,7 @@ import toast from 'react-hot-toast';
 export default function BookRoomPage({ params }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [roomType, setRoomType] = useState(null);
   const [hotel, setHotel] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -29,17 +29,12 @@ export default function BookRoomPage({ params }) {
   });
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/login');
-      return;
-    }
-    
     if (roomTypeId && hotelId) {
       fetchRoomData();
       // Check availability on page load
       checkRoomAvailabilityOnLoad();
     }
-  }, [roomTypeId, hotelId, isAuthenticated]);
+  }, [roomTypeId, hotelId]);
 
   const checkRoomAvailabilityOnLoad = async () => {
     setCheckingAvailability(true);
@@ -327,6 +322,58 @@ export default function BookRoomPage({ params }) {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-600">ไม่พบข้อมูลห้องพัก</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login required message if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-4xl mx-auto container-padding">
+          {/* Back Button */}
+          <button
+            onClick={() => router.back()}
+            className="flex items-center text-gray-600 hover:text-gray-800 mb-6"
+          >
+            <ArrowLeft className="h-5 w-5 mr-2" />
+            กลับ
+          </button>
+
+          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+            <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Users className="w-8 h-8 text-primary-600" />
+            </div>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2">ต้องเข้าสู่ระบบเพื่อจองห้องพัก</h2>
+            <p className="text-gray-600 mb-6">
+              กรุณาเข้าสู่ระบบหรือสมัครสมาชิกเพื่อดำเนินการจองห้องพัก
+            </p>
+            
+            {/* Room Preview */}
+            <div className="bg-gray-50 rounded-lg p-4 mb-6">
+              <h3 className="font-semibold text-gray-900 mb-2">{roomType.name}</h3>
+              <p className="text-gray-600 mb-2">{hotel.name}</p>
+              <div className="text-2xl font-bold text-primary-600">
+                ฿{roomType.pricePerNight?.toLocaleString()} <span className="text-sm font-normal text-gray-500">ต่อคืน</span>
+              </div>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={() => router.push('/login?redirect=' + encodeURIComponent(window.location.pathname + window.location.search))}
+                className="btn-primary"
+              >
+                เข้าสู่ระบบ
+              </button>
+              <button
+                onClick={() => router.push('/register?redirect=' + encodeURIComponent(window.location.pathname + window.location.search))}
+                className="btn-outline-primary"
+              >
+                สมัครสมาชิก
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { bookingAPI } from '../../../lib/api';
 import Cookies from 'js-cookie';
+import ConfirmModal from '../../../components/ConfirmModal';
 import { 
   Calendar, 
   Users, 
@@ -142,63 +143,83 @@ export default function AdminDashboard() {
   };
 
   const handleBookingAction = async (bookingId, action) => {
-    const actionText = action === 'confirm' ? 'ยืนยัน' : action === 'approve' ? 'อนุมัติ' : action === 'delete' ? 'ลบ' : 'ยกเลิก';
-    
-    // Special confirmation for delete action
-    if (action === 'delete') {
-      const isConfirmed = window.confirm(
-        `⚠️ คำเตือน: คุณต้องการลบการจองนี้หรือไม่?\n\n` +
-        `การลบจะไม่สามารถกู้คืนได้ และจะลบข้อมูลทั้งหมดรวมถึง:\n` +
-        `• ข้อมูลการจอง\n` +
-        `• ข้อมูลผู้เข้าพัก\n` +
-        `• ใบเสร็จการชำระเงิน\n\n` +
-        `กดตกลงเพื่อลบการจอง หรือ ยกเลิกเพื่อยกเลิกการดำเนินการ`
-      );
-      
-      if (!isConfirmed) return;
-    } else {
-      if (!confirm(`คุณต้องการ${actionText}การจองนี้หรือไม่?`)) return;
-    }
+    setConfirmAction({ bookingId, action });
+    setShowConfirmModal(true);
+  };
 
+  const executeBookingAction = async () => {
+    if (!confirmAction) return;
+    
     try {
-      if (action === 'confirm') {
-        await bookingAPI.confirmBooking(bookingId);
-        toast.success('ยืนยันการจองสำเร็จ!', {
-          duration: 2000,
-          icon: '✅'
-        });
-      } else if (action === 'approve') {
-        await bookingAPI.approveBooking(bookingId);
-        toast.success('อนุมัติการจองสำเร็จ!', {
-          duration: 2000,
-          icon: '✅'
-        });
-      } else if (action === 'delete') {
-        await bookingAPI.deleteBooking(bookingId);
-        toast.success('ลบการจองสำเร็จ!', {
-          duration: 2000,
+      setActionLoading(true);
+      
+      // Handle bulk delete
+      if (confirmAction.action === 'bulk-delete') {
+        const deletePromises = confirmAction.bookingIds.map(bookingId => 
+          bookingAPI.deleteBooking(bookingId)
+        );
+        
+        await Promise.all(deletePromises);
+        
+        toast.success(`ลบการจองสำเร็จ ${confirmAction.count} รายการ!`, {
+          duration: 3000,
           icon: '🗑️'
         });
-        // Close modal if it's open
-        if (showBookingModal) {
-          setShowBookingModal(false);
-          setSelectedBooking(null);
+        
+        setSelectedBookings([]);
+        setShowBulkActions(false);
+      } else {
+        // Handle single booking actions
+        const { bookingId, action } = confirmAction;
+        
+        if (action === 'confirm') {
+          await bookingAPI.confirmBooking(bookingId);
+          toast.success('ยืนยันการจองสำเร็จ!', {
+            duration: 2000,
+            icon: '✅'
+          });
+        } else if (action === 'approve') {
+          await bookingAPI.approveBooking(bookingId);
+          toast.success('อนุมัติการจองสำเร็จ!', {
+            duration: 2000,
+            icon: '✅'
+          });
+        } else if (action === 'delete') {
+          await bookingAPI.deleteBooking(bookingId);
+          toast.success('ลบการจองสำเร็จ!', {
+            duration: 2000,
+            icon: '🗑️'
+          });
+          // Close modal if it's open
+          if (showBookingModal) {
+            setShowBookingModal(false);
+            setSelectedBooking(null);
+          }
+        } else if (action === 'cancel') {
+          await bookingAPI.adminCancelBooking(bookingId);
+          toast.success('ยกเลิกการจองสำเร็จ!', {
+            duration: 2000,
+            icon: '❌'
+          });
         }
-      } else if (action === 'cancel') {
-        await bookingAPI.adminCancelBooking(bookingId);
-        toast.success('ยกเลิกการจองสำเร็จ', {
-          duration: 2000,
-          icon: '❌'
-        });
       }
+      
       fetchData(); // Refresh data
     } catch (error) {
       console.error('Booking action error:', error);
       const message = error.response?.data?.error || 'เกิดข้อผิดพลาด';
+      const actionText = confirmAction.action === 'confirm' ? 'ยืนยัน' : 
+                        confirmAction.action === 'approve' ? 'อนุมัติ' : 
+                        confirmAction.action === 'delete' ? 'ลบ' : 
+                        confirmAction.action === 'bulk-delete' ? 'ลบ' : 'ยกเลิก';
       toast.error(`ไม่สามารถ${actionText}การจองได้: ${message}`, {
         duration: 4000,
         icon: '❌'
       });
+    } finally {
+      setActionLoading(false);
+      setShowConfirmModal(false);
+      setConfirmAction(null);
     }
   };
 
@@ -303,14 +324,8 @@ export default function AdminDashboard() {
   };
 
   const handleBookingActionNew = async (bookingId, action) => {
-    const booking = bookings.find(b => b.id === bookingId);
-    setConfirmAction({
-      bookingId,
-      action,
-      booking,
-      type: 'single'
-    });
-    setShowConfirmModal(true);
+    // Use the same logic as handleBookingAction to avoid duplication
+    handleBookingAction(bookingId, action);
   };
 
   const handleBulkDeleteNew = async () => {
@@ -319,138 +334,14 @@ export default function AdminDashboard() {
       return;
     }
 
+    // Handle bulk delete with executeBookingAction
     setConfirmAction({
       bookingIds: selectedBookings,
-      action: 'delete',
+      action: 'bulk-delete',
       type: 'bulk',
       count: selectedBookings.length
     });
     setShowConfirmModal(true);
-  };
-
-  const executeAction = async () => {
-    if (!confirmAction) return;
-    
-    setActionLoading(true);
-    
-    try {
-      if (confirmAction.type === 'single') {
-        const { bookingId, action } = confirmAction;
-        
-        if (action === 'confirm') {
-          await bookingAPI.confirmBooking(bookingId);
-          toast.success('ยืนยันการจองสำเร็จ!', {
-            duration: 2000,
-            icon: '✅'
-          });
-        } else if (action === 'approve') {
-          await bookingAPI.approveBooking(bookingId);
-          toast.success('อนุมัติการจองสำเร็จ!', {
-            duration: 2000,
-            icon: '✅'
-          });
-        } else if (action === 'delete') {
-          await bookingAPI.deleteBooking(bookingId);
-          toast.success('ลบการจองสำเร็จ!', {
-            duration: 2000,
-            icon: '🗑️'
-          });
-          if (showBookingModal) {
-            setShowBookingModal(false);
-          }
-        } else if (action === 'cancel') {
-          await bookingAPI.adminCancelBooking(bookingId);
-          toast.success('ยกเลิกการจองสำเร็จ!', {
-            duration: 2000,
-            icon: '❌'
-          });
-        }
-      } else if (confirmAction.type === 'bulk') {
-        const deletePromises = confirmAction.bookingIds.map(bookingId => 
-          bookingAPI.deleteBooking(bookingId)
-        );
-        
-        await Promise.all(deletePromises);
-        
-        toast.success(`ลบการจองสำเร็จ ${confirmAction.count} รายการ!`, {
-          duration: 3000,
-          icon: '🗑️'
-        });
-        
-        setSelectedBookings([]);
-        setShowBulkActions(false);
-      }
-      
-      fetchData();
-    } catch (error) {
-      console.error('Action error:', error);
-      toast.error('เกิดข้อผิดพลาดในการดำเนินการ', {
-        duration: 4000,
-        icon: '❌'
-      });
-    } finally {
-      setActionLoading(false);
-      setShowConfirmModal(false);
-      setConfirmAction(null);
-    }
-  };
-
-  const getActionDetails = () => {
-    if (!confirmAction) return {};
-    
-    const { action, type, booking, count } = confirmAction;
-    
-    if (type === 'bulk') {
-      return {
-        title: 'ยืนยันการลบ',
-        message: `คุณต้องการลบการจอง ${count} รายการหรือไม่?`,
-        description: 'การลบจะไม่สามารถกู้คืนได้ และจะลบข้อมูลทั้งหมดรวมถึง ข้อมูลการจอง, ข้อมูลผู้เข้าพัก, และใบเสร็จการชำระเงิน',
-        buttonText: 'ลบทั้งหมด',
-        buttonColor: 'bg-red-600 hover:bg-red-700',
-        icon: '🗑️'
-      };
-    }
-    
-    switch (action) {
-      case 'confirm':
-        return {
-          title: 'ยืนยันการจอง',
-          message: `คุณต้องการยืนยันการจองของ ${booking?.guestName || booking?.userEmail} หรือไม่?`,
-          description: 'การยืนยันจะเปลี่ยนสถานะการจองเป็น "ยืนยันแล้ว" และส่งอีเมลแจ้งเตือนให้ลูกค้า',
-          buttonText: 'ยืนยัน',
-          buttonColor: 'bg-green-600 hover:bg-green-700',
-          icon: '✅'
-        };
-      case 'approve':
-        return {
-          title: 'อนุมัติการจอง',
-          message: `คุณต้องการอนุมัติการจองของ ${booking?.guestName || booking?.userEmail} หรือไม่?`,
-          description: 'การอนุมัติจะเปลี่ยนสถานะการจองเป็น "อนุมัติแล้ว" และลูกค้าจะสามารถเข้าพักได้',
-          buttonText: 'อนุมัติ',
-          buttonColor: 'bg-blue-600 hover:bg-blue-700',
-          icon: '✅'
-        };
-      case 'delete':
-        return {
-          title: 'ลบการจอง',
-          message: `คุณต้องการลบการจองของ ${booking?.guestName || booking?.userEmail} หรือไม่?`,
-          description: 'การลบจะไม่สามารถกู้คืนได้ และจะลบข้อมูลทั้งหมดรวมถึง ข้อมูลการจอง, ข้อมูลผู้เข้าพัก, และใบเสร็จการชำระเงิน',
-          buttonText: 'ลบ',
-          buttonColor: 'bg-red-600 hover:bg-red-700',
-          icon: '🗑️'
-        };
-      case 'cancel':
-        return {
-          title: 'ยกเลิกการจอง',
-          message: `คุณต้องการยกเลิกการจองของ ${booking?.guestName || booking?.userEmail} หรือไม่?`,
-          description: 'การยกเลิกจะเปลี่ยนสถานะการจองเป็น "ยกเลิกแล้ว" และส่งอีเมลแจ้งเตือนให้ลูกค้า',
-          buttonText: 'ยกเลิก',
-          buttonColor: 'bg-orange-600 hover:bg-orange-700',
-          icon: '❌'
-        };
-      default:
-        return {};
-    }
   };
 
   if (!isAuthenticated) {
@@ -1197,110 +1088,45 @@ export default function AdminDashboard() {
         )}
 
         {/* Confirm Action Modal */}
-        {showConfirmModal && confirmAction && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 modal-backdrop flex items-center justify-center z-50 p-4 animate-fadeIn">
-            <div className="bg-white rounded-xl max-w-md w-full shadow-2xl animate-slideInUp">
-              {/* Modal Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <div className="flex items-center space-x-3">
-                  <div className="text-3xl animate-pulse-once">{getActionDetails().icon}</div>
-                  <h3 className="text-xl font-bold text-gray-900">
-                    {getActionDetails().title}
-                  </h3>
-                </div>
-                <button
-                  onClick={() => setShowConfirmModal(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors duration-200 hover:rotate-90 transform"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-              
-              {/* Modal Body */}
-              <div className="p-6">
-                <div className="mb-4">
-                  <p className="text-gray-800 font-medium text-lg mb-2">
-                    {getActionDetails().message}
-                  </p>
-                  <p className="text-gray-600 text-sm leading-relaxed">
-                    {getActionDetails().description}
-                  </p>
-                </div>
-                
-                {/* Booking Details (for single actions) */}
-                {confirmAction.type === 'single' && confirmAction.booking && (
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-4 border border-blue-200">
-                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
-                      <Calendar className="h-4 w-4 mr-2 text-blue-600" />
-                      รายละเอียดการจอง
-                    </h4>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <span className="text-gray-500">รหัสการจอง:</span>
-                        <p className="font-medium text-gray-900">{confirmAction.booking.bookingReference}</p>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">ประเภทห้อง:</span>
-                        <p className="font-medium text-gray-900">{confirmAction.booking.roomTypeName}</p>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">วันเข้าพัก:</span>
-                        <p className="font-medium text-gray-900">
-                          {new Date(confirmAction.booking.checkInDate).toLocaleDateString('th-TH')}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">ยอดรวม:</span>
-                        <p className="font-medium text-blue-600">
-                          ฿{confirmAction.booking.totalPrice?.toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Bulk Action Summary */}
-                {confirmAction.type === 'bulk' && (
-                  <div className="bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-lg p-4 mb-4">
-                    <div className="flex items-center">
-                      <div className="text-red-600 mr-3 animate-pulse-once">
-                        <Trash2 className="h-6 w-6" />
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-red-900">การดำเนินการจำนวนมาก</h4>
-                        <p className="text-red-700 text-sm">
-                          คุณกำลังจะลบการจอง <span className="font-bold">{confirmAction.count}</span> รายการพร้อมกัน
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* Modal Footer */}
-              <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100 rounded-b-xl">
-                <button
-                  onClick={() => setShowConfirmModal(false)}
-                  className="bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 px-6 py-2.5 rounded-lg font-medium transition-all duration-200 hover-lift"
-                  disabled={actionLoading}
-                >
-                  ยกเลิก
-                </button>
-                <button
-                  onClick={executeAction}
-                  className={`${getActionDetails().buttonColor} text-white px-6 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center hover-lift disabled:opacity-50 disabled:cursor-not-allowed shadow-lg`}
-                  disabled={actionLoading}
-                >
-                  {actionLoading && (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                  )}
-                  <span className="mr-2">{getActionDetails().icon}</span>
-                  {actionLoading ? 'กำลังดำเนินการ...' : getActionDetails().buttonText}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <ConfirmModal
+          isOpen={showConfirmModal}
+          onClose={() => {
+            setShowConfirmModal(false);
+            setConfirmAction(null);
+          }}
+          onConfirm={executeBookingAction}
+          title={
+            confirmAction?.action === 'delete' 
+              ? '⚠️ ลบการจอง' 
+              : confirmAction?.action === 'bulk-delete'
+                ? '⚠️ ลบการจองหลายรายการ'
+                : confirmAction?.action === 'confirm' 
+                  ? 'ยืนยันการจอง'
+                  : confirmAction?.action === 'approve'
+                    ? 'อนุมัติการจอง'
+                    : 'ยกเลิกการจอง'
+          }
+          message={
+            confirmAction?.action === 'delete'
+              ? 'คำเตือน: การลบจะไม่สามารถกู้คืนได้ และจะลบข้อมูลทั้งหมดรวมถึงข้อมูลการจอง, ข้อมูลผู้เข้าพัก, และใบเสร็จการชำระเงิน'
+              : confirmAction?.action === 'bulk-delete'
+                ? `คุณกำลังจะลบการจอง ${confirmAction?.count} รายการพร้อมกัน การลบจะไม่สามารถกู้คืนได้`
+                : `คุณต้องการ${confirmAction?.action === 'confirm' ? 'ยืนยัน' : confirmAction?.action === 'approve' ? 'อนุมัติ' : 'ยกเลิก'}การจองนี้หรือไม่?`
+          }
+          confirmText={
+            confirmAction?.action === 'delete' 
+              ? 'ลบการจอง'
+              : confirmAction?.action === 'bulk-delete'
+                ? `ลบ ${confirmAction?.count} รายการ` 
+                : confirmAction?.action === 'confirm' 
+                  ? 'ยืนยันการจอง'
+                  : confirmAction?.action === 'approve'
+                    ? 'อนุมัติการจอง'
+                    : 'ยกเลิกการจอง'
+          }
+          cancelText="ยกเลิก"
+          type={confirmAction?.action === 'delete' || confirmAction?.action === 'bulk-delete' ? 'danger' : confirmAction?.action === 'cancel' ? 'warning' : 'info'}
+        />
       </div>
     </div>
   );

@@ -5,8 +5,14 @@ import 'dotenv/config';
 import { authRoutes } from './routes/auth.js';
 import { hotelRoutes } from './routes/hotels.js';
 import { bookingRoutes } from './routes/bookings.js';
+import { notificationRoutes } from './routes/notifications.js';
 import { adminRoomsRoutes } from './routes/admin-rooms.js';
 import { adminUsersRoutes } from './routes/admin-users.js';
+import { roomStatusRoutes } from './routes/room-status-new.js';
+import forgotPasswordRoutes from './routes/forgotPassword.js';
+import userEmailRoutes from './routes/userEmailSettings.js';
+import changeEmailRoutes from './routes/changeEmail.js';
+import './db/create-user-email-table.js'; // Create user email settings table
 
 // Load environment variables
 if (process.env.NODE_ENV !== 'production') {
@@ -59,8 +65,13 @@ const app = new Elysia()
       .use(authRoutes)
       .use(hotelRoutes)
       .use(bookingRoutes)
+      .use(notificationRoutes)
       .use(adminRoomsRoutes)
       .use(adminUsersRoutes)
+      .use(roomStatusRoutes)
+      .use(forgotPasswordRoutes)
+      .use(userEmailRoutes)
+      .use(changeEmailRoutes)
   )
   
   // Error handling

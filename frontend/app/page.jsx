@@ -10,21 +10,16 @@ import { Bed, Star, Shield, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function HomePage() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const router = useRouter();
   const [hotel, setHotel] = useState(null);
   const [roomTypes, setRoomTypes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // If user is admin, redirect to dashboard
-    if (isAuthenticated && user?.role === 'admin') {
-      router.replace('/admin/dashboard');
-      return;
-    }
-    
+    // Fetch hotel data regardless of authentication status
     fetchHotelAndRooms();
-  }, [isAuthenticated, user, router]);
+  }, []);
 
   const fetchHotelAndRooms = async () => {
     try {
@@ -40,13 +35,13 @@ export default function HomePage() {
     }
   };
 
-  // Show loading while checking user role
-  if (isAuthenticated && user?.role === 'admin') {
+  // Show loading while processing auth
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">กำลังไปยังหน้าจัดการระบบ...</p>
+          <p className="text-gray-600">กำลังตรวจสอบสถานะผู้ใช้...</p>
         </div>
       </div>
     );

@@ -2,13 +2,37 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { Bell } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotifications } from '../contexts/NotificationContext';
 
 const Header = () => {
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, loading } = useAuth();
+  const { unreadCount, hasUnread } = useNotifications();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <header className="bg-white shadow-lg sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto container-padding">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-2">
+              <span className="text-2xl">🏨</span>
+              <span className="text-xl font-bold text-gray-900">HotelBook</span>
+            </div>
+            <div className="hidden md:flex items-center space-x-4">
+              <div className="animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-20"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className="bg-white shadow-lg sticky top-0 z-50">
@@ -60,8 +84,16 @@ const Header = () => {
                     <Link href="/bookings" className="text-gray-700 hover:text-primary-600 transition-colors">
                       การจองของฉัน
                     </Link>
-                    <Link href="/notifications" className="text-gray-700 hover:text-primary-600 transition-colors">
-                      การแจ้งเตือน
+                    <Link href="/notifications" className="text-gray-700 hover:text-primary-600 transition-colors relative">
+                      <div className="flex items-center space-x-1">
+                        <Bell className="h-5 w-5" />
+                        <span>การแจ้งเตือน</span>
+                        {hasUnread && (
+                          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                            {unreadCount > 99 ? '99+' : unreadCount}
+                          </span>
+                        )}
+                      </div>
                     </Link>
                   </>
                 )}
@@ -247,10 +279,18 @@ const Header = () => {
                       </Link>
                       <Link 
                         href="/notifications" 
-                        className="block text-gray-700 hover:text-primary-600"
+                        className="block text-gray-700 hover:text-primary-600 relative"
                         onClick={() => setIsMenuOpen(false)}
                       >
-                        การแจ้งเตือน
+                        <div className="flex items-center space-x-2">
+                          <Bell className="h-5 w-5" />
+                          <span>การแจ้งเตือน</span>
+                          {hasUnread && (
+                            <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                              {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
+                          )}
+                        </div>
                       </Link>
                       <Link 
                         href="/profile" 

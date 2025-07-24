@@ -4,6 +4,15 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { bookingAPI, reportAPI } from '../../../lib/api';
 import toast from 'react-hot-toast';
+import InteractiveCharts from '../../../components/InteractiveCharts';
+import AdvancedFilters from '../../../components/AdvancedFilters';
+import PerformanceDashboard from '../../../components/PerformanceDashboard';
+import { 
+  Calendar, Users, DollarSign, TrendingUp, TrendingDown, 
+  FileText, Download, RefreshCw, BarChart3, PieChart, 
+  Activity, Clock, MapPin, CreditCard, Bed, Eye, 
+  CheckCircle, AlertTriangle, XCircle, Info
+} from 'lucide-react';
 
 export default function AdminReports() {
   const { user, isAuthenticated } = useAuth();
@@ -16,9 +25,25 @@ export default function AdminReports() {
     endDate: new Date().toISOString().split('T')[0]
   });
   
-  // Cache for API responses
+  // Enhanced state management
   const [dataCache, setDataCache] = useState(new Map());
   const [lastFetch, setLastFetch] = useState(new Map());
+  const [showComparison, setShowComparison] = useState(false);
+  const [comparisonData, setComparisonData] = useState(null);
+  const [alerts, setAlerts] = useState([]);
+  const [insights, setInsights] = useState([]);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [selectedChart, setSelectedChart] = useState('revenue');
+  const [exportFormat, setExportFormat] = useState('pdf');
+  const [customFilters, setCustomFilters] = useState({
+    status: '',
+    roomType: '',
+    minAmount: '',
+    maxAmount: '',
+    search: ''
+  });
+  const [showCharts, setShowCharts] = useState(true);
+  const [showPerformance, setShowPerformance] = useState(true);
   
   const [reportData, setReportData] = useState({
     financial: {
@@ -29,7 +54,9 @@ export default function AdminReports() {
       monthlyRevenue: [],
       yearlyRevenue: [],
       paymentMethods: [],
-      roomTypeRevenue: []
+      roomTypeRevenue: [],
+      revenueGrowth: 0,
+      topPerformingRooms: []
     },
     occupancy: {
       totalBookings: 0,
@@ -39,13 +66,19 @@ export default function AdminReports() {
       monthlyOccupancy: [],
       yearlyOccupancy: [],
       roomTypeOccupancy: [],
-      guestOrigins: []
+      guestOrigins: [],
+      seasonalTrends: [],
+      peakDays: []
+    },
+    kpis: {
+      revenue: { value: 0, change: 0, trend: 'neutral' },
+      bookings: { value: 0, change: 0, trend: 'neutral' },
+      occupancy: { value: 0, change: 0, trend: 'neutral' },
+      adr: { value: 0, change: 0, trend: 'neutral' }
     }
   });
 
-  const [autoRefresh, setAutoRefresh] = useState(false);
-
-  // Helper functions
+  // Enhanced helper functions
   const formatNumber = useCallback((num) => {
     if (typeof num !== 'number') return '0';
     return num.toLocaleString();
@@ -135,6 +168,30 @@ export default function AdminReports() {
       setPartialLoading(false);
     }
   }, [reportType, period, dateRange, getCacheKey, isDataFresh, dataCache]);
+
+  // Apply filters function
+  const applyFilters = useCallback(() => {
+    fetchReportData(true);
+    toast.success('ใช้ตัวกรองสำเร็จ! 🔍');
+  }, [fetchReportData]);
+
+  // Reset filters function
+  const resetFilters = useCallback(() => {
+    setReportType('financial');
+    setPeriod('monthly');
+    setDateRange({
+      startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+      endDate: new Date().toISOString().split('T')[0]
+    });
+    setCustomFilters({
+      status: '',
+      roomType: '',
+      minAmount: '',
+      maxAmount: '',
+      search: ''
+    });
+    toast.success('รีเซ็ตตัวกรองสำเร็จ! 🔄');
+  }, []);
 
   const processFinancialData = useCallback(async (bookings) => {
     const revenueBookings = bookings.filter(b => 
@@ -334,6 +391,471 @@ export default function AdminReports() {
     }
   };
 
+  // Enhanced export functionality
+  const exportReport = useCallback((format) => {
+    const data = {
+      reportType: reportType === 'financial' ? 'การเงิน' : 'การเข้าพัก',
+      period: getPeriodText(),
+      dateRange,
+      data: reportData,
+      generatedAt: new Date().toISOString(),
+      generatedBy: user?.email || 'Admin'
+    };
+
+    const filename = `hotel-report-${reportType}-${period}-${new Date().toISOString().split('T')[0]}`;
+
+    if (format === 'json') {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${filename}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else if (format === 'csv') {
+      const csvContent = convertToCSV(data);
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${filename}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else if (format === 'pdf') {
+      generatePDFReport(data, filename);
+    }
+
+    toast.success(`ส่งออกรายงานแบบ ${format.toUpperCase()} สำเร็จ! 🎉`);
+  }, [reportType, period, dateRange, reportData, user?.email]);
+
+  const convertToCSV = useCallback((data) => {
+    const csvRows = [];
+    
+    // Headers
+    csvRows.push('ประเภทข้อมูล,ค่า,หน่วย');
+    csvRows.push(`ประเภทรายงาน,${data.reportType},-`);
+    csvRows.push(`ช่วงเวลา,${data.period},-`);
+    csvRows.push(`วันที่เริ่มต้น,${data.dateRange.startDate},-`);
+    csvRows.push(`วันที่สิ้นสุด,${data.dateRange.endDate},-`);
+    csvRows.push(''); // Empty row
+    
+    // Financial data
+    if (data.data.financial && reportType === 'financial') {
+      csvRows.push('ข้อมูลการเงิน');
+      csvRows.push(`รายได้รวม,${data.data.financial.totalRevenue},บาท`);
+      csvRows.push(`จำนวนการจอง,${data.data.financial.bookingsCount},รายการ`);
+      csvRows.push(`มูลค่าเฉลี่ยต่อการจอง,${Math.round(data.data.financial.averageBookingValue)},บาท`);
+      
+      // Room type revenue
+      if (data.data.financial.roomTypeRevenue?.length > 0) {
+        csvRows.push(''); // Empty row
+        csvRows.push('รายได้แยกตามประเภทห้อง');
+        data.data.financial.roomTypeRevenue.forEach(room => {
+          csvRows.push(`${room.roomType},${room.revenue},บาท`);
+        });
+      }
+    }
+    
+    // Occupancy data
+    if (data.data.occupancy && reportType === 'occupancy') {
+      csvRows.push('ข้อมูลการเข้าพัก');
+      csvRows.push(`การจองทั้งหมด,${data.data.occupancy.totalBookings},รายการ`);
+      csvRows.push(`อัตราการเข้าพัก,${data.data.occupancy.occupancyRate.toFixed(1)},เปอร์เซ็นต์`);
+      csvRows.push(`ระยะเวลาพักเฉลี่ย,${data.data.occupancy.averageStayDuration.toFixed(1)},คืน`);
+      
+      // Room type occupancy
+      if (data.data.occupancy.roomTypeOccupancy?.length > 0) {
+        csvRows.push(''); // Empty row
+        csvRows.push('การเข้าพักแยกตามประเภทห้อง');
+        data.data.occupancy.roomTypeOccupancy.forEach(room => {
+          csvRows.push(`${room.type},${room.count},รายการ`);
+        });
+      }
+    }
+    
+    csvRows.push(''); // Empty row
+    csvRows.push(`สร้างเมื่อ,${new Date().toLocaleString('th-TH')},-`);
+    csvRows.push(`สร้างโดย,${data.generatedBy},-`);
+    
+    return csvRows.join('\n');
+  }, [reportType]);
+
+  const generatePDFReport = useCallback((data, filename) => {
+    const printWindow = window.open('', '_blank');
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="th">
+        <head>
+          <title>รายงานโรงแรม - ${data.reportType}</title>
+          <meta charset="UTF-8">
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+              font-family: 'Sarabun', 'Prompt', Arial, sans-serif; 
+              line-height: 1.6; 
+              color: #333;
+              padding: 20px;
+              background: white;
+            }
+            .header { 
+              text-align: center; 
+              margin-bottom: 30px; 
+              border-bottom: 3px solid #2563eb;
+              padding-bottom: 20px;
+            }
+            .header h1 { 
+              color: #2563eb; 
+              font-size: 28px; 
+              margin-bottom: 10px;
+            }
+            .header p { 
+              color: #666; 
+              font-size: 14px; 
+            }
+            .info-section {
+              background: #f8fafc;
+              padding: 20px;
+              border-radius: 8px;
+              margin-bottom: 25px;
+              border-left: 4px solid #2563eb;
+            }
+            .kpi-grid { 
+              display: grid; 
+              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+              gap: 20px; 
+              margin: 25px 0;
+            }
+            .kpi-card { 
+              background: white;
+              border: 1px solid #e5e7eb; 
+              padding: 20px; 
+              border-radius: 8px; 
+              text-align: center;
+              box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }
+            .kpi-card h3 { 
+              color: #374151; 
+              font-size: 14px; 
+              margin-bottom: 8px;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .kpi-card .value { 
+              font-size: 32px; 
+              font-weight: bold; 
+              color: #2563eb;
+              margin-bottom: 5px;
+            }
+            .kpi-card .unit { 
+              color: #6b7280; 
+              font-size: 12px; 
+            }
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin: 20px 0;
+              background: white;
+              box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+              border-radius: 8px;
+              overflow: hidden;
+            }
+            th, td { 
+              padding: 12px; 
+              text-align: left; 
+              border-bottom: 1px solid #e5e7eb;
+            }
+            th { 
+              background: #f9fafb; 
+              font-weight: 600;
+              color: #374151;
+              text-transform: uppercase;
+              font-size: 12px;
+              letter-spacing: 0.5px;
+            }
+            tr:hover { 
+              background: #f8fafc; 
+            }
+            .footer { 
+              margin-top: 40px; 
+              text-align: center; 
+              font-size: 12px; 
+              color: #6b7280;
+              border-top: 1px solid #e5e7eb;
+              padding-top: 20px;
+            }
+            .section-title {
+              color: #1f2937;
+              font-size: 18px;
+              font-weight: 600;
+              margin: 25px 0 15px 0;
+              padding-bottom: 8px;
+              border-bottom: 2px solid #e5e7eb;
+            }
+            @media print {
+              body { padding: 10px; }
+              .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+              .no-print { display: none !important; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>📊 รายงานโรงแรม</h1>
+            <p>ระบบจัดการโรงแรม - Hotel Management System</p>
+          </div>
+          
+          <div class="info-section">
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+              <div>
+                <strong>ประเภทรายงาน:</strong> ${data.reportType}<br>
+                <strong>ช่วงเวลา:</strong> ${data.period}<br>
+                <strong>ช่วงวันที่:</strong> ${data.dateRange.startDate} ถึง ${data.dateRange.endDate}
+              </div>
+              <div style="text-align: right;">
+                <strong>สร้างเมื่อ:</strong> ${new Date().toLocaleString('th-TH')}<br>
+                <strong>สร้างโดย:</strong> ${data.generatedBy}<br>
+                <strong>เอกสารเลขที่:</strong> RPT${Date.now().toString().slice(-6)}
+              </div>
+            </div>
+          </div>
+
+          <h2 class="section-title">📈 ข้อมูลสรุปหลัก</h2>
+          <div class="kpi-grid">
+            ${reportType === 'financial' ? `
+              <div class="kpi-card">
+                <h3>รายได้รวม</h3>
+                <div class="value">฿${data.data.financial.totalRevenue.toLocaleString()}</div>
+                <div class="unit">บาท</div>
+              </div>
+              <div class="kpi-card">
+                <h3>จำนวนการจอง</h3>
+                <div class="value">${data.data.financial.bookingsCount}</div>
+                <div class="unit">รายการ</div>
+              </div>
+              <div class="kpi-card">
+                <h3>มูลค่าเฉลี่ย</h3>
+                <div class="value">฿${Math.round(data.data.financial.averageBookingValue).toLocaleString()}</div>
+                <div class="unit">บาท/การจอง</div>
+              </div>
+            ` : `
+              <div class="kpi-card">
+                <h3>การจองทั้งหมด</h3>
+                <div class="value">${data.data.occupancy.totalBookings}</div>
+                <div class="unit">รายการ</div>
+              </div>
+              <div class="kpi-card">
+                <h3>อัตราเข้าพัก</h3>
+                <div class="value">${data.data.occupancy.occupancyRate.toFixed(1)}</div>
+                <div class="unit">เปอร์เซ็นต์</div>
+              </div>
+              <div class="kpi-card">
+                <h3>ระยะเวลาเฉลี่ย</h3>
+                <div class="value">${data.data.occupancy.averageStayDuration.toFixed(1)}</div>
+                <div class="unit">คืน</div>
+              </div>
+            `}
+          </div>
+
+          ${reportType === 'financial' && data.data.financial.roomTypeRevenue?.length > 0 ? `
+            <h2 class="section-title">💰 รายได้แยกตามประเภทห้อง</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>ประเภทห้อง</th>
+                  <th style="text-align: right;">รายได้</th>
+                  <th style="text-align: right;">จำนวนการจอง</th>
+                  <th style="text-align: right;">รายได้เฉลี่ย</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.data.financial.roomTypeRevenue.map(room => `
+                  <tr>
+                    <td>${room.roomType}</td>
+                    <td style="text-align: right;">฿${room.revenue.toLocaleString()}</td>
+                    <td style="text-align: right;">${room.count}</td>
+                    <td style="text-align: right;">฿${Math.round(room.revenue / room.count).toLocaleString()}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          ` : ''}
+
+          ${reportType === 'occupancy' && data.data.occupancy.roomTypeOccupancy?.length > 0 ? `
+            <h2 class="section-title">🏨 การเข้าพักแยกตามประเภทห้อง</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>ประเภทห้อง</th>
+                  <th style="text-align: right;">จำนวนการจอง</th>
+                  <th style="text-align: right;">สัดส่วน</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.data.occupancy.roomTypeOccupancy.map(room => `
+                  <tr>
+                    <td>${room.type}</td>
+                    <td style="text-align: right;">${room.count}</td>
+                    <td style="text-align: right;">${room.percentage?.toFixed(1) || 0}%</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          ` : ''}
+
+          <div class="footer">
+            <p><strong>Hotel Management System</strong> | รายงานนี้สร้างโดยระบบอัตโนมัติ</p>
+            <p>📧 สอบถามเพิ่มเติม: admin@hotel.com | 📞 โทร: 02-xxx-xxxx</p>
+          </div>
+
+          <script>
+            window.onload = function() {
+              setTimeout(() => {
+                window.print();
+              }, 500);
+            }
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    printWindow.focus();
+  }, [reportType]);
+
+  // Generate business insights
+  const generateInsights = useCallback(() => {
+    const insights = [];
+    
+    if (reportType === 'financial') {
+      const avgBookingValue = reportData.financial.averageBookingValue || 0;
+      const totalRevenue = reportData.financial.totalRevenue || 0;
+      const bookingsCount = reportData.financial.bookingsCount || 0;
+      
+      // Revenue insights
+      if (totalRevenue > 100000) {
+        insights.push({
+          type: 'success',
+          title: '🎉 รายได้เยี่ยม!',
+          message: `รายได้รวม ${formatCurrency(totalRevenue)} เกินเป้าหมายรายเดือน`
+        });
+      } else if (totalRevenue > 50000) {
+        insights.push({
+          type: 'info',
+          title: '📈 รายได้ดี',
+          message: `รายได้รวม ${formatCurrency(totalRevenue)} อยู่ในระดับดี`
+        });
+      } else if (totalRevenue > 0) {
+        insights.push({
+          type: 'warning',
+          title: '⚠️ รายได้ต่ำ',
+          message: 'ควรพิจารณาเพิ่มการตลาดหรือโปรโมชั่น'
+        });
+      }
+      
+      // Booking value insights
+      if (avgBookingValue > 3000) {
+        insights.push({
+          type: 'success',
+          title: '💎 มูลค่าสูง',
+          message: `มูลค่าเฉลี่ย ${formatCurrency(avgBookingValue)} ต่อการจอง แสดงถึงคุณภาพดี`
+        });
+      }
+      
+      // Booking count insights
+      if (bookingsCount < 5) {
+        insights.push({
+          type: 'warning',
+          title: '📉 การจองน้อย',
+          message: 'จำนวนการจองต่ำ ควรเพิ่มช่องทางการตลาด'
+        });
+      } else if (bookingsCount > 20) {
+        insights.push({
+          type: 'success',
+          title: '🚀 การจองเยอะ',
+          message: 'จำนวนการจองสูง แสดงถึงความนิยม'
+        });
+      }
+      
+    } else {
+      const occupancyRate = reportData.occupancy.occupancyRate || 0;
+      const avgStayDuration = reportData.occupancy.averageStayDuration || 0;
+      const totalBookings = reportData.occupancy.totalBookings || 0;
+      
+      // Occupancy insights
+      if (occupancyRate > 80) {
+        insights.push({
+          type: 'success',
+          title: '🏨 อัตราเข้าพักสูง',
+          message: `อัตราการเข้าพัก ${occupancyRate.toFixed(1)}% แสดงถึงความนิยมสูง`
+        });
+      } else if (occupancyRate > 50) {
+        insights.push({
+          type: 'info',
+          title: '📊 อัตราเข้าพักปานกลาง',
+          message: `อัตราการเข้าพัก ${occupancyRate.toFixed(1)}% อยู่ในระดับปานกลาง`
+        });
+      } else if (occupancyRate > 0) {
+        insights.push({
+          type: 'warning',
+          title: '⚠️ อัตราเข้าพักต่ำ',
+          message: 'ควรปรับปรุงการตลาดหรือลดราคา'
+        });
+      }
+      
+      // Stay duration insights
+      if (avgStayDuration > 3) {
+        insights.push({
+          type: 'success',
+          title: '🛏️ พักระยะยาว',
+          message: `แขกพักเฉลี่ย ${avgStayDuration.toFixed(1)} คืน ควรเสนอแพ็กเกจระยะยาว`
+        });
+      } else if (avgStayDuration < 1.5) {
+        insights.push({
+          type: 'info',
+          title: '⏰ พักระยะสั้น',
+          message: 'แขกส่วนใหญ่พักระยะสั้น เหมาะกับ business traveler'
+        });
+      }
+      
+      // Total bookings insights
+      if (totalBookings === 0) {
+        insights.push({
+          type: 'danger',
+          title: '🔍 ไม่มีข้อมูล',
+          message: 'ยังไม่มีการจองในช่วงเวลานี้'
+        });
+      }
+    }
+    
+    // General insights
+    const daysDiff = Math.ceil((new Date(dateRange.endDate) - new Date(dateRange.startDate)) / (1000 * 60 * 60 * 24)) + 1;
+    if (daysDiff > 90) {
+      insights.push({
+        type: 'info',
+        title: '📅 ข้อมูลระยะยาว',
+        message: `วิเคราะห์ข้อมูล ${daysDiff} วัน เหมาะสำหรับดูแนวโน้ม`
+      });
+    } else if (daysDiff < 7) {
+      insights.push({
+        type: 'info',
+        title: '⚡ ข้อมูลระยะสั้น',
+        message: `วิเคราะห์ข้อมูล ${daysDiff} วัน เหมาะสำหรับติดตามรายวัน`
+      });
+    }
+    
+    // Add default insight if none found
+    if (insights.length === 0) {
+      insights.push({
+        type: 'info',
+        title: '📊 ข้อมูلพร้อมวิเคราะห์',
+        message: 'ระบบพร้อมแสดงข้อมูลเชิงลึกเมื่อมีการจองมากขึ้น'
+      });
+    }
+    
+    return insights.slice(0, 4); // แสดงสูงสุด 4 insights
+  }, [reportType, reportData, dateRange, formatCurrency]);
+
   if (!isAuthenticated || user?.role !== 'admin') {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -354,14 +876,86 @@ export default function AdminReports() {
             <div>
               <h1 className="text-2xl font-bold text-gray-900 mb-2 flex items-center">
                 <span className="mr-3">📊</span>
-                รายงานแอดมิน (เร็วขึ้น)
+                รายงานแอดมิน (เวอร์ชั่นขั้นสูง)
               </h1>
               <p className="text-gray-600">
-                ดูข้อมูลรายงานการเงินและการเข้าพักของโรงแรม
+                ดูข้อมูลรายงานการเงินและการเข้าพักของโรงแรม พร้อมกราฟแบบโต้ตอบและวิเคราะห์ผลการดำเนินงาน
               </p>
             </div>
             
             <div className="flex items-center space-x-4 mt-4 sm:mt-0">
+              {/* Toggle Charts */}
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showCharts}
+                  onChange={(e) => setShowCharts(e.target.checked)}
+                  className="mr-2"
+                />
+                <span className="text-sm text-gray-700">📈 กราฟ</span>
+              </label>
+              
+              {/* Toggle Performance */}
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showPerformance}
+                  onChange={(e) => setShowPerformance(e.target.checked)}
+                  className="mr-2"
+                />
+                <span className="text-sm text-gray-700">🎯 ผลงาน</span>
+              </label>
+              
+              {/* Export Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    const dropdown = document.getElementById('export-dropdown');
+                    dropdown?.classList.toggle('hidden');
+                  }}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center text-sm"
+                >
+                  <span className="mr-2">📤</span>
+                  ส่งออก
+                  <span className="ml-2">▼</span>
+                </button>
+                <div 
+                  id="export-dropdown" 
+                  className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10 hidden"
+                >
+                  <button
+                    onClick={() => {
+                      exportReport('pdf');
+                      document.getElementById('export-dropdown')?.classList.add('hidden');
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-lg flex items-center"
+                  >
+                    <span className="mr-2">📄</span>
+                    ส่งออกเป็น PDF
+                  </button>
+                  <button
+                    onClick={() => {
+                      exportReport('csv');
+                      document.getElementById('export-dropdown')?.classList.add('hidden');
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                  >
+                    <span className="mr-2">📊</span>
+                    ส่งออกเป็น CSV
+                  </button>
+                  <button
+                    onClick={() => {
+                      exportReport('json');
+                      document.getElementById('export-dropdown')?.classList.add('hidden');
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-b-lg flex items-center"
+                  >
+                    <span className="mr-2">🔗</span>
+                    ส่งออกเป็น JSON
+                  </button>
+                </div>
+              </div>
+
               <button
                 onClick={() => fetchReportData(true)}
                 disabled={loading || partialLoading}
@@ -383,6 +977,21 @@ export default function AdminReports() {
             </div>
           </div>
         </div>
+
+        {/* Advanced Filters */}
+        <AdvancedFilters
+          reportType={reportType}
+          setReportType={setReportType}
+          period={period}
+          setPeriod={setPeriod}
+          dateRange={dateRange}
+          setDateRange={setDateRange}
+          customFilters={customFilters}
+          setCustomFilters={setCustomFilters}
+          onApplyFilters={applyFilters}
+          onResetFilters={resetFilters}
+          onExport={() => exportReport('pdf')}
+        />
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
@@ -582,6 +1191,28 @@ export default function AdminReports() {
               </div>
             )}
 
+            {/* Interactive Charts */}
+            {showCharts && (
+              <InteractiveCharts
+                reportData={reportData}
+                reportType={reportType}
+                period={period}
+                formatCurrency={formatCurrency}
+                formatNumber={formatNumber}
+              />
+            )}
+
+            {/* Performance Dashboard */}
+            {showPerformance && (
+              <PerformanceDashboard
+                reportData={reportData}
+                reportType={reportType}
+                dateRange={dateRange}
+                formatCurrency={formatCurrency}
+                formatNumber={formatNumber}
+              />
+            )}
+
             {/* Loading overlay for partial updates */}
             {partialLoading && (
               <div className="fixed top-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center">
@@ -628,6 +1259,252 @@ export default function AdminReports() {
                     }
                   </div>
                   <div className="text-sm text-gray-500">วันที่เลือก</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Detailed Analytics */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Room Type Performance */}
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <span className="mr-2">🏨</span>
+                  {reportType === 'financial' ? 'รายได้แยกตามประเภทห้อง' : 'การจองแยกตามประเภทห้อง'}
+                </h3>
+                <div className="space-y-3">
+                  {reportType === 'financial' ? (
+                    reportData.financial.roomTypeRevenue?.length > 0 ? (
+                      reportData.financial.roomTypeRevenue.slice(0, 5).map((room, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center">
+                            <div className={`w-3 h-3 rounded-full mr-3 ${
+                              index === 0 ? 'bg-blue-500' : 
+                              index === 1 ? 'bg-green-500' : 
+                              index === 2 ? 'bg-purple-500' : 
+                              index === 3 ? 'bg-orange-500' : 'bg-gray-500'
+                            }`}></div>
+                            <span className="font-medium text-gray-900">{room.roomType}</span>
+                            <span className="text-sm text-gray-500 ml-2">({room.count} การจอง)</span>
+                          </div>
+                          <span className="font-bold text-gray-900">{formatCurrency(room.revenue)}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <span className="text-4xl mb-2 block">📊</span>
+                        <p>ยังไม่มีข้อมูลรายได้</p>
+                      </div>
+                    )
+                  ) : (
+                    reportData.occupancy.roomTypeOccupancy?.length > 0 ? (
+                      reportData.occupancy.roomTypeOccupancy.slice(0, 5).map((room, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center">
+                            <div className={`w-3 h-3 rounded-full mr-3 ${
+                              index === 0 ? 'bg-blue-500' : 
+                              index === 1 ? 'bg-green-500' : 
+                              index === 2 ? 'bg-purple-500' : 
+                              index === 3 ? 'bg-orange-500' : 'bg-gray-500'
+                            }`}></div>
+                            <span className="font-medium text-gray-900">{room.type}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-bold text-gray-900">{room.count} รายการ</span>
+                            <div className="text-sm text-gray-500">{room.percentage?.toFixed(1) || 0}%</div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <span className="text-4xl mb-2 block">🏨</span>
+                        <p>ยังไม่มีข้อมูลการจอง</p>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+
+              {/* Payment Methods / Guest Origins */}
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <span className="mr-2">{reportType === 'financial' ? '💳' : '🌍'}</span>
+                  {reportType === 'financial' ? 'การชำระเงิน' : 'ที่มาของแขก'}
+                </h3>
+                <div className="space-y-3">
+                  {reportType === 'financial' ? (
+                    reportData.financial.paymentMethods?.length > 0 ? (
+                      reportData.financial.paymentMethods.map((method, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center">
+                            <div className={`w-3 h-3 rounded-full mr-3 ${
+                              method.method.includes('มี') ? 'bg-green-500' : 'bg-orange-500'
+                            }`}></div>
+                            <span className="font-medium text-gray-900">{method.method}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-bold text-gray-900">{method.count} รายการ</span>
+                            <div className="text-sm text-gray-500">
+                              {reportData.financial.bookingsCount > 0 ? 
+                                ((method.count / reportData.financial.bookingsCount) * 100).toFixed(1) + '%' : 
+                                '0%'
+                              }
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <span className="text-4xl mb-2 block">💳</span>
+                        <p>ยังไม่มีข้อมูลการชำระ</p>
+                      </div>
+                    )
+                  ) : (
+                    reportData.occupancy.guestOrigins?.length > 0 ? (
+                      reportData.occupancy.guestOrigins.map((origin, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center">
+                            <div className={`w-3 h-3 rounded-full mr-3 ${
+                              origin.origin.includes('ในประเทศ') ? 'bg-blue-500' : 'bg-green-500'
+                            }`}></div>
+                            <span className="font-medium text-gray-900">{origin.origin}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-bold text-gray-900">{origin.count} คน</span>
+                            <div className="text-sm text-gray-500">
+                              {reportData.occupancy.totalBookings > 0 ? 
+                                ((origin.count / reportData.occupancy.totalBookings) * 100).toFixed(1) + '%' : 
+                                '0%'
+                              }
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <span className="text-4xl mb-2 block">🌍</span>
+                        <p>ยังไม่มีข้อมูลแขก</p>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Performance Insights */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm p-6 border border-blue-200">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <span className="mr-2">💡</span>
+                ข้อมูลเชิงลึกและคำแนะนำ
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {generateInsights().map((insight, index) => (
+                  <div key={index} className={`p-4 rounded-lg border-l-4 ${
+                    insight.type === 'success' ? 'bg-green-50 border-green-400' :
+                    insight.type === 'warning' ? 'bg-yellow-50 border-yellow-400' :
+                    insight.type === 'danger' ? 'bg-red-50 border-red-400' :
+                    'bg-blue-50 border-blue-400'
+                  }`}>
+                    <div className="flex items-start">
+                      <div className={`mr-3 mt-0.5 ${
+                        insight.type === 'success' ? 'text-green-600' :
+                        insight.type === 'warning' ? 'text-yellow-600' :
+                        insight.type === 'danger' ? 'text-red-600' :
+                        'text-blue-600'
+                      }`}>
+                        {insight.type === 'success' ? '✅' :
+                         insight.type === 'warning' ? '⚠️' :
+                         insight.type === 'danger' ? '❌' : 'ℹ️'}
+                      </div>
+                      <div>
+                        <h4 className={`font-semibold ${
+                          insight.type === 'success' ? 'text-green-800' :
+                          insight.type === 'warning' ? 'text-yellow-800' :
+                          insight.type === 'danger' ? 'text-red-800' :
+                          'text-blue-800'
+                        }`}>
+                          {insight.title}
+                        </h4>
+                        <p className={`text-sm ${
+                          insight.type === 'success' ? 'text-green-700' :
+                          insight.type === 'warning' ? 'text-yellow-700' :
+                          insight.type === 'danger' ? 'text-red-700' :
+                          'text-blue-700'
+                        }`}>
+                          {insight.message}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Period Data Table */}
+            {(reportType === 'financial' ? reportData.financial.monthlyRevenue : reportData.occupancy.monthlyOccupancy)?.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <span className="mr-2">📅</span>
+                  ข้อมูล{getPeriodText()}
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="text-left py-3 px-4 font-medium text-gray-600">ช่วงเวลา</th>
+                        <th className="text-right py-3 px-4 font-medium text-gray-600">จำนวนการจอง</th>
+                        {reportType === 'financial' && (
+                          <th className="text-right py-3 px-4 font-medium text-gray-600">รายได้</th>
+                        )}
+                        <th className="text-right py-3 px-4 font-medium text-gray-600">ค่าเฉลี่ย</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(reportType === 'financial' ? reportData.financial.monthlyRevenue : reportData.occupancy.monthlyOccupancy)
+                        .slice(-10)
+                        .map((item, index) => (
+                        <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="py-3 px-4 font-medium text-gray-900">{item.period}</td>
+                          <td className="py-3 px-4 text-right text-gray-900">{item.count}</td>
+                          {reportType === 'financial' && (
+                            <td className="py-3 px-4 text-right font-medium text-gray-900">
+                              {formatCurrency(item.revenue)}
+                            </td>
+                          )}
+                          <td className="py-3 px-4 text-right text-gray-600">
+                            {reportType === 'financial' ? 
+                              formatCurrency(item.count > 0 ? item.revenue / item.count : 0) :
+                              `${(item.count / reportData.occupancy.totalBookings * 100).toFixed(1)}%`
+                            }
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* System Performance Status */}
+            <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-green-400">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <span className="mr-2">🚀</span>
+                สถานะระบบรายงาน
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <div className="text-2xl mb-2">⚡</div>
+                  <div className="font-semibold text-green-800">ประสิทธิภาพสูง</div>
+                  <div className="text-sm text-green-600">ระบบ Cache ทำงานดี</div>
+                </div>
+                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <div className="text-2xl mb-2">🔄</div>
+                  <div className="font-semibold text-blue-800">อัปเดตอัตโนมัติ</div>
+                  <div className="text-sm text-blue-600">{autoRefresh ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}</div>
+                </div>
+                <div className="text-center p-4 bg-purple-50 rounded-lg">
+                  <div className="text-2xl mb-2">📊</div>
+                  <div className="font-semibold text-purple-800">ข้อมูลล่าสุด</div>
+                  <div className="text-sm text-purple-600">เรียลไทม์</div>
                 </div>
               </div>
             </div>

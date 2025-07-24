@@ -105,6 +105,21 @@ export const createTables = async () => {
       )
     `;
 
+    // Notifications table
+    await sql`
+      CREATE TABLE notifications (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        booking_id INTEGER REFERENCES bookings(id) ON DELETE CASCADE,
+        type VARCHAR(50) NOT NULL, -- booking_confirmed, booking_cancelled, payment_reminder, check_in_reminder
+        title VARCHAR(255) NOT NULL,
+        message TEXT NOT NULL,
+        is_read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+
     // Reviews table
     await sql`
       CREATE TABLE reviews (

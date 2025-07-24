@@ -5,12 +5,44 @@ import { useAuth } from '../../contexts/AuthContext';
 import { bookingAPI } from '../../lib/api';
 import { Calendar, Users, CreditCard, X, Check, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
+import ConfirmModal from '../../components/ConfirmModal';
 
 export default function BookingsPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, pending, confirmed, cancelled
+  const [cancelModal, setCancelModal] = useState({ 
+    isOpen: false, 
+    bookingId: null, 
+    bookingRef: '', 
+    roomName: '', 
+    hotelName: '' 
+  });
+
+  // Show loading while auth is checking
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">กำลังโหลด...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login prompt if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">กรุณาเข้าสู่ระบบเพื่อดูการจองของคุณ</p>
+          <a href="/login" className="mt-4 inline-block btn-primary">เข้าสู่ระบบ</a>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -39,16 +71,23 @@ export default function BookingsPage() {
   };
 
   const handleCancelBooking = async (bookingId) => {
-    if (!confirm('คุณต้องการยกเลิกการจองนี้หรือไม่?')) return;
-
     try {
       await bookingAPI.cancelBooking(bookingId);
       toast.success('ยกเลิกการจองสำเร็จ');
       fetchBookings(); // Refresh list
+      setCancelModal({ isOpen: false, bookingId: null, bookingRef: '', roomName: '', hotelName: '' });
     } catch (error) {
       const message = error.response?.data?.error || 'ไม่สามารถยกเลิกการจองได้';
       toast.error(message);
     }
+  };
+
+  const openCancelModal = (bookingId, bookingRef, roomName, hotelName) => {
+    setCancelModal({ isOpen: true, bookingId, bookingRef, roomName, hotelName });
+  };
+
+  const closeCancelModal = () => {
+    setCancelModal({ isOpen: false, bookingId: null, bookingRef: '', roomName: '', hotelName: '' });
   };
 
   const getStatusIcon = (status) => {
@@ -250,7 +289,12 @@ export default function BookingsPage() {
                         </button>
                       )}
                       <button
-                        onClick={() => handleCancelBooking(booking.id)}
+                        onClick={() => openCancelModal(
+                          booking.id, 
+                          booking.bookingReference, 
+                          booking.roomTypeName, 
+                          booking.hotelName
+                        )}
                         className="px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition-colors"
                       >
                         ยกเลิกการจอง
@@ -269,6 +313,28 @@ export default function BookingsPage() {
             ))}
           </div>
         )}
+
+        {/* Cancel Booking Modal */}
+        <ConfirmModal
+          isOpen={cancelModal.isOpen}
+          onClose={closeCancelModal}
+          onConfirm={() => handleCancelBooking(cancelModal.bookingId)}
+          title="ยกเลิกการจอง"
+          message={
+            <div className="space-y-2">
+              <p>คุณต้องการยกเลิกการจองนี้หรือไม่?</p>
+              <div className="bg-gray-50 p-3 rounded-lg text-sm">
+                <div><strong>โรงแรม:</strong> {cancelModal.hotelName}</div>
+                <div><strong>ห้องพัก:</strong> {cancelModal.roomName}</div>
+                <div><strong>รหัสการจอง:</strong> {cancelModal.bookingRef}</div>
+              </div>
+              <p className="text-red-600 text-sm font-medium">⚠️ การยกเลิกนี้ไม่สามารถย้อนกลับได้</p>
+            </div>
+          }
+          confirmText="ยกเลิกการจอง"
+          cancelText="กลับ"
+          type="danger"
+        />
       </div>
     </div>
   );

@@ -6,6 +6,13 @@ const nextConfig = {
   images: {
     domains: ['example.com', 'images.unsplash.com', 'via.placeholder.com'],
   },
+  // Handle runtime errors from browser extensions
+  webpack: (config, { dev }) => {
+    if (dev) {
+      config.devtool = 'cheap-module-source-map';
+    }
+    return config;
+  },
 }
 
 module.exports = nextConfig

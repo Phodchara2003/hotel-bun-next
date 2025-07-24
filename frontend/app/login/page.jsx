@@ -1,20 +1,31 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../contexts/AuthContext';
 import { Eye, EyeOff, Mail, Lock, Hotel } from 'lucide-react';
+import ForgotPassword from '../../components/ForgotPassword';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [redirectUrl, setRedirectUrl] = useState(null);
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
+
+  useEffect(() => {
+    const redirect = searchParams.get('redirect');
+    if (redirect) {
+      setRedirectUrl(decodeURIComponent(redirect));
+    }
+  }, [searchParams]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -31,12 +42,20 @@ export default function LoginPage() {
     try {
       const result = await login(formData);
       if (result.success) {
-        // Redirect admin to dashboard, regular users to home
-        if (result.user?.role === 'admin') {
-          router.push('/admin/dashboard');
-        } else {
-          router.push('/');
-        }
+        // Get user data from the login result
+        const user = result.user;
+        
+        // Wait a moment for state to update, then redirect
+        setTimeout(() => {
+          if (redirectUrl) {
+            // Redirect to the original page they were trying to access
+            router.push(redirectUrl);
+          } else if (user?.role === 'admin') {
+            router.push('/admin/dashboard');
+          } else {
+            router.push('/bookings'); // Regular users go to bookings instead of homepage
+          }
+        }, 100);
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -125,6 +144,17 @@ export default function LoginPage() {
                 'เข้าสู่ระบบ'
               )}
             </button>
+
+            {/* Forgot Password Link */}
+            <div className="text-center mt-4">
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-sm text-primary-600 hover:text-primary-500 font-medium"
+              >
+                ลืมรหัสผ่าน?
+              </button>
+            </div>
           </form>
 
           {/* Footer Links */}
@@ -161,6 +191,14 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotPassword && (
+        <ForgotPassword
+          isOpen={showForgotPassword}
+          onClose={() => setShowForgotPassword(false)}
+        />
+      )}
     </div>
   );
 }

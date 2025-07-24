@@ -3,6 +3,8 @@ import { sql } from '../db/database.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { bookingSchema } from '../schemas/validation.js';
 import { generateBookingReference } from '../utils/auth.js';
+import { createNotification, NotificationTemplates } from './notifications.js';
+import { automaticEmailNotifications } from '../utils/automaticEmailService.js';
 
 export const bookingRoutes = new Elysia({ prefix: '/bookings' })
   // GET endpoints with specific paths first (to avoid conflicts)
@@ -491,22 +493,54 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
         )
         RETURNING *
       `;
-      
+
+      const bookingResult = {
+        id: newBooking[0].id,
+        bookingReference: newBooking[0].booking_reference,
+        hotelName: roomType[0].hotel_name,
+        roomTypeName: roomType[0].name,
+        checkInDate: newBooking[0].check_in_date,
+        checkOutDate: newBooking[0].check_out_date,
+        guests: newBooking[0].guests,
+        totalPrice: parseFloat(newBooking[0].total_price),
+        status: newBooking[0].status,
+        specialRequests: newBooking[0].special_requests,
+        createdAt: newBooking[0].created_at
+      };
+
+      // ส่งอีเมลแจ้งเตือนการจองสำเร็จ (ระบบส่งอัตโนมัติ)
+      try {
+        const bookingEmailData = {
+          bookingReference: bookingResult.bookingReference,
+          hotelName: bookingResult.hotelName,
+          roomTypeName: bookingResult.roomTypeName,
+          checkInDate: bookingResult.checkInDate,
+          checkOutDate: bookingResult.checkOutDate,
+          guests: bookingResult.guests,
+          totalPrice: bookingResult.totalPrice,
+          status: bookingResult.status,
+          specialRequests: bookingResult.specialRequests
+        };
+        
+        const userData = {
+          email: user.email,
+          first_name: user.first_name || user.firstName,
+          last_name: user.last_name || user.lastName
+        };
+        
+        // ระบบส่งอีเมลอัตโนมัติ (ไม่รอผลลัพธ์)
+        automaticEmailNotifications.onBookingCreated(bookingEmailData, userData)
+          .catch((emailError) => {
+            console.error('❌ [SYSTEM] Background email sending failed:', emailError);
+          });
+          
+      } catch (emailError) {
+        console.error('❌ [SYSTEM] Email preparation error:', emailError);
+      }
+
       return {
         message: 'Booking created successfully',
-        booking: {
-          id: newBooking[0].id,
-          bookingReference: newBooking[0].booking_reference,
-          hotelName: roomType[0].hotel_name,
-          roomTypeName: roomType[0].name,
-          checkInDate: newBooking[0].check_in_date,
-          checkOutDate: newBooking[0].check_out_date,
-          guests: newBooking[0].guests,
-          totalPrice: parseFloat(newBooking[0].total_price),
-          status: newBooking[0].status,
-          specialRequests: newBooking[0].special_requests,
-          createdAt: newBooking[0].created_at
-        }
+        booking: bookingResult
       };
     } catch (error) {
       console.error('=== BOOKING ERROR ===');
@@ -569,9 +603,55 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
       
       console.log('Booking found, proceeding to delete...');
       
+      // Get booking details before deletion for email notification
+      const bookingToDelete = booking[0];
+      
+      // Get additional booking details for email
+      const fullBookingDetails = await sql`
+        SELECT b.*, h.name as hotel_name, rt.name as room_type_name, u.email as user_email,
+               u.first_name, u.last_name
+        FROM bookings b
+        JOIN hotels h ON b.hotel_id = h.id
+        JOIN room_types rt ON b.room_type_id = rt.id
+        JOIN users u ON b.user_id = u.id
+        WHERE b.id = ${bookingId}
+      `;
+      
       // Delete the booking (guest info is stored in the bookings table directly)
       const bookingDeleted = await sql`DELETE FROM bookings WHERE id = ${bookingId}`;
       console.log('Booking deletion result:', bookingDeleted);
+      
+      // ส่งอีเมลแจ้งเตือนการยกเลิกการจอง (ระบบส่งอัตโนมัติ)
+      if (fullBookingDetails.length > 0) {
+        try {
+          const bookingDetail = fullBookingDetails[0];
+          const bookingEmailData = {
+            bookingReference: bookingDetail.booking_reference,
+            hotelName: bookingDetail.hotel_name,
+            roomTypeName: bookingDetail.room_type_name,
+            checkInDate: bookingDetail.check_in_date,
+            checkOutDate: bookingDetail.check_out_date,
+            guests: bookingDetail.guests,
+            totalPrice: parseFloat(bookingDetail.total_price),
+            specialRequests: bookingDetail.special_requests
+          };
+          
+          const userData = {
+            email: bookingDetail.user_email,
+            first_name: bookingDetail.first_name,
+            last_name: bookingDetail.last_name
+          };
+          
+          // ระบบส่งอีเมลอัตโนมัติ (ไม่รอผลลัพธ์)
+          automaticEmailNotifications.onBookingCancelled(bookingEmailData, userData, 'ยกเลิกโดยผู้ดูแลระบบ')
+            .catch((emailError) => {
+              console.error('❌ [SYSTEM] Background cancellation email failed:', emailError);
+            });
+            
+        } catch (emailError) {
+          console.error('❌ [SYSTEM] Email preparation error for cancellation:', emailError);
+        }
+      }
       
       console.log('DELETE operation completed successfully');
       
@@ -646,7 +726,11 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
       
       // Check if booking exists
       const booking = await sql`
-        SELECT * FROM bookings WHERE id = ${bookingId}
+        SELECT b.*, h.name as hotel_name, rt.name as room_type_name
+        FROM bookings b
+        LEFT JOIN room_types rt ON b.room_type_id = rt.id
+        LEFT JOIN hotels h ON rt.hotel_id = h.id
+        WHERE b.id = ${bookingId}
       `;
       
       if (!booking.length) {
@@ -668,6 +752,25 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
         WHERE id = ${bookingId}
         RETURNING *
       `;
+
+      // Send notification to user
+      try {
+        const template = NotificationTemplates.BOOKING_CONFIRMED(
+          bookingData.booking_reference,
+          bookingData.hotel_name,
+          bookingData.check_in_date
+        );
+        await createNotification(
+          bookingData.user_id,
+          bookingId,
+          template.type,
+          template.title,
+          template.message
+        );
+      } catch (notificationError) {
+        console.error('Failed to send notification:', notificationError);
+        // Don't fail the booking confirmation if notification fails
+      }
       
       return {
         message: 'Booking confirmed successfully',
@@ -698,7 +801,11 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
       
       // Check if booking exists
       const booking = await sql`
-        SELECT * FROM bookings WHERE id = ${bookingId}
+        SELECT b.*, h.name as hotel_name, rt.name as room_type_name
+        FROM bookings b
+        LEFT JOIN room_types rt ON b.room_type_id = rt.id
+        LEFT JOIN hotels h ON rt.hotel_id = h.id
+        WHERE b.id = ${bookingId}
       `;
       
       if (!booking.length) {
@@ -726,6 +833,25 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
         WHERE id = ${bookingId}
         RETURNING *
       `;
+
+      // Send notification to user
+      try {
+        const template = NotificationTemplates.BOOKING_APPROVED(
+          bookingData.booking_reference,
+          bookingData.hotel_name,
+          bookingData.check_in_date
+        );
+        await createNotification(
+          bookingData.user_id,
+          bookingId,
+          template.type,
+          template.title,
+          template.message
+        );
+      } catch (notificationError) {
+        console.error('Failed to send notification:', notificationError);
+        // Don't fail the booking approval if notification fails
+      }
       
       return {
         message: 'Booking approved successfully',
@@ -788,6 +914,143 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
       };
     } catch (error) {
       console.error('Save customer info error:', error);
+      set.status = 500;
+      return { error: 'Internal server error' };
+    }
+  })
+
+  // Cancel booking (User)
+  .put('/:id/cancel', async ({ params, headers, set }) => {
+    try {
+      const user = await authMiddleware({ headers, set });
+      if (user.error) return user;
+
+      const bookingId = parseInt(params.id);
+      
+      // Check if booking exists and belongs to user
+      const booking = await sql`
+        SELECT b.*, h.name as hotel_name, rt.name as room_type_name
+        FROM bookings b
+        LEFT JOIN room_types rt ON b.room_type_id = rt.id
+        LEFT JOIN hotels h ON rt.hotel_id = h.id
+        WHERE b.id = ${bookingId} AND b.user_id = ${user.id}
+      `;
+      
+      if (!booking.length) {
+        set.status = 404;
+        return { error: 'Booking not found' };
+      }
+
+      const bookingData = booking[0];
+
+      if (bookingData.status === 'cancelled') {
+        set.status = 400;
+        return { error: 'Booking is already cancelled' };
+      }
+
+      if (bookingData.status === 'completed') {
+        set.status = 400;
+        return { error: 'Cannot cancel completed booking' };
+      }
+
+      // Cancel booking
+      const updatedBooking = await sql`
+        UPDATE bookings
+        SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${bookingId}
+        RETURNING *
+      `;
+
+      return {
+        message: 'Booking cancelled successfully',
+        booking: {
+          id: updatedBooking[0].id,
+          status: updatedBooking[0].status,
+          updatedAt: updatedBooking[0].updated_at
+        }
+      };
+    } catch (error) {
+      console.error('Cancel booking error:', error);
+      set.status = 500;
+      return { error: 'Internal server error' };
+    }
+  })
+
+  // Admin cancel booking
+  .put('/admin/:id/cancel', async ({ params, headers, set }) => {
+    try {
+      const user = await authMiddleware({ headers, set });
+      if (user.error) return user;
+
+      if (user.role !== 'admin') {
+        set.status = 403;
+        return { error: 'Admin access required' };
+      }
+
+      const bookingId = parseInt(params.id);
+      
+      // Check if booking exists
+      const booking = await sql`
+        SELECT b.*, h.name as hotel_name, rt.name as room_type_name
+        FROM bookings b
+        LEFT JOIN room_types rt ON b.room_type_id = rt.id
+        LEFT JOIN hotels h ON rt.hotel_id = h.id
+        WHERE b.id = ${bookingId}
+      `;
+      
+      if (!booking.length) {
+        set.status = 404;
+        return { error: 'Booking not found' };
+      }
+
+      const bookingData = booking[0];
+
+      if (bookingData.status === 'cancelled') {
+        set.status = 400;
+        return { error: 'Booking is already cancelled' };
+      }
+
+      if (bookingData.status === 'completed') {
+        set.status = 400;
+        return { error: 'Cannot cancel completed booking' };
+      }
+
+      // Cancel booking
+      const updatedBooking = await sql`
+        UPDATE bookings
+        SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${bookingId}
+        RETURNING *
+      `;
+
+      // Send notification to user
+      try {
+        const template = NotificationTemplates.BOOKING_CANCELLED(
+          bookingData.booking_reference,
+          bookingData.hotel_name
+        );
+        await createNotification(
+          bookingData.user_id,
+          bookingId,
+          template.type,
+          template.title,
+          template.message
+        );
+      } catch (notificationError) {
+        console.error('Failed to send notification:', notificationError);
+        // Don't fail the booking cancellation if notification fails
+      }
+
+      return {
+        message: 'Booking cancelled successfully',
+        booking: {
+          id: updatedBooking[0].id,
+          status: updatedBooking[0].status,
+          updatedAt: updatedBooking[0].updated_at
+        }
+      };
+    } catch (error) {
+      console.error('Admin cancel booking error:', error);
       set.status = 500;
       return { error: 'Internal server error' };
     }

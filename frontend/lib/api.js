@@ -36,20 +36,15 @@ api.interceptors.response.use(
       console.log('401 Unauthorized - Token expired or invalid');
       console.log('Error details:', error.response.data);
       
-      // Only remove tokens if the error specifically indicates invalid token
-      if (error.response.data?.error?.includes('Invalid') || 
-          error.response.data?.error?.includes('expired')) {
-        console.log('Removing invalid/expired tokens');
-        Cookies.remove('auth_token', { path: '/' });
-        Cookies.remove('user_data', { path: '/' });
-        
-        // Show error message
-        if (typeof window !== 'undefined') {
-          console.log('Current path:', window.location.pathname);
-          // Only show error for admin routes
-          if (window.location.pathname.startsWith('/admin/')) {
-            toast.error('Session expired. Please login again.');
-          }
+      // Don't auto-remove tokens - let user decide to logout manually
+      // Only log the error for debugging
+      console.log('Token may be expired, but keeping user logged in');
+      
+      // Show error message for admin routes only
+      if (typeof window !== 'undefined') {
+        console.log('Current path:', window.location.pathname);
+        if (window.location.pathname.startsWith('/admin/')) {
+          toast.error('Some operations may require re-authentication');
         }
       }
     }
@@ -66,6 +61,11 @@ export const authAPI = {
   
   login: async (credentials) => {
     const response = await api.post('/auth/login', credentials);
+    return response.data;
+  },
+
+  changePassword: async (passwordData) => {
+    const response = await api.put('/auth/change-password', passwordData);
     return response.data;
   },
 };
@@ -246,6 +246,45 @@ export const usersAPI = {
     const response = await api.get(`/admin/users/${id}/bookings`, { params });
     return response.data;
   },
+};
+
+// Notifications API
+export const notificationAPI = {
+  // Get user notifications
+  getNotifications: async (params = {}) => {
+    const response = await api.get('/notifications', { params });
+    return response.data;
+  },
+
+  // Get unread count
+  getUnreadCount: async () => {
+    const response = await api.get('/notifications/unread-count');
+    return response.data;
+  },
+
+  // Mark notification as read
+  markAsRead: async (id) => {
+    const response = await api.put(`/notifications/${id}/read`);
+    return response.data;
+  },
+
+  // Mark all notifications as read
+  markAllAsRead: async () => {
+    const response = await api.put('/notifications/read-all');
+    return response.data;
+  },
+
+  // Delete notification
+  deleteNotification: async (id) => {
+    const response = await api.delete(`/notifications/${id}`);
+    return response.data;
+  },
+
+  // Admin: Send notification
+  sendNotification: async (notificationData) => {
+    const response = await api.post('/notifications/send', notificationData);
+    return response.data;
+  }
 };
 
 // Optimized API for reports
