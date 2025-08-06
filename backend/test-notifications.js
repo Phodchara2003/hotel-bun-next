@@ -1,6 +1,8 @@
-// Test script to create sample notifications
+// Test script for Real-time Notification System with Email Integration
 import { sql } from './src/db/database.js';
 import { createNotification, NotificationTemplates } from './src/routes/notifications.js';
+import { createNotificationsTable } from './src/db/create-notifications-table.js';
+import { notificationService } from './src/utils/notificationService.js';
 
 async function createTestNotifications() {
   try {

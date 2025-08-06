@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { roomsAPI } from '../../../lib/api';
+import { isStaffOrAdmin, canEdit, canDelete, canCreate, isReadOnly } from '../../../lib/roles';
 import { 
   Plus, 
   Edit, 
@@ -82,11 +83,11 @@ export default function RoomsManagement() {
       return;
     }
 
-    if (isAuthenticated && user?.role === 'admin') {
-      console.log('User authenticated as admin, fetching rooms...');
+    if (isAuthenticated && isStaffOrAdmin(user)) {
+      console.log('User authenticated as admin/staff, fetching rooms...');
       fetchRooms();
-    } else if (isAuthenticated && user?.role !== 'admin') {
-      console.log('User authenticated but not admin:', user);
+    } else if (isAuthenticated && !isStaffOrAdmin(user)) {
+      console.log('User authenticated but not admin/staff:', user);
       toast.error('คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
     } else if (!isAuthenticated) {
       console.log('User not authenticated');
@@ -354,7 +355,7 @@ export default function RoomsManagement() {
     );
   }
 
-  if (user?.role !== 'admin') {
+  if (!isStaffOrAdmin(user)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -373,15 +374,19 @@ export default function RoomsManagement() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">จัดการห้องพัก</h1>
-              <p className="text-gray-600">เพิ่ม แก้ไข และจัดการห้องพักของโรงแรม</p>
+              <p className="text-gray-600">
+                {isReadOnly(user) ? 'ดูข้อมูลห้องพักของโรงแรม' : 'เพิ่ม แก้ไข และจัดการห้องพักของโรงแรม'}
+              </p>
             </div>
-            <button
-              onClick={() => handleOpenModal('add')}
-              className="btn-primary flex items-center space-x-2"
-            >
-              <Plus className="h-5 w-5" />
-              <span>เพิ่มห้องพัก</span>
-            </button>
+            {canCreate(user) && (
+              <button
+                onClick={() => handleOpenModal('add')}
+                className="btn-primary flex items-center space-x-2"
+              >
+                <Plus className="h-5 w-5" />
+                <span>เพิ่มห้องพัก</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -555,18 +560,24 @@ export default function RoomsManagement() {
                     </button>
                     
                     <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleOpenModal('edit', room)}
-                        className="text-yellow-600 hover:text-yellow-800 p-1"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(room.id)}
-                        className="text-red-600 hover:text-red-800 p-1"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {canEdit(user) && (
+                        <button
+                          onClick={() => handleOpenModal('edit', room)}
+                          className="text-yellow-600 hover:text-yellow-800 p-1"
+                          title="แก้ไข"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                      )}
+                      {canDelete(user) && (
+                        <button
+                          onClick={() => handleDelete(room.id)}
+                          className="text-red-600 hover:text-red-800 p-1"
+                          title="ลบ"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -583,7 +594,7 @@ export default function RoomsManagement() {
             <p className="text-gray-600 mb-4">
               {rooms.length === 0 ? 'ยังไม่มีห้องพักในระบบ' : 'ไม่พบห้องพักที่ตรงกับเงื่อนไขการค้นหา'}
             </p>
-            {rooms.length === 0 && (
+            {rooms.length === 0 && canCreate(user) && (
               <button
                 onClick={() => handleOpenModal('add')}
                 className="btn-primary"

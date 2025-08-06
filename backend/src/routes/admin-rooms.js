@@ -1,29 +1,23 @@
 import { Elysia } from 'elysia';
 import { sql } from '../db/database.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { authMiddleware, requireAdmin, requireStaff } from '../middleware/auth.js';
 import 'dotenv/config';
 
 // Admin Rooms API
 export const adminRoomsRoutes = new Elysia({ prefix: '/admin/rooms' })
-  // Get all rooms (Admin)
+  // Get all rooms (Admin/Staff)
   .get('/', async ({ headers, set }) => {
     try {
       console.log('Admin rooms request received');
       
-      // Authenticate admin
-      const user = await authMiddleware({ headers, set });
+      // Authenticate staff or admin
+      const user = await requireStaff({ headers, set });
       if (user.error) {
         console.log('Authentication failed:', user.error);
         return user;
       }
       
       console.log('Authenticated user:', { id: user.id, role: user.role });
-      
-      if (user.role !== 'admin') {
-        console.log('Access denied: user is not admin');
-        set.status = 403;
-        return { error: 'Admin access required' };
-      }
 
       const result = await sql`
         SELECT 

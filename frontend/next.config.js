@@ -4,7 +4,7 @@ const nextConfig = {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
   },
   images: {
-    domains: ['example.com', 'images.unsplash.com', 'via.placeholder.com'],
+    domains: ['example.com', 'images.unsplash.com', 'via.placeholder.com', 'localhost'],
   },
   // Handle runtime errors from browser extensions
   webpack: (config, { dev }) => {

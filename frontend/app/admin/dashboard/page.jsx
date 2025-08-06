@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { bookingAPI } from '../../../lib/api';
+import { isStaffOrAdmin, canEdit, canDelete, canCreate, isReadOnly, canManageBookings, canApproveBookings } from '../../../lib/roles';
 import Cookies from 'js-cookie';
 import ConfirmModal from '../../../components/ConfirmModal';
 import { 
@@ -57,7 +58,7 @@ export default function AdminDashboard() {
   const [showBulkActions, setShowBulkActions] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated && user?.role === 'admin') {
+    if (isAuthenticated && isStaffOrAdmin(user)) {
       fetchData();
     }
   }, [isAuthenticated, user]);
@@ -115,7 +116,7 @@ export default function AdminDashboard() {
       const totalRevenue = allBookings
         .filter(b => b.status === 'confirmed' || b.status === 'completed')
         .reduce((sum, b) => sum + b.totalPrice, 0);
-      const bookingsWithReceipts = allBookings.filter(b => b.paymentReceiptUrl).length;
+      const bookingsWithReceipts = allBookings.filter(b => b.paymentReceiptUrl || b.paymentSlipUrl).length;
 
       setStats({
         totalBookings,
@@ -229,7 +230,7 @@ export default function AdminDashboard() {
 
   const handleViewBookingDetails = async (bookingId) => {
     try {
-      const response = await bookingAPI.getBookingById(bookingId);
+      const response = await bookingAPI.getAdminBookingById(bookingId);
       setSelectedBooking(response);
       setShowBookingModal(true);
     } catch (error) {
@@ -355,7 +356,7 @@ export default function AdminDashboard() {
     );
   }
 
-  if (user?.role !== 'admin') {
+  if (!isStaffOrAdmin(user)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -371,8 +372,24 @@ export default function AdminDashboard() {
       <div className="max-w-7xl mx-auto container-padding">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">แดชบอร์ดผู้จัดการ</h1>
-          <p className="text-gray-600">จัดการการจองและดูสถิติโรงแรม</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                แดชบอร์ด{canEdit(user) ? 'ผู้จัดการ' : 'พนักงาน'}
+              </h1>
+              <p className="text-gray-600">
+                {canEdit(user) ? 'จัดการการจองและดูสถิติโรงแรม' : 'ดูข้อมูลการจองและสถิติโรงแรม'}
+              </p>
+            </div>
+            {isReadOnly(user) && (
+              <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg border border-blue-200">
+                <div className="flex items-center gap-2">
+                  <Eye className="h-4 w-4" />
+                  <span className="text-sm font-medium">โหมดดูอย่างเดียว</span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -741,7 +758,7 @@ export default function AdminDashboard() {
                         ฿{booking.totalPrice.toLocaleString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
-                        {booking.paymentReceiptUrl ? (
+                        {booking.paymentReceiptUrl || booking.paymentSlipUrl ? (
                           <div className="flex items-center">
                             <Receipt className="h-4 w-4 text-green-600 mr-1" />
                             <span className="text-green-600 font-medium text-xs">มีใบเสร็จ</span>
@@ -769,7 +786,7 @@ export default function AdminDashboard() {
                             ดูรายละเอียด
                           </button>
                           
-                          {booking.status === 'pending' && (
+                          {booking.status === 'pending' && canManageBookings(user) && (
                             <>
                               <button
                                 onClick={() => handleBookingActionNew(booking.id, 'confirm')}
@@ -786,7 +803,7 @@ export default function AdminDashboard() {
                             </>
                           )}
                           
-                          {booking.status === 'confirmed' && (
+                          {booking.status === 'confirmed' && canManageBookings(user) && (
                             <>
                               <button
                                 onClick={() => handleGoToPayment(booking.id)}
@@ -794,8 +811,8 @@ export default function AdminDashboard() {
                               >
                                 ชำระเงิน
                               </button>
-                              {/* Show approve button only if guest info AND payment receipt are available */}
-                              {booking.guestName && booking.guestPhone && booking.guestEmail && booking.paymentReceiptUrl && (
+                              {/* Show approve button only if guest info AND payment receipt are available - Admin only */}
+                              {booking.guestName && booking.guestPhone && booking.guestEmail && (booking.paymentReceiptUrl || booking.paymentSlipUrl) && canApproveBookings(user) && (
                                 <button
                                   onClick={() => handleBookingActionNew(booking.id, 'approve')}
                                   className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-semibold transition-colors"
@@ -816,14 +833,24 @@ export default function AdminDashboard() {
                             <span className="text-gray-600 text-xs font-medium">ไม่สามารถแก้ไขได้</span>
                           )}
                           
-                          {/* Delete button - Always available for admin */}
-                          <button
-                            onClick={() => handleBookingActionNew(booking.id, 'delete')}
-                            className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs font-semibold transition-colors flex items-center"
-                            title="ลบการจอง"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
+                          {/* Status indicator for users who cannot manage bookings */}
+                          {!canManageBookings(user) && booking.status === 'pending' && (
+                            <span className="text-yellow-600 text-xs font-medium bg-yellow-100 px-2 py-1 rounded">รอการยืนยัน</span>
+                          )}
+                          {!canManageBookings(user) && booking.status === 'confirmed' && (
+                            <span className="text-blue-600 text-xs font-medium bg-blue-100 px-2 py-1 rounded">รอการชำระเงิน</span>
+                          )}
+                          
+                          {/* Delete button - Only for admin */}
+                          {canDelete(user) && (
+                            <button
+                              onClick={() => handleBookingActionNew(booking.id, 'delete')}
+                              className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs font-semibold transition-colors flex items-center"
+                              title="ลบการจอง"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -959,8 +986,8 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
-                {/* Payment Receipt (if available) */}
-                {selectedBooking.paymentReceiptUrl && (
+                {/* Payment Receipt/Slip (if available) */}
+                {(selectedBooking.paymentReceiptUrl || selectedBooking.paymentSlipUrl) && (
                   <div className="bg-green-50 rounded-lg p-4 border border-green-200">
                     <h3 className="font-bold text-green-900 mb-3 flex items-center text-lg">
                       <Receipt className="h-5 w-5 mr-2" />
@@ -970,10 +997,10 @@ export default function AdminDashboard() {
                       <div className="bg-white rounded-lg p-4 border">
                         <div className="flex justify-center">
                           <img
-                            src={selectedBooking.paymentReceiptUrl}
-                            alt="ใบเสร็จการชำระเงิน"
+                            src={selectedBooking.paymentSlipUrl || selectedBooking.paymentReceiptUrl}
+                            alt="สลิปการโอนเงิน"
                             className="max-w-full max-h-96 object-contain border rounded cursor-pointer"
-                            onClick={() => window.open(selectedBooking.paymentReceiptUrl, '_blank')}
+                            onClick={() => window.open(selectedBooking.paymentSlipUrl || selectedBooking.paymentReceiptUrl, '_blank')}
                           />
                         </div>
                         <p className="text-sm text-green-800 text-center mt-2">
@@ -1007,7 +1034,7 @@ export default function AdminDashboard() {
                 {/* Action Buttons */}
                 <div className="flex justify-between items-center pt-4 border-t">
                   <div className="flex space-x-3">
-                    {selectedBooking.status === 'pending' && (
+                    {selectedBooking.status === 'pending' && canManageBookings(user) && (
                       <>
                         <button
                           onClick={() => {
@@ -1030,7 +1057,7 @@ export default function AdminDashboard() {
                       </>
                     )}
                     
-                    {selectedBooking.status === 'confirmed' && (
+                    {selectedBooking.status === 'confirmed' && canManageBookings(user) && (
                       <>
                         <button
                           onClick={() => handleGoToPayment(selectedBooking.id)}
@@ -1038,7 +1065,7 @@ export default function AdminDashboard() {
                         >
                           ไปหน้าชำระเงิน
                         </button>
-                        {selectedBooking.guestName && selectedBooking.guestPhone && selectedBooking.guestEmail && selectedBooking.paymentReceiptUrl && (
+                        {selectedBooking.guestName && selectedBooking.guestPhone && selectedBooking.guestEmail && (selectedBooking.paymentReceiptUrl || selectedBooking.paymentSlipUrl) && canApproveBookings(user) && (
                           <button
                             onClick={() => {
                               handleBookingActionNew(selectedBooking.id, 'approve');

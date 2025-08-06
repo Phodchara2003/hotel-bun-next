@@ -50,3 +50,29 @@ export const authMiddleware = async ({ headers, set, request }) => {
     return { error: 'Invalid or expired token' };
   }
 };
+
+// Check if user has admin privileges
+export const requireAdmin = async ({ headers, set }) => {
+  const user = await authMiddleware({ headers, set });
+  if (user.error) return user;
+  
+  if (user.role !== 'admin') {
+    set.status = 403;
+    return { error: 'Admin access required' };
+  }
+  
+  return user;
+};
+
+// Check if user has staff or admin privileges (read-only access)
+export const requireStaff = async ({ headers, set }) => {
+  const user = await authMiddleware({ headers, set });
+  if (user.error) return user;
+  
+  if (!['staff', 'admin'].includes(user.role)) {
+    set.status = 403;
+    return { error: 'Staff or admin access required' };
+  }
+  
+  return user;
+};

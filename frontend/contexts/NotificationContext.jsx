@@ -21,7 +21,7 @@ export const NotificationProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const { user, isAuthenticated } = useAuth();
 
-  // Fetch notifications
+  // Fetch notifications (delayed for better initial load performance)
   const fetchNotifications = async (params = {}) => {
     if (!isAuthenticated || !user) return;
     

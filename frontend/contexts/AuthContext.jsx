@@ -27,12 +27,11 @@ export const AuthProvider = ({ children }) => {
     }
   }, [initialized]);
 
-  // Listen for storage changes (sync between tabs, but don't auto-logout)
+  // Listen for storage changes (sync between tabs)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const handleStorageChange = (e) => {
         if (e.key === 'user_data' && e.newValue) {
-          // User data updated from another tab, sync it
           try {
             const userData = JSON.parse(e.newValue);
             console.log('User data updated from another tab, syncing');
@@ -41,7 +40,6 @@ export const AuthProvider = ({ children }) => {
             console.log('Error parsing user data from storage event');
           }
         }
-        // Don't auto-logout on token removal - let user decide
       };
 
       window.addEventListener('storage', handleStorageChange);
@@ -54,61 +52,35 @@ export const AuthProvider = ({ children }) => {
       let token = Cookies.get('auth_token');
       let userData = Cookies.get('user_data');
       
-      // If cookies are missing, try sessionStorage as fallback
-      if ((!token || !userData) && typeof window !== 'undefined') {
-        token = token || sessionStorage.getItem('auth_token');
-        userData = userData || sessionStorage.getItem('user_data');
-        console.log('Using sessionStorage fallback - Token:', token ? 'Present' : 'Missing');
-      }
-      
-      console.log('Checking auth - Token:', token ? 'Present' : 'Missing');
-      console.log('Checking auth - User Data:', userData ? 'Present' : 'Missing');
+      console.log('Auth check - Token:', token ? 'Present' : 'Missing');
+      console.log('Auth check - UserData:', userData ? 'Present' : 'Missing');
       
       if (token && userData) {
         try {
           const user = JSON.parse(userData);
-          console.log('Parsed user data:', user);
+          console.log('User data loaded:', user);
           
-          // Set user immediately from cached data
-          setUser(user);
-          
-          // Validate token with server in background (but don't auto-logout)
-          try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002'}/api/auth/validate`, {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
-            });
-            
-            if (!response.ok) {
-              console.log('Token validation failed, but keeping user logged in');
-              // Don't auto-logout, just log the issue
-              // User should manually logout if needed
-            } else {
-              console.log('Token validation successful');
-              // Optionally refresh user data from server
-              const validatedData = await response.json();
-              if (validatedData.user) {
-                setUser(validatedData.user);
-                // Update stored data with fresh data
-                updateStoredUserData(validatedData.user, token);
-              }
-            }
-          } catch (error) {
-            // Network error or server down, keep using cached user data
-            console.log('Cannot validate token (network error), using cached data');
+          // Validate that the user object has required fields
+          if (user && user.id && user.email && user.role) {
+            setUser(user);
+            console.log('User authenticated:', user.email, user.role);
+          } else {
+            console.log('Invalid user data, clearing auth');
+            clearAuthData();
+            setUser(null);
           }
+          
         } catch (error) {
-          console.error('Error parsing user data:', error);
+          console.error('Error parsing cached user data:', error);
           clearAuthData();
           setUser(null);
         }
       } else {
-        console.log('No token or user data found');
+        console.log('No cached auth data found');
         setUser(null);
       }
     } catch (error) {
-      console.error('Error in checkAuth:', error);
+      console.error('Auth check error:', error);
       setUser(null);
     } finally {
       setLoading(false);
@@ -125,20 +97,20 @@ export const AuthProvider = ({ children }) => {
   };
 
   const updateStoredUserData = (userData, token) => {
-    // Update cookies
-    Cookies.set('user_data', JSON.stringify(userData), { 
-      expires: 7,
+    const userDataString = JSON.stringify(userData);
+    
+    // Store in cookies with longer expiration
+    Cookies.set('user_data', userDataString, { 
+      expires: 7, // 7 days
+      path: '/',
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/'
+      sameSite: 'strict'
     });
     
-    // Update sessionStorage
+    // Also store in sessionStorage as backup
     if (typeof window !== 'undefined') {
-      sessionStorage.setItem('user_data', JSON.stringify(userData));
-      if (token) {
-        sessionStorage.setItem('auth_token', token);
-      }
+      sessionStorage.setItem('user_data', userDataString);
+      sessionStorage.setItem('auth_token', token);
     }
   };
 
@@ -147,24 +119,30 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       const response = await authAPI.login(credentials);
       
-      // Store token and user data with longer expiration for development
-      Cookies.set('auth_token', response.token, { 
-        expires: 7, // 7 days for better development experience
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        path: '/'
-      });
-      
-      // Store user data and update session storage
-      updateStoredUserData(response.user, response.token);
-      
-      setUser(response.user);
-      console.log('Login successful, user set:', response.user);
-      toast.success('เข้าสู่ระบบสำเร็จ!');
-      return { success: true, user: response.user };
+      if (response.token && response.user) {
+        const token = response.token;
+        const userData = response.user;
+        
+        // Store auth data
+        Cookies.set('auth_token', token, { 
+          expires: 7,
+          path: '/',
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict'
+        });
+        
+        updateStoredUserData(userData, token);
+        setUser(userData);
+        
+        console.log('Login successful:', userData);
+        toast.success('เข้าสู่ระบบสำเร็จ!');
+        return { success: true, user: userData };
+      } else {
+        throw new Error('Invalid response format');
+      }
     } catch (error) {
       console.error('Login error:', error);
-      const message = error.response?.data?.error || error.message || 'เข้าสู่ระบบไม่สำเร็จ';
+      const message = error.response?.data?.error || error.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ';
       toast.error(message);
       return { success: false, error: message };
     } finally {
@@ -177,23 +155,30 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       const response = await authAPI.register(userData);
       
-      // Store token and user data with longer expiration for development
-      Cookies.set('auth_token', response.token, { 
-        expires: 7, // 7 days for better development experience
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        path: '/'
-      });
-      
-      // Store user data and update session storage
-      updateStoredUserData(response.user, response.token);
-      
-      setUser(response.user);
-      toast.success('สมัครสมาชิกสำเร็จ!');
-      return { success: true };
+      if (response.token && response.user) {
+        const token = response.token;
+        const user = response.user;
+        
+        // Store auth data
+        Cookies.set('auth_token', token, { 
+          expires: 7,
+          path: '/',
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict'
+        });
+        
+        updateStoredUserData(user, token);
+        setUser(user);
+        
+        console.log('Registration successful:', user);
+        toast.success('สมัครสมาชิกสำเร็จ!');
+        return { success: true, user };
+      } else {
+        throw new Error('Invalid response format');
+      }
     } catch (error) {
-      console.error('Register error:', error);
-      const message = error.response?.data?.error || error.message || 'สมัครสมาชิกไม่สำเร็จ';
+      console.error('Registration error:', error);
+      const message = error.response?.data?.error || error.message || 'เกิดข้อผิดพลาดในการสมัครสมาชิก';
       toast.error(message);
       return { success: false, error: message };
     } finally {
@@ -202,22 +187,18 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    console.log('Logging out user');
-    
-    // Clear all authentication data immediately
     clearAuthData();
-    
-    // Clear user state immediately
     setUser(null);
-    
+    console.log('User logged out');
     toast.success('ออกจากระบบเรียบร้อย');
   };
 
   const updateUser = (userData) => {
     setUser(userData);
-    // Get current token to update stored data
-    const token = Cookies.get('auth_token') || sessionStorage.getItem('auth_token');
-    updateStoredUserData(userData, token);
+    const token = Cookies.get('auth_token');
+    if (token) {
+      updateStoredUserData(userData, token);
+    }
   };
 
   const value = {
@@ -227,7 +208,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     updateUser,
-    isAuthenticated: !!user,
+    isAuthenticated: !!user
   };
 
   return (

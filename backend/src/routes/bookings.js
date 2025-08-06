@@ -1,10 +1,11 @@
 import { Elysia } from 'elysia';
 import { sql } from '../db/database.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { authMiddleware, requireAdmin, requireStaff } from '../middleware/auth.js';
 import { bookingSchema } from '../schemas/validation.js';
 import { generateBookingReference } from '../utils/auth.js';
 import { createNotification, NotificationTemplates } from './notifications.js';
 import { automaticEmailNotifications } from '../utils/automaticEmailService.js';
+import { notificationService } from '../utils/notificationService.js';
 
 export const bookingRoutes = new Elysia({ prefix: '/bookings' })
   // GET endpoints with specific paths first (to avoid conflicts)
@@ -12,20 +13,14 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
     try {
       console.log('Admin all bookings request received');
       
-      // Authenticate admin
-      const user = await authMiddleware({ headers, set });
+      // Authenticate staff or admin
+      const user = await requireStaff({ headers, set });
       if (user.error) {
         console.log('Authentication failed:', user.error);
         return user;
       }
       
       console.log('Authenticated user:', { id: user.id, role: user.role });
-      
-      if (user.role !== 'admin') {
-        console.log('Access denied: user is not admin');
-        set.status = 403;
-        return { error: 'Admin access required' };
-      }
       
       const { page = 1, limit = 50, status } = query;
       const offset = (page - 1) * limit;
@@ -105,6 +100,81 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
       return { error: 'Internal server error', details: error.message };
     }
   })
+  
+  // Admin get booking by ID  
+  .get('/admin/:id', async ({ params, headers, set }) => {
+    try {
+      console.log('Admin get booking by id request received');
+      
+      // Authenticate staff or admin
+      const user = await requireStaff({ headers, set });
+      if (user.error) {
+        console.log('Authentication failed:', user.error);
+        return user;
+      }
+      
+      console.log('Authenticated user:', { id: user.id, role: user.role });
+      
+      const bookingId = parseInt(params.id);
+      
+      const booking = await sql`
+        SELECT b.*, h.name as hotel_name, h.address, h.city, h.country,
+               rt.name as room_type_name, rt.description as room_description,
+               rt.amenities as room_amenities, rt.price_per_night,
+               u.email as user_email, u.first_name, u.last_name
+        FROM bookings b
+        JOIN hotels h ON b.hotel_id = h.id
+        JOIN room_types rt ON b.room_type_id = rt.id
+        LEFT JOIN users u ON b.user_id = u.id
+        WHERE b.id = ${bookingId}
+      `;
+      
+      if (!booking.length) {
+        set.status = 404;
+        return { error: 'Booking not found' };
+      }
+      
+      const bookingData = booking[0];
+      
+      return {
+        id: bookingData.id,
+        bookingReference: bookingData.booking_reference,
+        userEmail: bookingData.user_email || 'N/A',
+        userName: `${bookingData.first_name || ''} ${bookingData.last_name || ''}`.trim() || 'N/A',
+        hotel: {
+          name: bookingData.hotel_name,
+          address: bookingData.address,
+          city: bookingData.city,
+          country: bookingData.country
+        },
+        roomType: {
+          name: bookingData.room_type_name,
+          description: bookingData.room_description,
+          amenities: bookingData.room_amenities || [],
+          pricePerNight: parseFloat(bookingData.price_per_night)
+        },
+        checkInDate: bookingData.check_in_date,
+        checkOutDate: bookingData.check_out_date,
+        guests: bookingData.guests,
+        totalPrice: parseFloat(bookingData.total_price),
+        status: bookingData.status,
+        specialRequests: bookingData.special_requests,
+        guestName: bookingData.guest_name,
+        guestPhone: bookingData.guest_phone,
+        guestEmail: bookingData.guest_email,
+        guestAddress: bookingData.guest_address,
+        guestIdNumber: bookingData.guest_id_number,
+        paymentReceiptUrl: bookingData.payment_receipt_url,
+        createdAt: bookingData.created_at,
+        updatedAt: bookingData.updated_at
+      };
+    } catch (error) {
+      console.error('Get booking by ID error:', error);
+      set.status = 500;
+      return { error: 'Internal server error' };
+    }
+  })
+  
   .get('/admin/debug/all', async ({ headers, set }) => {
     try {
       // Authenticate admin
@@ -296,7 +366,7 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
         FROM bookings b
         JOIN hotels h ON b.hotel_id = h.id
         JOIN room_types rt ON b.room_type_id = rt.id
-        WHERE b.id = ${bookingId} AND (b.user_id = ${user.id} OR ${user.role === 'admin'})
+        WHERE b.id = ${bookingId} AND (b.user_id = ${user.id} OR ${['admin', 'staff'].includes(user.role)})
       `;
       
       if (!booking.length) {
@@ -533,6 +603,18 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
           .catch((emailError) => {
             console.error('❌ [SYSTEM] Background email sending failed:', emailError);
           });
+
+        // ส่งการแจ้งเตือน Real-time พร้อมกับอีเมล
+        try {
+          await notificationService.sendNotification('booking_created', {
+            userId: user.id,
+            booking: bookingEmailData,
+            user: userData
+          });
+          console.log('✅ Real-time notification sent for booking creation');
+        } catch (notifError) {
+          console.error('❌ Real-time notification failed:', notifError);
+        }
           
       } catch (emailError) {
         console.error('❌ [SYSTEM] Email preparation error:', emailError);
@@ -647,6 +729,19 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
             .catch((emailError) => {
               console.error('❌ [SYSTEM] Background cancellation email failed:', emailError);
             });
+
+          // ส่งการแจ้งเตือน Real-time พร้อมกับอีเมล
+          try {
+            await notificationService.sendNotification('booking_cancelled', {
+              userId: bookingDetail.user_id,
+              booking: bookingEmailData,
+              user: userData,
+              reason: 'ยกเลิกโดยผู้ดูแลระบบ'
+            });
+            console.log('✅ Real-time cancellation notification sent');
+          } catch (notifError) {
+            console.error('❌ Real-time cancellation notification failed:', notifError);
+          }
             
         } catch (emailError) {
           console.error('❌ [SYSTEM] Email preparation error for cancellation:', emailError);
@@ -713,14 +808,9 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
   // PUT endpoints
   .put('/:id/confirm', async ({ params, headers, set }) => {
     try {
-      // Authenticate admin
-      const user = await authMiddleware({ headers, set });
+      // Authenticate staff or admin
+      const user = await requireStaff({ headers, set });
       if (user.error) return user;
-      
-      if (user.role !== 'admin') {
-        set.status = 403;
-        return { error: 'Admin access required' };
-      }
       
       const bookingId = parseInt(params.id);
       
@@ -788,14 +878,9 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
   })
   .put('/:id/approve', async ({ params, headers, set }) => {
     try {
-      // Authenticate admin
-      const user = await authMiddleware({ headers, set });
+      // Authenticate admin only
+      const user = await requireAdmin({ headers, set });
       if (user.error) return user;
-      
-      if (user.role !== 'admin') {
-        set.status = 403;
-        return { error: 'Admin access required' };
-      }
       
       const bookingId = parseInt(params.id);
       
@@ -976,16 +1061,11 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
     }
   })
 
-  // Admin cancel booking
+  // Admin/Staff cancel booking
   .put('/admin/:id/cancel', async ({ params, headers, set }) => {
     try {
-      const user = await authMiddleware({ headers, set });
+      const user = await requireStaff({ headers, set });
       if (user.error) return user;
-
-      if (user.role !== 'admin') {
-        set.status = 403;
-        return { error: 'Admin access required' };
-      }
 
       const bookingId = parseInt(params.id);
       

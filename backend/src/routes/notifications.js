@@ -1,6 +1,8 @@
 import { Elysia } from 'elysia';
 import { sql } from '../db/database.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { notificationService } from '../utils/notificationService.js';
+import { automaticEmailNotifications } from '../utils/automaticEmailService.js';
 
 export const notificationRoutes = new Elysia({ prefix: '/notifications' })
   

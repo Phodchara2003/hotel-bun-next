@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { usersAPI } from '../../../lib/api';
+import { isStaffOrAdmin, canEdit, canDelete, canCreate, isReadOnly } from '../../../lib/roles';
 import { 
   Plus, 
   Edit, 
@@ -56,6 +57,7 @@ export default function UsersManagement() {
   // User roles
   const userRoles = [
     { value: 'user', label: 'ผู้ใช้งาน', icon: User },
+    { value: 'staff', label: 'พนักงาน', icon: Users },
     { value: 'admin', label: 'ผู้ดูแลระบบ', icon: Crown }
   ];
 
@@ -64,9 +66,9 @@ export default function UsersManagement() {
       return;
     }
 
-    if (isAuthenticated && user?.role === 'admin') {
+    if (isAuthenticated && isStaffOrAdmin(user)) {
       fetchUsers();
-    } else if (isAuthenticated && user?.role !== 'admin') {
+    } else if (isAuthenticated && !isStaffOrAdmin(user)) {
       toast.error('คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
     } else if (!isAuthenticated) {
       toast.error('กรุณาเข้าสู่ระบบก่อน');
@@ -192,15 +194,34 @@ export default function UsersManagement() {
   };
 
   const handleToggleRole = async (userId, currentRole, userName) => {
-    const newRole = currentRole === 'admin' ? 'user' : 'admin';
-    const roleText = newRole === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้งาน';
+    // Cycle through roles: user -> staff -> admin -> user
+    let newRole;
+    let roleText;
+    
+    switch (currentRole) {
+      case 'user':
+        newRole = 'staff';
+        roleText = 'พนักงาน';
+        break;
+      case 'staff':
+        newRole = 'admin';
+        roleText = 'ผู้ดูแลระบบ';
+        break;
+      case 'admin':
+        newRole = 'user';
+        roleText = 'ผู้ใช้งาน';
+        break;
+      default:
+        newRole = 'user';
+        roleText = 'ผู้ใช้งาน';
+    }
     
     if (!confirm(`คุณต้องการเปลี่ยนสิทธิ์ของ "${userName}" เป็น "${roleText}" หรือไม่?`)) {
       return;
     }
 
     try {
-      await usersAPI.toggleUserRole(userId);
+      await usersAPI.updateUserRole(userId, newRole);
       toast.success(`เปลี่ยนสิทธิ์ผู้ใช้เป็น "${roleText}" สำเร็จ`);
       fetchUsers();
     } catch (error) {
@@ -257,7 +278,7 @@ export default function UsersManagement() {
     );
   }
 
-  if (user?.role !== 'admin') {
+  if (!isStaffOrAdmin(user)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -276,15 +297,19 @@ export default function UsersManagement() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">จัดการสมาชิก</h1>
-              <p className="text-gray-600">เพิ่ม แก้ไข และจัดการสมาชิกของระบบ</p>
+              <p className="text-gray-600">
+                {isReadOnly(user) ? 'ดูข้อมูลสมาชิกของระบบ' : 'เพิ่ม แก้ไข และจัดการสมาชิกของระบบ'}
+              </p>
             </div>
-            <button
-              onClick={() => handleOpenModal('add')}
-              className="btn-primary flex items-center space-x-2"
-            >
-              <Plus className="h-5 w-5" />
-              <span>เพิ่มสมาชิกใหม่</span>
-            </button>
+            {canCreate(user) && (
+              <button
+                onClick={() => handleOpenModal('add')}
+                className="btn-primary flex items-center space-x-2"
+              >
+                <Plus className="h-5 w-5" />
+                <span>เพิ่มสมาชิกใหม่</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -409,28 +434,34 @@ export default function UsersManagement() {
                               >
                                 <Eye className="h-4 w-4" />
                               </button>
-                              <button
-                                onClick={() => handleOpenModal('edit', userData)}
-                                className="text-green-600 hover:text-green-900 p-1"
-                                title="แก้ไข"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleToggleRole(userData.id, userData.role, userData.fullName)}
-                                className="text-purple-600 hover:text-purple-900 p-1"
-                                title="เปลี่ยนสิทธิ์"
-                              >
-                                {userData.role === 'admin' ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-                              </button>
-                              <button
-                                onClick={() => handleDelete(userData.id, userData.fullName)}
-                                className="text-red-600 hover:text-red-900 p-1"
-                                title="ลบ"
-                                disabled={userData.id === user.id}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
+                              {canEdit(user) && (
+                                <button
+                                  onClick={() => handleOpenModal('edit', userData)}
+                                  className="text-green-600 hover:text-green-900 p-1"
+                                  title="แก้ไข"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                              )}
+                              {canEdit(user) && (
+                                <button
+                                  onClick={() => handleToggleRole(userData.id, userData.role, userData.fullName)}
+                                  className="text-purple-600 hover:text-purple-900 p-1"
+                                  title="เปลี่ยนสิทธิ์"
+                                >
+                                  {userData.role === 'admin' ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                                </button>
+                              )}
+                              {canDelete(user) && (
+                                <button
+                                  onClick={() => handleDelete(userData.id, userData.fullName)}
+                                  className="text-red-600 hover:text-red-900 p-1"
+                                  title="ลบ"
+                                  disabled={userData.id === user.id}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>

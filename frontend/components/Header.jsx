@@ -40,19 +40,19 @@ const Header = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link 
-            href={isAuthenticated && user?.role === 'admin' ? '/admin/dashboard' : '/'} 
+            href={isAuthenticated && ['admin', 'staff'].includes(user?.role) ? '/admin/dashboard' : '/'} 
             className="flex items-center space-x-2"
           >
             <span className="text-2xl">🏨</span>
             <span className="text-xl font-bold text-gray-900">
-              {isAuthenticated && user?.role === 'admin' ? 'HotelBook Admin' : 'HotelBook'}
+              {isAuthenticated && ['admin', 'staff'].includes(user?.role) ? 'HotelBook Admin' : 'HotelBook'}
             </span>
           </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            {isAuthenticated && user?.role === 'admin' ? (
-              // Admin navigation
+            {isAuthenticated && ['admin', 'staff'].includes(user?.role) ? (
+              // Admin/Staff navigation
               <>
                 <Link href="/admin/dashboard" className="text-gray-700 hover:text-primary-600 transition-colors">
                   แดชบอร์ด
@@ -66,6 +66,11 @@ const Header = () => {
                 <Link href="/admin/reports" className="text-gray-700 hover:text-primary-600 transition-colors">
                   รายงาน
                 </Link>
+                {user?.role === 'admin' && (
+                  <Link href="/admin/payment-settings" className="text-gray-700 hover:text-primary-600 transition-colors">
+                    ตั้งค่าการชำระเงิน
+                  </Link>
+                )}
               </>
             ) : (
               // Regular user navigation
@@ -113,8 +118,8 @@ const Header = () => {
                 {/* Dropdown Menu */}
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
                   <div className="py-2">
-                    {user?.role === 'admin' ? (
-                      // Admin dropdown
+                    {['admin', 'staff'].includes(user?.role) ? (
+                      // Admin/Staff dropdown
                       <>
                         <Link href="/admin/dashboard" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
                           <span className="text-sm mr-2">⚙️</span>
@@ -132,6 +137,12 @@ const Header = () => {
                           <span className="text-sm mr-2">📊</span>
                           รายงาน
                         </Link>
+                        {user?.role === 'admin' && (
+                          <Link href="/admin/payment-settings" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
+                            <span className="text-sm mr-2">💳</span>
+                            ตั้งค่าการชำระเงิน
+                          </Link>
+                        )}
                         <Link href="/profile" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100 border-t border-gray-100">
                           <span className="text-sm mr-2">⚙️</span>
                           โปรไฟล์
@@ -195,8 +206,8 @@ const Header = () => {
         {isMenuOpen && (
           <div className="md:hidden border-t border-gray-200">
             <div className="py-4 space-y-4">
-              {isAuthenticated && user?.role === 'admin' ? (
-                // Admin mobile menu
+              {isAuthenticated && ['admin', 'staff'].includes(user?.role) ? (
+                // Admin/Staff mobile menu
                 <>
                   <Link 
                     href="/admin/dashboard" 
@@ -226,6 +237,15 @@ const Header = () => {
                   >
                     รายงาน
                   </Link>
+                  {user?.role === 'admin' && (
+                    <Link 
+                      href="/admin/payment-settings" 
+                      className="block text-gray-700 hover:text-primary-600"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      ตั้งค่าการชำระเงิน
+                    </Link>
+                  )}
                   <Link 
                     href="/profile" 
                     className="block text-gray-700 hover:text-primary-600 border-t border-gray-200 pt-4"

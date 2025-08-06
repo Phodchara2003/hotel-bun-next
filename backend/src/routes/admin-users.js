@@ -1,30 +1,24 @@
 import { Elysia } from 'elysia';
 import { sql } from '../db/database.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { authMiddleware, requireAdmin, requireStaff } from '../middleware/auth.js';
 import { hashPassword } from '../utils/auth.js';
 import 'dotenv/config';
 
 // Admin Users API
 export const adminUsersRoutes = new Elysia({ prefix: '/admin/users' })
-  // Get all users (Admin)
+  // Get all users (Admin/Staff)
   .get('/', async ({ headers, query, set }) => {
     try {
       console.log('Admin users request received');
       
-      // Authenticate admin
-      const user = await authMiddleware({ headers, set });
+      // Authenticate staff or admin
+      const user = await requireStaff({ headers, set });
       if (user.error) {
         console.log('Authentication failed:', user.error);
         return user;
       }
       
       console.log('Authenticated user:', { id: user.id, role: user.role });
-      
-      if (user.role !== 'admin') {
-        console.log('Access denied: user is not admin');
-        set.status = 403;
-        return { error: 'Admin access required' };
-      }
 
       const { page = 1, limit = 50, role, search } = query;
       const offset = (page - 1) * limit;
@@ -426,6 +420,77 @@ export const adminUsersRoutes = new Elysia({ prefix: '/admin/users' })
       };
     } catch (error) {
       console.error('Error toggling user role:', error);
+      set.status = 500;
+      return { error: 'Internal server error' };
+    }
+  })
+
+  // Update user role (Admin)
+  .put('/:id/role', async ({ params, headers, body, set }) => {
+    try {
+      console.log('Update user role request received for ID:', params.id);
+      
+      // Authenticate admin
+      const user = await authMiddleware({ headers, set });
+      if (user.error) {
+        console.log('Authentication failed:', user.error);
+        return user;
+      }
+      
+      if (user.role !== 'admin') {
+        console.log('Access denied: user is not admin');
+        set.status = 403;
+        return { error: 'Admin access required' };
+      }
+
+      const { role } = body;
+
+      // Validate role
+      const validRoles = ['user', 'staff', 'admin'];
+      if (!validRoles.includes(role)) {
+        set.status = 400;
+        return { error: 'Invalid role. Valid roles are: user, staff, admin' };
+      }
+
+      // Check if user exists
+      const checkResult = await sql`SELECT id, role FROM users WHERE id = ${params.id}`;
+      if (checkResult.length === 0) {
+        set.status = 404;
+        return { error: 'User not found' };
+      }
+
+      // Prevent changing own role
+      if (parseInt(params.id) === user.id) {
+        set.status = 400;
+        return { error: 'Cannot change your own role' };
+      }
+
+      // Update role
+      const result = await sql`
+        UPDATE users 
+        SET role = ${role}, updated_at = NOW()
+        WHERE id = ${params.id}
+        RETURNING id, email, first_name, last_name, phone, role, created_at, updated_at
+      `;
+
+      const updatedUser = result[0];
+      
+      return {
+        message: `User role changed to ${role} successfully`,
+        user: {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          firstName: updatedUser.first_name,
+          lastName: updatedUser.last_name,
+          fullName: `${updatedUser.first_name} ${updatedUser.last_name}`,
+          phone: updatedUser.phone,
+          role: updatedUser.role,
+          createdAt: updatedUser.created_at,
+          updatedAt: updatedUser.updated_at
+        }
+      };
+    } catch (error) {
+      console.error('Error updating user role:', error);
       set.status = 500;
       return { error: 'Internal server error' };
     }

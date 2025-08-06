@@ -2,7 +2,7 @@ import axios from 'axios';
 import Cookies from 'js-cookie';
 import toast from 'react-hot-toast';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 // Create axios instance
 const api = axios.create({
@@ -102,6 +102,12 @@ export const bookingAPI = {
   
   getBookingById: async (id) => {
     const response = await api.get(`/bookings/${id}`);
+    return response.data;
+  },
+  
+  // Admin get booking details with full access
+  getAdminBookingById: async (id) => {
+    const response = await api.get(`/bookings/admin/${id}`);
     return response.data;
   },
   
@@ -238,6 +244,12 @@ export const usersAPI = {
   // Toggle user role (Admin)
   toggleUserRole: async (id) => {
     const response = await api.patch(`/admin/users/${id}/toggle-role`);
+    return response.data;
+  },
+
+  // Update user role (Admin)
+  updateUserRole: async (id, role) => {
+    const response = await api.put(`/admin/users/${id}/role`, { role });
     return response.data;
   },
 

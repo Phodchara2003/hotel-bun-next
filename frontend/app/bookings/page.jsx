@@ -20,29 +20,18 @@ export default function BookingsPage() {
     hotelName: '' 
   });
 
-  // Show loading while auth is checking
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">กำลังโหลด...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show login prompt if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-600">กรุณาเข้าสู่ระบบเพื่อดูการจองของคุณ</p>
-          <a href="/login" className="mt-4 inline-block btn-primary">เข้าสู่ระบบ</a>
-        </div>
-      </div>
-    );
-  }
+  const fetchBookings = async () => {
+    try {
+      const params = filter !== 'all' ? { status: filter } : {};
+      const response = await bookingAPI.getBookings(params);
+      setBookings(response.bookings || []);
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
+      toast.error('ไม่สามารถโหลดข้อมูลการจองได้');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -56,19 +45,6 @@ export default function BookingsPage() {
       return () => clearInterval(interval);
     }
   }, [isAuthenticated, filter]);
-
-  const fetchBookings = async () => {
-    try {
-      const params = filter !== 'all' ? { status: filter } : {};
-      const response = await bookingAPI.getBookings(params);
-      setBookings(response.bookings || []);
-    } catch (error) {
-      console.error('Error fetching bookings:', error);
-      toast.error('ไม่สามารถโหลดข้อมูลการจองได้');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleCancelBooking = async (bookingId) => {
     try {
@@ -103,11 +79,16 @@ export default function BookingsPage() {
     }
   };
 
-  const getStatusText = (status) => {
+  const getStatusText = (status, paymentStatus) => {
     switch (status) {
       case 'pending':
         return 'รอการยืนยัน';
       case 'confirmed':
+        if (paymentStatus === 'slip_uploaded') {
+          return 'ยืนยันแล้ว (ส่งสลิปแล้ว รอตรวจสอบ)';
+        } else if (paymentStatus === 'verified') {
+          return 'ชำระเงินแล้ว';
+        }
         return 'ยืนยันแล้ว (รอการชำระเงิน)';
       case 'cancelled':
         return 'ยกเลิกแล้ว';
@@ -117,6 +98,30 @@ export default function BookingsPage() {
         return status;
     }
   };
+
+  // Show loading while auth is checking
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">กำลังโหลด...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login prompt if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">กรุณาเข้าสู่ระบบเพื่อดูการจองของคุณ</p>
+          <a href="/login" className="mt-4 inline-block btn-primary">เข้าสู่ระบบ</a>
+        </div>
+      </div>
+    );
+  }
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -208,7 +213,7 @@ export default function BookingsPage() {
                     <div className="flex items-center space-x-3">
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(booking.status)}`}>
                         {getStatusIcon(booking.status)}
-                        <span className="ml-1">{getStatusText(booking.status)}</span>
+                        <span className="ml-1">{getStatusText(booking.status, booking.paymentStatus)}</span>
                       </span>
                     </div>
                   </div>
@@ -280,13 +285,33 @@ export default function BookingsPage() {
                   {booking.status === 'pending' || booking.status === 'confirmed' ? (
                     <div className="mt-4 pt-4 border-t border-gray-200 flex justify-end space-x-3">
                       {booking.status === 'confirmed' && (
-                        <button
-                          onClick={() => window.open(`/payment/${booking.id}`, '_blank')}
-                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
-                        >
-                          <CreditCard className="h-4 w-4 mr-2" />
-                          ชำระเงิน
-                        </button>
+                        <>
+                          <button
+                            onClick={() => window.open(`/payment/${booking.id}`, '_blank')}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
+                          >
+                            <CreditCard className="h-4 w-4 mr-2" />
+                            ดู QR Code
+                          </button>
+                          {booking.paymentStatus !== 'slip_uploaded' && booking.paymentStatus !== 'verified' && (
+                            <button
+                              onClick={() => window.open(`/payment/${booking.id}/slip`, '_blank')}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+                            >
+                              📸 อัพโหลดสลิป
+                            </button>
+                          )}
+                          {booking.paymentStatus === 'slip_uploaded' && (
+                            <span className="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-lg text-sm">
+                              ✅ ส่งสลิปแล้ว รอตรวจสอบ
+                            </span>
+                          )}
+                          {booking.paymentStatus === 'verified' && (
+                            <span className="px-4 py-2 bg-green-100 text-green-800 rounded-lg text-sm">
+                              ✅ ชำระเงินแล้ว
+                            </span>
+                          )}
+                        </>
                       )}
                       <button
                         onClick={() => openCancelModal(

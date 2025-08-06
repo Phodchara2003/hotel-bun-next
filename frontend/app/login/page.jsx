@@ -52,8 +52,10 @@ export default function LoginPage() {
             router.push(redirectUrl);
           } else if (user?.role === 'admin') {
             router.push('/admin/dashboard');
+          } else if (user?.role === 'staff') {
+            router.push('/admin/dashboard'); // Staff can access admin dashboard but read-only
           } else {
-            router.push('/bookings'); // Regular users go to bookings instead of homepage
+            router.push('/'); // Regular users go to homepage
           }
         }, 100);
       }

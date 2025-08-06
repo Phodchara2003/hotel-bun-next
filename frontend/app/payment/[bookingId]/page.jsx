@@ -30,10 +30,11 @@ export default function PaymentPage() {
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [paymentStep, setPaymentStep] = useState('payment'); // payment, customer-info, completed
-  const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [adminQrCodeUrl, setAdminQrCodeUrl] = useState('');
   const [paymentReceiptFile, setPaymentReceiptFile] = useState(null);
   const [paymentReceiptUrl, setPaymentReceiptUrl] = useState('');
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
+  const [paymentSettings, setPaymentSettings] = useState(null);
   const [customerInfo, setCustomerInfo] = useState({
     guestName: '',
     guestPhone: '',
@@ -46,30 +47,30 @@ export default function PaymentPage() {
   useEffect(() => {
     if (isAuthenticated && params.bookingId) {
       fetchBookingDetails();
+      fetchPaymentSettings();
     }
   }, [isAuthenticated, params.bookingId]);
+
+  const fetchPaymentSettings = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/payment-settings');
+      if (response.ok) {
+        const data = await response.json();
+        setPaymentSettings(data);
+        setAdminQrCodeUrl(data.qrCodeUrl);
+        console.log('Payment settings loaded:', data);
+      } else {
+        console.error('Failed to fetch payment settings:', response.status);
+      }
+    } catch (error) {
+      console.error('Error fetching payment settings:', error);
+    }
+  };
 
   const fetchBookingDetails = async () => {
     try {
       const response = await bookingAPI.getBookingById(params.bookingId);
       setBooking(response);
-      
-      // Generate QR Code for payment
-      const paymentData = {
-        bookingId: params.bookingId,
-        amount: response.totalPrice,
-        bookingRef: response.bookingReference
-      };
-      const qrData = `PAY:${JSON.stringify(paymentData)}`;
-      const qrUrl = await QRCode.toDataURL(qrData, {
-        width: 200,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF'
-        }
-      });
-      setQrCodeUrl(qrUrl);
       
       // Pre-fill customer info with user data
       if (user) {
@@ -272,13 +273,37 @@ export default function PaymentPage() {
               <div className="bg-white rounded-lg shadow-lg p-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-6">ชำระเงิน</h2>
                 
+                {/* Bank Information */}
+                {paymentSettings && (
+                  <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                    <h3 className="font-semibold text-blue-900 mb-3">ข้อมูลบัญชีธนาคาร</h3>
+                    <div className="space-y-2 text-sm text-blue-800">
+                      <div className="flex justify-between">
+                        <span className="font-medium">ธนาคาร:</span>
+                        <span>{paymentSettings.bankName}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">เลขที่บัญชี:</span>
+                        <span className="font-mono">{paymentSettings.accountNumber}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">ชื่อบัญชี:</span>
+                        <span>{paymentSettings.accountName}</span>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-blue-200">
+                        <p className="text-xs text-blue-700">{paymentSettings.instructions}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {/* QR Code Payment */}
                 <div className="text-center mb-8">
                   <div className="bg-gray-100 rounded-lg p-8 mb-4">
-                    {qrCodeUrl ? (
+                    {adminQrCodeUrl ? (
                       <div className="flex flex-col items-center">
                         <Image
-                          src={qrCodeUrl}
+                          src={`http://localhost:3001${adminQrCodeUrl}`}
                           alt="QR Code สำหรับชำระเงิน"
                           width={200}
                           height={200}
@@ -292,7 +317,7 @@ export default function PaymentPage() {
                     ) : (
                       <div className="flex flex-col items-center">
                         <QrCode className="h-32 w-32 mx-auto text-gray-600 mb-4" />
-                        <p className="text-sm text-gray-600 mb-2">กำลังสร้าง QR Code...</p>
+                        <p className="text-sm text-gray-600 mb-2">กำลังโหลด QR Code...</p>
                         <p className="text-lg font-semibold text-primary-600">
                           จำนวนเงิน: ฿{booking.totalPrice?.toLocaleString()}
                         </p>

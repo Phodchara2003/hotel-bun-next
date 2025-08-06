@@ -23,11 +23,12 @@ export async function middleware(request) {
     // Parse user data to check role
     try {
       const user = JSON.parse(userData);
-      if (user.role !== 'admin') {
-        console.log('Middleware: User is not admin, redirecting to homepage');
+      // Allow both admin and staff to access admin routes
+      if (!['admin', 'staff'].includes(user.role)) {
+        console.log('Middleware: User is not admin or staff, redirecting to homepage');
         return NextResponse.redirect(new URL('/', request.url));
       }
-      console.log('Middleware: Admin access granted for:', user.email);
+      console.log('Middleware: Admin/Staff access granted for:', user.email, 'Role:', user.role);
     } catch (error) {
       console.log('Middleware: Error parsing user data, redirecting to login');
       return NextResponse.redirect(new URL('/login', request.url));
@@ -35,18 +36,26 @@ export async function middleware(request) {
   }
   
   // For login/register pages, redirect if already authenticated
-  if ((pathname === '/login' || pathname === '/register') && 
-      request.cookies.get('auth_token')?.value && 
-      request.cookies.get('user_data')?.value) {
-    try {
-      const user = JSON.parse(request.cookies.get('user_data')?.value);
-      if (user.role === 'admin') {
-        return NextResponse.redirect(new URL('/admin/dashboard', request.url));
-      } else {
-        return NextResponse.redirect(new URL('/bookings', request.url));
+  if ((pathname === '/login' || pathname === '/register')) {
+    const token = request.cookies.get('auth_token')?.value;
+    const userData = request.cookies.get('user_data')?.value;
+    
+    // Only redirect if BOTH token and userData exist and are valid
+    if (token && userData) {
+      try {
+        const user = JSON.parse(userData);
+        // Additional check to ensure user object is valid
+        if (user && user.role && user.id) {
+          if (['admin', 'staff'].includes(user.role)) {
+            return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+          } else {
+            return NextResponse.redirect(new URL('/', request.url));
+          }
+        }
+      } catch (error) {
+        // If error parsing, continue to login page (don't redirect)
+        console.log('Middleware: Error parsing user data for login redirect, allowing access to login page');
       }
-    } catch (error) {
-      // If error parsing, continue to login page
     }
   }
   
