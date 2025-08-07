@@ -52,8 +52,8 @@ const Header = () => {
                 <Link href="/#rooms" className="text-gray-700 hover:text-primary-600 transition-colors">
                   ห้องพัก
                 </Link>
-                <Link href="/#amenities" className="text-gray-700 hover:text-primary-600 transition-colors">
-                  สิ่งอำนวยความสะดวก
+                <Link href="/reviews/1" className="text-gray-700 hover:text-primary-600 transition-colors">
+                  รีวิว
                 </Link>
                 {isAuthenticated && (
                   <>
@@ -213,11 +213,11 @@ const Header = () => {
                     ห้องพัก
                   </Link>
                   <Link 
-                    href="/#amenities" 
+                    href="/reviews/1" 
                     className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    สิ่งอำนวยความสะดวก
+                    รีวิว
                   </Link>
                   {isAuthenticated && (
                     <>

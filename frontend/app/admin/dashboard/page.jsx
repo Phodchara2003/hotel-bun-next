@@ -47,6 +47,8 @@ export default function AdminDashboard() {
     bookingsWithReceipts: 0
   });
   const [loading, setLoading] = useState(true);
+  const [isVisible, setIsVisible] = useState(false);
+  const [statsVisible, setStatsVisible] = useState(false);
   const [filters, setFilters] = useState({
     status: '',
     search: '',
@@ -62,6 +64,26 @@ export default function AdminDashboard() {
       fetchData();
     }
   }, [isAuthenticated, user]);
+
+  useEffect(() => {
+    // Trigger animations on mount
+    const timer = setTimeout(() => {
+      setIsVisible(true);
+    }, 100);
+
+    // Animate stats cards with stagger effect
+    const statsTimer = setTimeout(() => {
+      setStatsVisible(true);
+    }, 300);
+
+    // Add smooth scroll behavior
+    document.documentElement.style.scrollBehavior = 'smooth';
+
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(statsTimer);
+    };
+  }, []);
 
   useEffect(() => {
     // Filter bookings based on filters
@@ -368,10 +390,14 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto container-padding">
+    <div className="min-h-screen bg-gray-50 py-8 transition-all duration-300 ease-in-out">
+      <div className={`max-w-7xl mx-auto container-padding transform transition-all duration-700 ease-out ${
+        isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+      }`}>
         {/* Header */}
-        <div className="mb-8">
+        <div className={`mb-8 transform transition-all duration-500 delay-100 ease-out ${
+          isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+        }`}>
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -393,8 +419,12 @@ export default function AdminDashboard() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-lg p-6">
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 transform transition-all duration-700 delay-200 ease-out ${
+          isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
+        }`}>
+          <div className={`bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift ${
+            statsVisible ? 'animate-slideUp stagger-1' : ''
+          }`}>
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <Calendar className="h-8 w-8 text-blue-600" />
@@ -412,7 +442,9 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className={`bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift ${
+            statsVisible ? 'animate-slideUp stagger-2' : ''
+          }`}>
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <Clock className="h-8 w-8 text-yellow-600" />
@@ -430,7 +462,9 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className={`bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift ${
+            statsVisible ? 'animate-slideUp stagger-3' : ''
+          }`}>
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <CheckCircle className="h-8 w-8 text-green-600" />
@@ -448,7 +482,9 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className={`bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift ${
+            statsVisible ? 'animate-slideUp stagger-4' : ''
+          }`}>
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <TrendingUp className="h-8 w-8 text-purple-600" />
@@ -466,7 +502,9 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className={`bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift ${
+            statsVisible ? 'animate-slideUp stagger-5' : ''
+          }`}>
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <Users className="h-8 w-8 text-blue-600" />
@@ -484,7 +522,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 ease-in-out">
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <Receipt className="h-8 w-8 text-green-600" />
@@ -502,7 +540,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 ease-in-out">
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <XCircle className="h-8 w-8 text-red-600" />
@@ -520,7 +558,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 ease-in-out">
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <TrendingUp className="h-8 w-8 text-indigo-600" />
@@ -542,7 +580,9 @@ export default function AdminDashboard() {
 
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
+        <div className={`bg-white rounded-lg shadow-lg p-6 mb-8 transform transition-all duration-700 delay-300 ease-out hover:shadow-xl ${
+          isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
+        }`}>
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
             <Filter className="h-5 w-5 mr-2" />
             ค้นหาและกรองข้อมูล
@@ -625,7 +665,9 @@ export default function AdminDashboard() {
         </div>
 
         {/* Recent Bookings */}
-        <div className="bg-white rounded-lg shadow-lg">
+        <div className={`bg-white rounded-lg shadow-lg transform transition-all duration-700 delay-400 ease-out hover:shadow-xl ${
+          isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
+        }`}>
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">การจองล่าสุด</h2>
           </div>
@@ -669,7 +711,7 @@ export default function AdminDashboard() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                       <input
                         type="checkbox"
                         checked={selectedBookings.length === filteredBookings.length && filteredBookings.length > 0}
@@ -677,39 +719,30 @@ export default function AdminDashboard() {
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                      รหัสการจอง
+                    <th className="px-3 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      รหัส/ลูกค้า
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                      ลูกค้า
+                    <th className="px-3 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      ห้องพัก/วันที่
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                      ผู้เข้าพัก
+                    <th className="px-3 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      ราคา/ใบเสร็จ
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                      ห้องพัก
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                      วันที่
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                      ราคา
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                      ใบเสร็จ
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                       สถานะ
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                       จัดการ
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredBookings.slice(0, 20).map((booking) => (
-                    <tr key={booking.id} className={`hover:bg-gray-50 ${selectedBookings.includes(booking.id) ? 'bg-blue-50' : ''}`}>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                  {filteredBookings.slice(0, 20).map((booking, index) => (
+                    <tr key={booking.id} className={`hover:bg-gray-50 transform transition-all duration-300 ease-in-out hover:scale-[1.01] ${
+                      selectedBookings.includes(booking.id) ? 'bg-blue-50' : ''
+                    } ${isVisible ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'}`}
+                    style={{ transitionDelay: `${index * 50}ms` }}>
+                      <td className="px-3 py-4 whitespace-nowrap">
                         <input
                           type="checkbox"
                           checked={selectedBookings.includes(booking.id)}
@@ -717,86 +750,73 @@ export default function AdminDashboard() {
                           className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                        {booking.bookingReference}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 font-medium">
+                      <td className="px-3 py-4 text-sm">
                         <div>
-                          <div className="font-medium text-gray-900">{booking.userEmail}</div>
+                          <div className="font-semibold text-gray-900">{booking.bookingReference}</div>
+                          <div className="text-gray-600 text-xs">{booking.userEmail}</div>
                           <div className="text-gray-500 text-xs">
-                            {new Date(booking.createdAt).toLocaleDateString('th-TH')} {new Date(booking.createdAt).toLocaleTimeString('th-TH')}
+                            {new Date(booking.createdAt).toLocaleDateString('th-TH')}
                           </div>
+                          {booking.guestName && (
+                            <div className="text-gray-600 text-xs mt-1">
+                              👤 {booking.guestName}
+                            </div>
+                          )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
-                        {booking.guestName ? (
-                          <div>
-                            <div className="font-medium text-gray-900">{booking.guestName}</div>
-                            <div className="text-gray-500 text-xs">{booking.guestPhone}</div>
-                          </div>
-                        ) : (
-                          <span className="text-gray-400 text-xs">ยังไม่กรอกข้อมูล</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 font-medium">
+                      <td className="px-3 py-4 text-sm">
                         <div>
-                          <div className="font-medium">{booking.roomTypeName}</div>
-                          <div className="text-gray-500 text-xs">{booking.guests} ผู้เข้าพัก</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
-                        <div>
-                          <div className="font-medium">
-                            {new Date(booking.checkInDate).toLocaleDateString('th-TH')}
-                          </div>
+                          <div className="font-medium text-gray-900">{booking.roomTypeName}</div>
+                          <div className="text-gray-600 text-xs">{booking.guests} ผู้เข้าพัก</div>
                           <div className="text-gray-500 text-xs">
-                            ถึง {new Date(booking.checkOutDate).toLocaleDateString('th-TH')}
+                            {new Date(booking.checkInDate).toLocaleDateString('th-TH')} - 
+                            {new Date(booking.checkOutDate).toLocaleDateString('th-TH')}
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
-                        ฿{booking.totalPrice.toLocaleString()}
+                      <td className="px-3 py-4 text-sm">
+                        <div>
+                          <div className="font-bold text-gray-900">฿{booking.totalPrice.toLocaleString()}</div>
+                          {booking.paymentReceiptUrl || booking.paymentSlipUrl ? (
+                            <div className="flex items-center">
+                              <Receipt className="h-3 w-3 text-green-600 mr-1" />
+                              <span className="text-green-600 text-xs">มีใบเสร็จ</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center">
+                              <XCircle className="h-3 w-3 text-red-400 mr-1" />
+                              <span className="text-red-400 text-xs">ไม่มีใบเสร็จ</span>
+                            </div>
+                          )}
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
-                        {booking.paymentReceiptUrl || booking.paymentSlipUrl ? (
-                          <div className="flex items-center">
-                            <Receipt className="h-4 w-4 text-green-600 mr-1" />
-                            <span className="text-green-600 font-medium text-xs">มีใบเสร็จ</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center">
-                            <XCircle className="h-4 w-4 text-red-400 mr-1" />
-                            <span className="text-red-400 text-xs">ไม่มีใบเสร็จ</span>
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
                           {getStatusIcon(booking.status)}
                           <span className="ml-1">{getStatusText(booking.status)}</span>
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                        <div className="flex space-x-2">
+                      <td className="px-3 py-4 text-sm text-gray-700">
+                        <div className="flex flex-wrap gap-1">
                           <button
                             onClick={() => handleViewBookingDetails(booking.id)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-semibold transition-colors flex items-center"
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs font-semibold transition-all duration-200 ease-in-out flex items-center hover:scale-105 active:scale-95"
                           >
                             <Eye className="h-3 w-3 mr-1" />
-                            ดูรายละเอียด
+                            ดู
                           </button>
                           
                           {booking.status === 'pending' && canManageBookings(user) && (
                             <>
                               <button
                                 onClick={() => handleBookingActionNew(booking.id, 'confirm')}
-                                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-semibold transition-colors"
+                                className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs font-semibold transition-all duration-200 ease-in-out hover:scale-105 active:scale-95"
                               >
                                 ยืนยัน
                               </button>
                               <button
                                 onClick={() => handleBookingActionNew(booking.id, 'cancel')}
-                                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-semibold transition-colors"
+                                className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs font-semibold transition-all duration-200 ease-in-out hover:scale-105 active:scale-95"
                               >
                                 ยกเลิก
                               </button>
@@ -805,24 +825,28 @@ export default function AdminDashboard() {
                           
                           {booking.status === 'confirmed' && canManageBookings(user) && (
                             <>
-                              <button
-                                onClick={() => handleGoToPayment(booking.id)}
-                                className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-xs font-semibold transition-colors"
-                              >
-                                ชำระเงิน
-                              </button>
+                              {/* Show payment status instead of button */}
+                              {booking.paymentReceiptUrl || booking.paymentSlipUrl ? (
+                                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
+                                  ชำระแล้ว
+                                </span>
+                              ) : (
+                                <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs font-medium">
+                                  รอชำระ
+                                </span>
+                              )}
                               {/* Show approve button only if guest info AND payment receipt are available - Admin only */}
                               {booking.guestName && booking.guestPhone && booking.guestEmail && (booking.paymentReceiptUrl || booking.paymentSlipUrl) && canApproveBookings(user) && (
                                 <button
                                   onClick={() => handleBookingActionNew(booking.id, 'approve')}
-                                  className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-semibold transition-colors"
+                                  className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs font-semibold transition-colors"
                                 >
                                   อนุมัติ
                                 </button>
                               )}
                               <button
                                 onClick={() => handleBookingActionNew(booking.id, 'cancel')}
-                                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-semibold transition-colors"
+                                className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs font-semibold transition-colors"
                               >
                                 ยกเลิก
                               </button>
@@ -863,8 +887,8 @@ export default function AdminDashboard() {
 
         {/* Booking Details Modal */}
         {showBookingModal && selectedBooking && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fadeIn">
+            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto transform transition-all duration-300 ease-out animate-slideUp hover:shadow-2xl">
               <div className="flex justify-between items-center p-6 border-b">
                 <h2 className="text-xl font-bold text-gray-900">
                   รายละเอียดการจอง #{selectedBooking.bookingReference}

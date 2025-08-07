@@ -1,5 +1,6 @@
 import { verifyToken } from '../utils/auth.js';
 import { sql } from '../db/database.js';
+import jwt from 'jsonwebtoken';
 import 'dotenv/config';
 
 export const authMiddleware = async ({ headers, set, request }) => {
@@ -19,8 +20,7 @@ export const authMiddleware = async ({ headers, set, request }) => {
   
   // Use jwt.verify directly with the same secret used in generation
   try {
-    const jwt = require('jsonwebtoken');
-    const secret = 'hotel_booking_jwt_secret_2025_very_secure_key_12345';
+    const secret = process.env.JWT_SECRET || 'hotel_booking_jwt_secret_2025_very_secure_key_12345';
     console.log('Verifying token with secret:', secret);
     
     const decoded = jwt.verify(token, secret);

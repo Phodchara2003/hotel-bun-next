@@ -1,51 +1,28 @@
 import { Elysia } from 'elysia';
-import { bearer } from '@elysiajs/bearer';
 import postgres from 'postgres';
 import { t } from 'elysia';
+import { authMiddleware } from '../middleware/auth.js';
 
 // Create database connection
 const sql = postgres(process.env.DATABASE_URL, { ssl: 'require' });
 
 // Admin Rooms API
 export const adminRoomsRoutes = new Elysia()
-  .use(bearer())
-  .guard({
-    beforeHandle: async ({ bearer, set }) => {
-      if (!bearer) {
-        set.status = 401;
-        return { error: 'Token required' };
-      }
-
-      try {
-        const jwt = new (await import('@elysiajs/jwt')).jwt({
-          name: 'jwt',
-          secret: process.env.JWT_SECRET || 'your-secret-key'
-        });
-
-        const payload = await jwt.verify(bearer);
-        if (!payload) {
-          set.status = 401;
-          return { error: 'Invalid token' };
-        }
-
-        // Check if user is admin
-        const user = await sql`SELECT * FROM users WHERE id = ${payload.userId}`;
-        if (!user[0] || user[0].role !== 'admin') {
-          set.status = 403;
-          return { error: 'Admin access required' };
-        }
-
-        return { user: user[0] };
-      } catch (error) {
-        console.error('Auth error:', error);
-        set.status = 401;
-        return { error: 'Invalid token' };
-      }
-    }
-  })
   // Get all rooms (Admin)
-  .get('/api/admin/rooms', async ({ set }) => {
+  .get('/', async ({ headers, set }) => {
     try {
+      // Manual auth check
+      const user = await authMiddleware({ headers, set });
+      if (!user || user.error) {
+        return user || { error: 'Authentication required' };
+      }
+
+      // Check if user is admin
+      if (user.role !== 'admin') {
+        set.status = 403;
+        return { error: 'Admin access required' };
+      }
+      
       const result = await sql`
         SELECT 
           rt.*,
@@ -59,12 +36,13 @@ export const adminRoomsRoutes = new Elysia()
       const rooms = result.map(room => ({
         id: room.id,
         name: room.name,
-        type: room.name, // Use name as type since type column doesn't exist
+        type: room.type || room.name, // ใช้ type จากฐานข้อมูล หรือ fallback เป็น name
         capacity: room.max_guests,
         price: parseFloat(room.price_per_night),
         description: room.description,
         amenities: room.amenities || [],
         image: room.image || (room.images && room.images[0]) || null,
+        images: room.images || [], // Include the full images array
         available: room.available,
         beds: room.beds || 1,
         size_sqm: room.size_sqm,
@@ -83,8 +61,20 @@ export const adminRoomsRoutes = new Elysia()
   })
   
   // Get single room (Admin)
-  .get('/api/admin/rooms/:id', async ({ params, set }) => {
+  .get('/:id', async ({ params, headers, set }) => {
     try {
+      // Manual auth check
+      const user = await authMiddleware({ headers, set });
+      if (!user || user.error) {
+        return user || { error: 'Authentication required' };
+      }
+
+      // Check if user is admin
+      if (user.role !== 'admin') {
+        set.status = 403;
+        return { error: 'Admin access required' };
+      }
+      
       const result = await sql`
         SELECT 
           rt.*,
@@ -105,12 +95,13 @@ export const adminRoomsRoutes = new Elysia()
         room: {
           id: room.id,
           name: room.name,
-          type: room.name,
+          type: room.type || room.name, // ใช้ type จากฐานข้อมูล หรือ fallback เป็น name
           capacity: room.max_guests,
           price: parseFloat(room.price_per_night),
           description: room.description,
           amenities: room.amenities || [],
           image: room.image || (room.images && room.images[0]) || null,
+          images: room.images || [], // Include the full images array
           available: room.available,
           beds: room.beds || 1,
           size_sqm: room.size_sqm,
@@ -128,12 +119,24 @@ export const adminRoomsRoutes = new Elysia()
   })
   
   // Create new room (Admin)
-  .post('/api/admin/rooms', async ({ body, set }) => {
+  .post('/', async ({ body, headers, set }) => {
     try {
-      const { name, capacity, price, description, amenities, image, available, size_sqm } = body;
+      // Manual auth check
+      const user = await authMiddleware({ headers, set });
+      if (!user || user.error) {
+        return user || { error: 'Authentication required' };
+      }
+
+      // Check if user is admin
+      if (user.role !== 'admin') {
+        set.status = 403;
+        return { error: 'Admin access required' };
+      }
+      
+      const { name, type, capacity, price, description, amenities, image, images, available, size_sqm } = body;
 
       // Validation
-      if (!name || !capacity || !price) {
+      if (!name || !type || !capacity || !price) {
         set.status = 400;
         return { error: 'Missing required fields' };
       }
@@ -147,11 +150,14 @@ export const adminRoomsRoutes = new Elysia()
 
       const hotelId = hotelResult[0].id;
 
+      // Use images array if provided, otherwise fallback to single image
+      const finalImages = images && images.length > 0 ? images : (image ? [image] : []);
+
       const result = await sql`
         INSERT INTO room_types (
-          hotel_id, name, description, price_per_night, max_guests, 
-          amenities, image, available, beds, size_sqm, created_at, updated_at
-        ) VALUES (${hotelId}, ${name}, ${description}, ${price}, ${capacity}, ${amenities}, ${image}, ${available !== false}, ${1}, ${size_sqm || 25}, NOW(), NOW())
+          hotel_id, name, type, description, price_per_night, max_guests, 
+          amenities, images, available, beds, size_sqm, created_at, updated_at
+        ) VALUES (${hotelId}, ${name}, ${type}, ${description}, ${price}, ${capacity}, ${amenities}, ${finalImages}, ${available !== false}, ${1}, ${size_sqm || 25}, NOW(), NOW())
         RETURNING *
       `;
 
@@ -162,12 +168,13 @@ export const adminRoomsRoutes = new Elysia()
         room: {
           id: room.id,
           name: room.name,
-          type: room.name,
+          type: room.type, // ใช้ type จากฐานข้อมูล
           capacity: room.max_guests,
           price: parseFloat(room.price_per_night),
           description: room.description,
           amenities: room.amenities || [],
-          image: room.image,
+          image: room.images && room.images[0] || null, // First image for backward compatibility
+          images: room.images || [], // Full images array
           available: room.available,
           beds: room.beds || 1,
           size_sqm: room.size_sqm,
@@ -183,23 +190,37 @@ export const adminRoomsRoutes = new Elysia()
   }, {
     body: t.Object({
       name: t.String(),
+      type: t.String(), // เพิ่มฟิลด์ type
       capacity: t.Number(),
       price: t.Number(),
       description: t.Optional(t.String()),
       amenities: t.Optional(t.Array(t.String())),
       image: t.Optional(t.String()),
+      images: t.Optional(t.Array(t.String())),
       available: t.Optional(t.Boolean()),
       size_sqm: t.Optional(t.Number())
     })
   })
-  
+
   // Update room (Admin)
-  .put('/api/admin/rooms/:id', async ({ params, body, set }) => {
+  .put('/:id', async ({ params, body, headers, set }) => {
     try {
-      const { name, capacity, price, description, amenities, image, available, size_sqm } = body;
+      // Manual auth check
+      const user = await authMiddleware({ headers, set });
+      if (!user || user.error) {
+        return user || { error: 'Authentication required' };
+      }
+
+      // Check if user is admin
+      if (user.role !== 'admin') {
+        set.status = 403;
+        return { error: 'Admin access required' };
+      }
+      
+      const { name, type, capacity, price, description, amenities, image, images, available, size_sqm } = body;
 
       // Validation
-      if (!name || !capacity || !price) {
+      if (!name || !type || !capacity || !price) {
         set.status = 400;
         return { error: 'Missing required fields' };
       }
@@ -211,10 +232,13 @@ export const adminRoomsRoutes = new Elysia()
         return { error: 'Room not found' };
       }
 
+      // Use images array if provided, otherwise fallback to single image
+      const finalImages = images && images.length > 0 ? images : (image ? [image] : []);
+
       const result = await sql`
         UPDATE room_types 
-        SET name = ${name}, description = ${description}, price_per_night = ${price}, max_guests = ${capacity}, 
-            amenities = ${amenities}, image = ${image}, available = ${available}, size_sqm = ${size_sqm}, updated_at = NOW()
+        SET name = ${name}, type = ${type}, description = ${description}, price_per_night = ${price}, max_guests = ${capacity}, 
+            amenities = ${amenities}, images = ${finalImages}, available = ${available}, size_sqm = ${size_sqm}, updated_at = NOW()
         WHERE id = ${params.id}
         RETURNING *
       `;
@@ -226,12 +250,13 @@ export const adminRoomsRoutes = new Elysia()
         room: {
           id: room.id,
           name: room.name,
-          type: room.name,
+          type: room.type, // ใช้ type จากฐานข้อมูล
           capacity: room.max_guests,
           price: parseFloat(room.price_per_night),
           description: room.description,
           amenities: room.amenities || [],
-          image: room.image,
+          image: room.images && room.images[0] || null, // First image for backward compatibility
+          images: room.images || [], // Full images array
           available: room.available,
           beds: room.beds || 1,
           size_sqm: room.size_sqm,
@@ -247,19 +272,33 @@ export const adminRoomsRoutes = new Elysia()
   }, {
     body: t.Object({
       name: t.String(),
+      type: t.String(), // เพิ่มฟิลด์ type
       capacity: t.Number(),
       price: t.Number(),
       description: t.Optional(t.String()),
       amenities: t.Optional(t.Array(t.String())),
       image: t.Optional(t.String()),
+      images: t.Optional(t.Array(t.String())),
       available: t.Optional(t.Boolean()),
       size_sqm: t.Optional(t.Number())
     })
   })
   
   // Delete room (Admin)
-  .delete('/api/admin/rooms/:id', async ({ params, set }) => {
+  .delete('/:id', async ({ params, headers, set }) => {
     try {
+      // Manual auth check
+      const user = await authMiddleware({ headers, set });
+      if (!user || user.error) {
+        return user || { error: 'Authentication required' };
+      }
+
+      // Check if user is admin
+      if (user.role !== 'admin') {
+        set.status = 403;
+        return { error: 'Admin access required' };
+      }
+      
       // Check if room exists
       const checkResult = await sql`SELECT id FROM room_types WHERE id = ${params.id}`;
       if (checkResult.length === 0) {
@@ -290,8 +329,20 @@ export const adminRoomsRoutes = new Elysia()
   })
   
   // Toggle room availability (Admin)
-  .patch('/api/admin/rooms/:id/toggle-availability', async ({ params, set }) => {
+  .patch('/:id/toggle-availability', async ({ params, headers, set }) => {
     try {
+      // Manual auth check
+      const user = await authMiddleware({ headers, set });
+      if (!user || user.error) {
+        return user || { error: 'Authentication required' };
+      }
+
+      // Check if user is admin
+      if (user.role !== 'admin') {
+        set.status = 403;
+        return { error: 'Admin access required' };
+      }
+      
       // Check if room exists
       const checkResult = await sql`SELECT id, available FROM room_types WHERE id = ${params.id}`;
       if (checkResult.length === 0) {

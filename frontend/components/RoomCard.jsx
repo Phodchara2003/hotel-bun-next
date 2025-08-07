@@ -1,10 +1,14 @@
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Users, Maximize, Bed, Wifi, Car, Coffee, Bath } from 'lucide-react';
+import { Users, Maximize, Bed, Wifi, Car, Coffee, Bath, Camera } from 'lucide-react';
+import ImageCarousel from './ImageCarousel';
 
 const RoomCard = ({ roomType, hotelId }) => {
+  const [showCarousel, setShowCarousel] = useState(false);
+
   const getAmenityIcon = (amenity) => {
     const amenityLower = amenity.toLowerCase();
     if (amenityLower.includes('wifi')) return <Wifi className="h-4 w-4" />;
@@ -14,29 +18,68 @@ const RoomCard = ({ roomType, hotelId }) => {
     return <Bed className="h-4 w-4" />;
   };
 
-  // ใช้รูปภาพที่แอดมินอัปโหลด (field image) เป็นอันดับแรก หากไม่มีจึงใช้ images[0]
-  const roomImage = roomType.image || roomType.images?.[0] || '/api/placeholder/400/300';
+  // Get all available images, prioritizing the main image field
+  const getAllImages = () => {
+    const allImages = [];
+    if (roomType.image) allImages.push(roomType.image);
+    if (roomType.images && Array.isArray(roomType.images)) {
+      // Add images array, but avoid duplicates
+      roomType.images.forEach(img => {
+        if (img && !allImages.includes(img)) {
+          allImages.push(img);
+        }
+      });
+    }
+    return allImages.length > 0 ? allImages : ['/api/placeholder/400/300'];
+  };
+
+  const allImages = getAllImages();
+  const mainImage = allImages[0];
 
   return (
-    <div className="card hover:shadow-xl transition-shadow duration-300">
-      {/* Room Image */}
-      <div className="relative h-48 sm:h-56">
-        <Image
-          src={roomImage}
-          alt={roomType.name}
-          fill
-          className="object-cover"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-        />
-        
-        {/* Price Badge */}
-        <div className="absolute top-4 right-4 bg-white rounded-lg px-3 py-2 shadow-md">
-          <div className="text-lg font-bold text-primary-600">
-            ฿{roomType.pricePerNight?.toLocaleString()}
+    <>
+      <div className="card hover:shadow-xl transition-shadow duration-300">
+        {/* Room Image */}
+        <div className="relative h-48 sm:h-56 group">
+          <Image
+            src={mainImage}
+            alt={roomType.name}
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          />
+          
+          {/* Multiple Images Indicator */}
+          {allImages.length > 1 && (
+            <button
+              onClick={() => setShowCarousel(true)}
+              className="absolute top-4 left-4 bg-black bg-opacity-50 hover:bg-opacity-75 text-white px-3 py-2 rounded-lg flex items-center space-x-1 text-sm transition-all group-hover:bg-opacity-75"
+            >
+              <Camera className="h-4 w-4" />
+              <span>{allImages.length}</span>
+            </button>
+          )}
+          
+          {/* Price Badge */}
+          <div className="absolute top-4 right-4 bg-white rounded-lg px-3 py-2 shadow-md">
+            <div className="text-lg font-bold text-primary-600">
+              ฿{roomType.pricePerNight?.toLocaleString()}
+            </div>
+            <div className="text-xs text-gray-500">ต่อคืน</div>
           </div>
-          <div className="text-xs text-gray-500">ต่อคืน</div>
+
+          {/* View More Images Overlay */}
+          {allImages.length > 1 && (
+            <div 
+              className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-20 transition-all cursor-pointer flex items-center justify-center"
+              onClick={() => setShowCarousel(true)}
+            >
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity text-white text-sm font-medium bg-black bg-opacity-50 px-4 py-2 rounded-lg">
+                ดูรูปทั้งหมด {allImages.length} รูป
+              </div>
+            </div>
+          )}
         </div>
-      </div>
 
       {/* Room Info */}
       <div className="p-6">
@@ -106,16 +149,28 @@ const RoomCard = ({ roomType, hotelId }) => {
           </Link>
         </div>
 
-        {/* Room Gallery Link */}
-        {roomType.images && roomType.images.length > 1 && (
+        {/* View All Images Button */}
+        {allImages.length > 1 && (
           <div className="mt-3 text-center">
-            <button className="text-sm text-primary-600 hover:text-primary-700">
-              ดูรูปภาพเพิ่มเติม ({roomType.images.length} รูป)
+            <button 
+              onClick={() => setShowCarousel(true)}
+              className="text-sm text-primary-600 hover:text-primary-700 transition-colors"
+            >
+              ดูรูปภาพทั้งหมด ({allImages.length} รูป)
             </button>
           </div>
         )}
       </div>
     </div>
+
+    {/* Image Carousel Modal */}
+    <ImageCarousel
+      images={allImages}
+      isOpen={showCarousel}
+      onClose={() => setShowCarousel(false)}
+      initialIndex={0}
+    />
+  </>
   );
 };
 

@@ -174,7 +174,7 @@ export const bookingAPI = {
 export const roomsAPI = {
   // Get all rooms (Admin)
   getAllRooms: async () => {
-    const response = await api.get('/admin/rooms');
+    const response = await api.get('/admin/rooms/');
     return response.data;
   },
 
@@ -186,7 +186,7 @@ export const roomsAPI = {
 
   // Create new room (Admin)
   createRoom: async (roomData) => {
-    const response = await api.post('/admin/rooms', roomData);
+    const response = await api.post('/admin/rooms/', roomData);
     return response.data;
   },
 

@@ -42,18 +42,19 @@ export default function RoomsManagement() {
   // Form state
   const [formData, setFormData] = useState({
     name: '',
+    type: '', // เพิ่มฟิลด์ประเภทห้องพัก
     capacity: '',
     price: '',
     description: '',
     amenities: [],
-    image: '',
+    images: [], // เปลี่ยนจาก image เป็น images array
     available: true,
     size_sqm: ''
   });
 
-  // Image upload state
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState('');
+  // Image upload state - รองรับหลายรูป
+  const [imageFiles, setImageFiles] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
   const [uploading, setUploading] = useState(false);
 
   // Available amenities
@@ -148,31 +149,33 @@ export default function RoomsManagement() {
     if (type === 'add') {
       setFormData({
         name: '',
+        type: '', // เพิ่มฟิลด์ประเภทห้องพัก
         capacity: '',
         price: '',
         description: '',
         amenities: [],
-        image: '',
+        images: [],
         available: true,
         size_sqm: ''
       });
       // Reset image states
-      setImageFile(null);
-      setImagePreview('');
+      setImageFiles([]);
+      setImagePreviews([]);
     } else if (type === 'edit' && room) {
       setFormData({
         name: room.name,
+        type: room.type || '', // เพิ่มฟิลด์ประเภทห้องพัก
         capacity: room.capacity.toString(),
         price: room.price.toString(),
         description: room.description,
         amenities: room.amenities || [],
-        image: room.image || '',
+        images: room.images || [],
         available: room.available,
         size_sqm: room.size_sqm ? room.size_sqm.toString() : ''
       });
-      // Set existing image as preview
-      setImageFile(null);
-      setImagePreview(room.image || '');
+      // Set existing images as preview
+      setImageFiles([]);
+      setImagePreviews(room.images || []);
     }
     
     setShowModal(true);
@@ -183,45 +186,60 @@ export default function RoomsManagement() {
     setSelectedRoom(null);
     setFormData({
       name: '',
+      type: '',
       capacity: '',
       price: '',
       description: '',
       amenities: [],
-      image: '',
+      images: [],
       available: true,
       size_sqm: ''
     });
     // Reset image states
-    setImageFile(null);
-    setImagePreview('');
+    setImageFiles([]);
+    setImagePreviews([]);
     setUploading(false);
   };
 
-  // Handle image file selection
-  const handleImageFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Validate file type
+  // Handle multiple image files selection
+  const handleImageFilesChange = (e) => {
+    const files = Array.from(e.target.files);
+    
+    // Validate files
+    const validFiles = files.filter(file => {
       if (!file.type.startsWith('image/')) {
         toast.error('กรุณาเลือกไฟล์รูปภาพ');
-        return;
+        return false;
       }
 
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         toast.error('ขนาดไฟล์ใหญ่เกินไป (สูงสุด 5MB)');
-        return;
+        return false;
       }
 
-      setImageFile(file);
+      return true;
+    });
 
-      // Create preview
+    if (validFiles.length === 0) return;
+
+    // Check total images limit
+    const totalImages = imagePreviews.length + validFiles.length;
+    if (totalImages > 10) {
+      toast.error('สามารถอัปโหลดได้สูงสุด 10 รูป');
+      return;
+    }
+
+    setImageFiles(prev => [...prev, ...validFiles]);
+
+    // Create previews
+    validFiles.forEach(file => {
       const reader = new FileReader();
       reader.onload = (e) => {
-        setImagePreview(e.target.result);
+        setImagePreviews(prev => [...prev, e.target.result]);
       };
       reader.readAsDataURL(file);
-    }
+    });
   };
 
   // Convert image to base64 (for simple storage)
@@ -234,11 +252,16 @@ export default function RoomsManagement() {
     });
   };
 
-  // Remove selected image
-  const handleRemoveImage = () => {
-    setImageFile(null);
-    setImagePreview('');
-    setFormData({ ...formData, image: '' });
+  // Remove selected image by index
+  const handleRemoveImage = (index) => {
+    setImageFiles(prev => prev.filter((_, i) => i !== index));
+    setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    
+    // Update form data
+    setFormData(prev => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index)
+    }));
   };
 
   const handleInputChange = (e) => {
@@ -262,7 +285,7 @@ export default function RoomsManagement() {
     e.preventDefault();
     
     // Validation
-    if (!formData.name || !formData.capacity || !formData.price) {
+    if (!formData.name || !formData.type || !formData.capacity || !formData.price) {
       toast.error('กรุณากรอกข้อมูลให้ครบถ้วน');
       return;
     }
@@ -270,20 +293,22 @@ export default function RoomsManagement() {
     try {
       setUploading(true);
       
-      // Handle image upload
-      let imageUrl = formData.image;
-      if (imageFile) {
-        // Convert image to base64 for storage (in real app, upload to cloud storage)
-        imageUrl = await convertImageToBase64(imageFile);
+      // Handle multiple images upload
+      let imageUrls = formData.images || [];
+      if (imageFiles.length > 0) {
+        // Convert all images to base64 for storage (in real app, upload to cloud storage)
+        const imagePromises = imageFiles.map(file => convertImageToBase64(file));
+        imageUrls = await Promise.all(imagePromises);
       }
 
       const roomData = {
         name: formData.name,
+        type: formData.type, // เพิ่มฟิลด์ประเภทห้องพัก
         capacity: parseInt(formData.capacity),
         price: parseFloat(formData.price),
         description: formData.description,
         amenities: formData.amenities,
-        image: imageUrl,
+        images: imageUrls, // Changed from image to images array
         available: formData.available,
         size_sqm: formData.size_sqm ? parseInt(formData.size_sqm) : null
       };
@@ -705,6 +730,24 @@ export default function RoomsManagement() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
+                        ประเภทห้องพัก <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="type"
+                        value={formData.type}
+                        onChange={handleInputChange}
+                        className="input-field"
+                        required
+                      >
+                        <option value="">-- เลือกประเภทห้องพัก --</option>
+                        {roomTypes.map(type => (
+                          <option key={type} value={type}>{type}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
                         ความจุ (คน) <span className="text-red-500">*</span>
                       </label>
                       <input
@@ -751,10 +794,10 @@ export default function RoomsManagement() {
                     </div>
                   </div>
 
-                  {/* Image Upload */}
+                  {/* Multiple Images Upload */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      รูปภาพห้องพัก
+                      รูปภาพห้องพัก (สูงสุด 10 รูป)
                     </label>
                     <div className="space-y-3">
                       {/* File Upload Option */}
@@ -762,62 +805,60 @@ export default function RoomsManagement() {
                         <input
                           type="file"
                           accept="image/*"
-                          onChange={handleImageFileChange}
+                          multiple
+                          onChange={handleImageFilesChange}
                           className="hidden"
-                          id="image-upload"
+                          id="images-upload"
                         />
                         <label
-                          htmlFor="image-upload"
+                          htmlFor="images-upload"
                           className={`cursor-pointer flex items-center space-x-2 px-4 py-2 border border-dashed border-gray-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                           <Upload className="h-5 w-5 text-gray-400" />
                           <span className="text-sm text-gray-600">
-                            {uploading ? 'กำลังอัปโหลด...' : imageFile ? 'เปลี่ยนรูปภาพ' : 'เลือกไฟล์รูปภาพ'}
+                            {uploading ? 'กำลังอัปโหลด...' : imageFiles.length > 0 ? `เลือกแล้ว ${imageFiles.length} รูป` : 'เลือกไฟล์รูปภาพ'}
                           </span>
                         </label>
                         
-                        {imageFile && !uploading && (
+                        {imageFiles.length > 0 && !uploading && (
                           <button
                             type="button"
-                            onClick={handleRemoveImage}
+                            onClick={() => {
+                              setImageFiles([]);
+                              setImagePreviews([]);
+                              setFormData(prev => ({ ...prev, images: [] }));
+                            }}
                             className="text-red-600 hover:text-red-800 text-sm font-medium"
                           >
-                            ลบรูปภาพ
+                            ลบรูปทั้งหมด
                           </button>
                         )}
                       </div>
 
-                      {/* URL Input as fallback */}
-                      <div className="text-sm text-gray-500">
-                        หรือใส่ URL รูปภาพ:
-                      </div>
-                      <input
-                        type="url"
-                        name="image"
-                        value={formData.image}
-                        onChange={handleInputChange}
-                        className="input-field"
-                        placeholder="https://example.com/room-image.jpg"
-                        disabled={!!imageFile}
-                      />
-
-                      {/* Image Preview */}
-                      {imagePreview && (
+                      {/* Image Previews */}
+                      {imagePreviews.length > 0 && (
                         <div className="mt-4">
                           <div className="text-sm font-medium text-gray-700 mb-2">ตัวอย่างรูปภาพ:</div>
-                          <div className="relative inline-block">
-                            <img
-                              src={imagePreview}
-                              alt="Preview"
-                              className="w-full max-w-xs h-auto rounded-lg shadow-md border"
-                            />
-                            <button
-                              type="button"
-                              onClick={handleRemoveImage}
-                              className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 transition-colors"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {imagePreviews.map((preview, index) => (
+                              <div key={index} className="relative">
+                                <img
+                                  src={preview}
+                                  alt={`Preview ${index + 1}`}
+                                  className="w-full h-32 object-cover rounded-lg shadow-md border"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveImage(index)}
+                                  className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 transition-colors"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                                <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                                  {index + 1}
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       )}

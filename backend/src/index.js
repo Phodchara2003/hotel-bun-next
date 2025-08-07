@@ -6,7 +6,8 @@ import { authRoutes } from './routes/auth.js';
 import { hotelRoutes } from './routes/hotels.js';
 import { bookingRoutes } from './routes/bookings.js';
 import { notificationRoutes } from './routes/notifications.js';
-import { adminRoomsRoutes } from './routes/admin-rooms.js';
+import { reviewRoutes } from './routes/reviews.js';
+import { adminRoomsRoutes } from './routes/admin-rooms-final.js';
 import { adminUsersRoutes } from './routes/admin-users.js';
 import { paymentSettingsRoutes } from './routes/payment-settings-real.js';
 import { paymentSlipRoutes } from './routes/payment-slip.js';
@@ -114,7 +115,8 @@ const app = new Elysia()
       .use(hotelRoutes)
       .use(bookingRoutes)
       .use(notificationRoutes)
-      .use(adminRoomsRoutes)
+      .use(reviewRoutes)
+      .group('/admin/rooms', (adminRoomsApp) => adminRoomsApp.use(adminRoomsRoutes))
       .use(adminUsersRoutes)
       .use(paymentSettingsRoutes)
       .use(roomStatusRoutes)
