@@ -55,22 +55,64 @@ const Header = () => {
               // Admin/Staff navigation
               <>
                 <Link href="/admin/dashboard" className="text-gray-700 hover:text-primary-600 transition-colors">
-                  แดชบอร์ด
+                  🏠 แดชบอร์ด
                 </Link>
-                <Link href="/admin/rooms" className="text-gray-700 hover:text-primary-600 transition-colors">
-                  จัดการห้องพัก
-                </Link>
-                <Link href="/admin/users" className="text-gray-700 hover:text-primary-600 transition-colors">
-                  จัดการสมาชิก
-                </Link>
-                <Link href="/admin/reports" className="text-gray-700 hover:text-primary-600 transition-colors">
-                  รายงาน
-                </Link>
-                {user?.role === 'admin' && (
-                  <Link href="/admin/payment-settings" className="text-gray-700 hover:text-primary-600 transition-colors">
-                    ตั้งค่าการชำระเงิน
-                  </Link>
-                )}
+                
+                {/* Hotel Operations Dropdown */}
+                <div className="relative group">
+                  <button className="text-gray-700 hover:text-primary-600 transition-colors flex items-center">
+                    🏨 จัดการโรงแรม
+                    <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  <div className="absolute left-0 mt-2 w-56 bg-white rounded-lg shadow-lg border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                    <div className="py-2">
+                      <Link href="/admin/rooms" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                        🛏️ จัดการห้องพัก
+                      </Link>
+                      <Link href="/room-status" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                        📊 สถานะห้อง
+                      </Link>
+                      <Link href="/checkin-checkout" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                        🏨 Check-in & Check-out
+                      </Link>
+                      <Link href="/housekeeping" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                        🧹 Housekeeping
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Management Dropdown */}
+                <div className="relative group">
+                  <button className="text-gray-700 hover:text-primary-600 transition-colors flex items-center">
+                    ⚙️ จัดการระบบ
+                    <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  <div className="absolute left-0 mt-2 w-56 bg-white rounded-lg shadow-lg border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                    <div className="py-2">
+                      <Link href="/admin/users" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                        👥 จัดการสมาชิก
+                      </Link>
+                      <Link href="/admin/reports" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                        📈 รายงาน
+                      </Link>
+                      {user?.role === 'admin' && (
+                        <>
+                          <Link href="/admin/permissions" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                            🔐 จัดการสิทธิ์
+                          </Link>
+                          <Link href="/admin/payment-settings" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                            💳 ตั้งค่าการชำระเงิน
+                          </Link>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </>
             ) : (
               // Regular user navigation
@@ -138,10 +180,16 @@ const Header = () => {
                           รายงาน
                         </Link>
                         {user?.role === 'admin' && (
-                          <Link href="/admin/payment-settings" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
-                            <span className="text-sm mr-2">💳</span>
-                            ตั้งค่าการชำระเงิน
-                          </Link>
+                          <>
+                            <Link href="/admin/permissions" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
+                              <span className="text-sm mr-2">🔐</span>
+                              จัดการสิทธิ์
+                            </Link>
+                            <Link href="/admin/payment-settings" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
+                              <span className="text-sm mr-2">💳</span>
+                              ตั้งค่าการชำระเงิน
+                            </Link>
+                          </>
                         )}
                         <Link href="/profile" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100 border-t border-gray-100">
                           <span className="text-sm mr-2">⚙️</span>

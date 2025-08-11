@@ -333,4 +333,129 @@ export const reportAPI = {
   }
 };
 
+// Permission Management API
+export const permissionsAPI = {
+  // ดูสิทธิ์ทั้งหมด
+  getAllPermissions: async () => {
+    const response = await api.get('/admin/permissions/permissions');
+    return response.data;
+  },
+
+  // ดูรายชื่อผู้ใช้พร้อมจำนวนสิทธิ์
+  getUsersWithPermissions: async () => {
+    const response = await api.get('/admin/permissions/users-with-permissions');
+    return response.data;
+  },
+
+  // ดูสิทธิ์ของผู้ใช้คนหนึ่ง
+  getUserPermissions: async (userId) => {
+    const response = await api.get(`/admin/permissions/users/${userId}/permissions`);
+    return response.data;
+  },
+
+  // อัปเดตสิทธิ์ของผู้ใช้
+  updateUserPermissions: async (userId, permissionIds) => {
+    const response = await api.put(`/admin/permissions/users/${userId}/permissions`, {
+      permissionIds
+    });
+    return response.data;
+  }
+};
+
+// ========================================
+// 🏨 CHECK-IN/CHECK-OUT API
+// ========================================
+export const checkinAPI = {
+  // ดูสถานะห้องทั้งหมด
+  getRoomsStatus: async () => {
+    const response = await api.get('/checkin/rooms/status');
+    return response.data;
+  },
+
+  // ดูการจองที่พร้อม check-in วันนี้
+  getPendingCheckins: async () => {
+    const response = await api.get('/checkin/check-ins/pending');
+    return response.data;
+  },
+
+  // ทำการ check-in
+  checkIn: async (checkinData) => {
+    const response = await api.post('/checkin/check-in', checkinData);
+    return response.data;
+  },
+
+  // ดูการจองที่พร้อม check-out วันนี้
+  getPendingCheckouts: async () => {
+    const response = await api.get('/checkin/check-outs/pending');
+    return response.data;
+  },
+
+  // ทำการ check-out
+  checkOut: async (checkoutData) => {
+    const response = await api.post('/checkin/check-out', checkoutData);
+    return response.data;
+  },
+
+  // อัปเดตสถานะห้อง
+  updateRoomStatus: async (roomId, statusData) => {
+    const response = await api.put(`/checkin/rooms/${roomId}/status`, statusData);
+    return response.data;
+  }
+};
+
+// ========================================
+// 🧹 HOUSEKEEPING API
+// ========================================
+export const housekeepingAPI = {
+  // ดู housekeeping tasks
+  getTasks: async (filters = {}) => {
+    const params = new URLSearchParams(filters);
+    const response = await api.get(`/housekeeping/tasks?${params}`);
+    return response.data;
+  },
+
+  // สร้าง housekeeping task ใหม่
+  createTask: async (taskData) => {
+    const response = await api.post('/housekeeping/tasks', taskData);
+    return response.data;
+  },
+
+  // อัปเดต housekeeping task
+  updateTask: async (taskId, taskData) => {
+    const response = await api.put(`/housekeeping/tasks/${taskId}`, taskData);
+    return response.data;
+  },
+
+  // ลบ housekeeping task
+  deleteTask: async (taskId) => {
+    const response = await api.delete(`/housekeeping/tasks/${taskId}`);
+    return response.data;
+  },
+
+  // ดู room inspections
+  getInspections: async (filters = {}) => {
+    const params = new URLSearchParams(filters);
+    const response = await api.get(`/housekeeping/inspections?${params}`);
+    return response.data;
+  },
+
+  // สร้าง room inspection ใหม่
+  createInspection: async (inspectionData) => {
+    const response = await api.post('/housekeeping/inspections', inspectionData);
+    return response.data;
+  },
+
+  // อัปเดต room inspection
+  updateInspection: async (inspectionId, inspectionData) => {
+    const response = await api.put(`/housekeeping/inspections/${inspectionId}`, inspectionData);
+    return response.data;
+  },
+
+  // ดูสถิติ housekeeping
+  getStats: async (period = '7') => {
+    const response = await api.get(`/housekeeping/stats?period=${period}`);
+    return response.data;
+  }
+};
+
 export default api;

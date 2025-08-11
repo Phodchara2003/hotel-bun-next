@@ -1,4 +1,6 @@
-import { sql } from './database.js';
+import postgres from 'postgres';
+
+const sql = postgres(process.env.DATABASE_URL, { ssl: 'require' });
 
 async function addPaymentSlipColumns() {
   try {
@@ -15,6 +17,8 @@ async function addPaymentSlipColumns() {
     console.log('✅ Payment slip columns added successfully');
   } catch (error) {
     console.error('❌ Error adding payment slip columns:', error);
+  } finally {
+    await sql.end();
   }
 }
 

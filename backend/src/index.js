@@ -12,12 +12,15 @@ import { adminUsersRoutes } from './routes/admin-users.js';
 import { paymentSettingsRoutes } from './routes/payment-settings-real.js';
 import { paymentSlipRoutes } from './routes/payment-slip.js';
 import { roomStatusRoutes } from './routes/room-status-new.js';
+import { permissionRoutes } from './routes/permissions.js';
+import { checkinRoutes } from './routes/checkin.js';
+import { housekeepingRoutes } from './routes/housekeeping.js';
 import forgotPasswordRoutes from './routes/forgotPassword.js';
 import userEmailRoutes from './routes/userEmailSettings.js';
 import changeEmailRoutes from './routes/changeEmail.js';
-import './db/create-user-email-table.js'; // Create user email settings table
-import './db/create-payment-settings-table.js'; // Create payment settings table
-import './db/add-payment-slip-columns.js'; // Add payment slip columns
+// import './db/create-user-email-table.js'; // Create user email settings table
+// import './db/create-payment-settings-table.js'; // Create payment settings table
+// import './db/add-payment-slip-columns.js'; // Add payment slip columns
 
 // Load environment variables
 if (process.env.NODE_ENV !== 'production') {
@@ -117,6 +120,9 @@ const app = new Elysia()
       .use(notificationRoutes)
       .use(reviewRoutes)
       .group('/admin/rooms', (adminRoomsApp) => adminRoomsApp.use(adminRoomsRoutes))
+      .group('/admin/permissions', (permissionsApp) => permissionsApp.use(permissionRoutes))
+      .group('/checkin', (checkinApp) => checkinApp.use(checkinRoutes))
+      .group('/housekeeping', (housekeepingApp) => housekeepingApp.use(housekeepingRoutes))
       .use(adminUsersRoutes)
       .use(paymentSettingsRoutes)
       .use(roomStatusRoutes)

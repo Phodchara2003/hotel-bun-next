@@ -1,4 +1,6 @@
-import { sql } from './database.js';
+import postgres from 'postgres';
+
+const sql = postgres(process.env.DATABASE_URL, { ssl: 'require' });
 
 async function createPaymentSettingsTable() {
   try {
@@ -41,23 +43,13 @@ async function createPaymentSettingsTable() {
       console.log('✅ Default payment settings inserted');
     }
     
+    console.log('✅ Payment settings table created successfully');
   } catch (error) {
     console.error('❌ Error creating payment_settings table:', error);
-    throw error;
+  } finally {
+    await sql.end();
   }
 }
 
-// Run migration if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  createPaymentSettingsTable()
-    .then(() => {
-      console.log('Migration completed successfully');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('Migration failed:', error);
-      process.exit(1);
-    });
-}
-
-export { createPaymentSettingsTable };
+// Auto-run when imported
+createPaymentSettingsTable();

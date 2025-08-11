@@ -26,6 +26,8 @@ export const createUserEmailSettingsTable = async () => {
     console.log('✅ user_email_settings table created successfully');
   } catch (error) {
     console.error('❌ Error creating user_email_settings table:', error);
+  } finally {
+    await sql.end();
   }
 };
 
