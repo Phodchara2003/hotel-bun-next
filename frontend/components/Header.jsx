@@ -22,16 +22,16 @@ const Header = () => {
   // Show loading state while checking authentication
   if (loading) {
     return (
-      <header className="bg-white shadow-lg sticky top-0 z-50">
+      <header className="bg-white dark:bg-gray-800 shadow-lg sticky top-0 z-50 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto container-padding">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-2">
               <span className="text-2xl">🏨</span>
-              <span className="text-xl font-bold text-gray-900">HotelBook</span>
+              <span className="text-xl font-bold text-gray-900 dark:text-gray-100">HotelBook</span>
             </div>
             <div className="hidden md:flex items-center space-x-4">
               <div className="animate-pulse">
-                <div className="h-4 bg-gray-200 rounded w-20"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
               </div>
             </div>
           </div>
@@ -98,20 +98,20 @@ const Header = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
-                  <div className="absolute left-0 mt-2 w-56 bg-white rounded-lg shadow-lg border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                  <div className="absolute left-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                     <div className="py-2">
-                      <Link href="/admin/users" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                      <Link href="/admin/users" className="block px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                         👥 {t('header.userManagement')}
                       </Link>
-                      <Link href="/admin/reports" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                      <Link href="/admin/reports" className="block px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                         📈 {t('header.reports')}
                       </Link>
                       {user?.role === 'admin' && (
                         <>
-                          <Link href="/admin/permissions" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                          <Link href="/admin/permissions" className="block px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                             🔐 {t('header.permissions')}
                           </Link>
-                          <Link href="/admin/payment-settings" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                          <Link href="/admin/payment-settings" className="block px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                             💳 {t('header.paymentSettings')}
                           </Link>
                         </>
@@ -123,21 +123,21 @@ const Header = () => {
             ) : (
               // Regular user navigation
               <>
-                <Link href="/" className="text-gray-700 hover:text-primary-600 transition-colors">
+                <Link href="/" className="text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
                   {t('header.home')}
                 </Link>
-                <Link href="/#rooms" className="text-gray-700 hover:text-primary-600 transition-colors">
+                <Link href="/#rooms" className="text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
                   {t('header.rooms')}
                 </Link>
-                <Link href="/reviews/1" className="text-gray-700 hover:text-primary-600 transition-colors">
-                  รีวิว
+                <Link href="/reviews/1" className="text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                  {language === 'en' ? 'Reviews' : 'รีวิว'}
                 </Link>
                 {isAuthenticated && (
                   <>
-                    <Link href="/bookings" className="text-gray-700 hover:text-primary-600 transition-colors">
+                    <Link href="/bookings" className="text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
                       {t('header.bookings')}
                     </Link>
-                    <Link href="/notifications" className="text-gray-700 hover:text-primary-600 transition-colors relative">
+                    <Link href="/notifications" className="text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400 transition-colors relative">
                       <div className="flex items-center space-x-1">
                         <Bell className="h-5 w-5" />
                         <span>{t('header.notifications')}</span>
@@ -166,46 +166,46 @@ const Header = () => {
             
             {isAuthenticated ? (
               <div className="relative group">
-                <button className="flex items-center space-x-2 text-gray-700 hover:text-primary-600 transition-colors">
+                <button className="flex items-center space-x-2 text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
                   <span className="text-lg">👤</span>
                   <span>{user?.firstName} {user?.lastName}</span>
                 </button>
                 
                 {/* Dropdown Menu */}
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
                   <div className="py-2">
                     {['admin', 'staff'].includes(user?.role) ? (
                       // Admin/Staff dropdown
                       <>
-                        <Link href="/admin/dashboard" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
+                        <Link href="/admin/dashboard" className="flex items-center px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                           <span className="text-sm mr-2">⚙️</span>
                           {t('admin.dashboard')}
                         </Link>
-                        <Link href="/admin/rooms" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
+                        <Link href="/admin/rooms" className="flex items-center px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                           <span className="text-sm mr-2">🏨</span>
                           {t('header.roomsManagement')}
                         </Link>
-                        <Link href="/admin/users" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
+                        <Link href="/admin/users" className="flex items-center px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                           <span className="text-sm mr-2">👥</span>
                           {t('header.userManagement')}
                         </Link>
-                        <Link href="/admin/reports" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
+                        <Link href="/admin/reports" className="flex items-center px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                           <span className="text-sm mr-2">📊</span>
                           {t('header.reports')}
                         </Link>
                         {user?.role === 'admin' && (
                           <>
-                            <Link href="/admin/permissions" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
+                            <Link href="/admin/permissions" className="flex items-center px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                               <span className="text-sm mr-2">🔐</span>
                               {t('header.permissions')}
                             </Link>
-                            <Link href="/admin/payment-settings" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
+                            <Link href="/admin/payment-settings" className="flex items-center px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                               <span className="text-sm mr-2">💳</span>
                               {t('header.paymentSettings')}
                             </Link>
                           </>
                         )}
-                        <Link href="/profile" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100 border-t border-gray-100">
+                        <Link href="/profile" className="flex items-center px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 border-t border-gray-100 dark:border-gray-600">
                           <span className="text-sm mr-2">⚙️</span>
                           {t('header.profile')}
                         </Link>
@@ -213,15 +213,15 @@ const Header = () => {
                     ) : (
                       // Regular user dropdown
                       <>
-                        <Link href="/profile" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
+                        <Link href="/profile" className="flex items-center px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                           <span className="text-sm mr-2">⚙️</span>
                           {t('header.profile')}
                         </Link>
-                        <Link href="/bookings" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
+                        <Link href="/bookings" className="flex items-center px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                           <span className="text-sm mr-2">📅</span>
                           {t('header.bookings')}
                         </Link>
-                        <Link href="/notifications" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
+                        <Link href="/notifications" className="flex items-center px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                           <span className="text-sm mr-2">🔔</span>
                           {t('header.notifications')}
                         </Link>
@@ -229,7 +229,7 @@ const Header = () => {
                     )}
                     <button 
                       onClick={logout}
-                      className="flex items-center w-full px-4 py-2 text-gray-700 hover:bg-gray-100 border-t border-gray-100"
+                      className="flex items-center w-full px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 border-t border-gray-100 dark:border-gray-600"
                     >
                       <span className="text-sm mr-2">🚪</span>
                       {t('header.logout')}
@@ -241,7 +241,7 @@ const Header = () => {
               <div className="flex items-center space-x-4">
                 <Link 
                   href="/login" 
-                  className="text-gray-700 hover:text-primary-600 transition-colors"
+                  className="text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
                 >
                   {t('header.login')}
                 </Link>
@@ -258,7 +258,7 @@ const Header = () => {
           {/* Mobile Menu Button */}
           <button
             onClick={toggleMenu}
-            className="md:hidden p-2 rounded-lg text-gray-700 hover:bg-gray-100"
+            className="md:hidden p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             {isMenuOpen ? <span className="text-xl">✕</span> : <span className="text-xl">☰</span>}
           </button>
@@ -266,35 +266,35 @@ const Header = () => {
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden border-t border-gray-200">
+          <div className="md:hidden border-t border-gray-200 dark:border-gray-600">
             <div className="py-4 space-y-4">
               {isAuthenticated && ['admin', 'staff'].includes(user?.role) ? (
                 // Admin/Staff mobile menu
                 <>
                   <Link 
                     href="/admin/dashboard" 
-                    className="block text-gray-700 hover:text-primary-600"
+                    className="block text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     {t('admin.dashboard')}
                   </Link>
                   <Link 
                     href="/admin/rooms" 
-                    className="block text-gray-700 hover:text-primary-600"
+                    className="block text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     {t('header.roomsManagement')}
                   </Link>
                   <Link 
                     href="/admin/users" 
-                    className="block text-gray-700 hover:text-primary-600"
+                    className="block text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     {t('header.userManagement')}
                   </Link>
                   <Link 
                     href="/admin/reports" 
-                    className="block text-gray-700 hover:text-primary-600"
+                    className="block text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     {t('header.reports')}
@@ -302,7 +302,7 @@ const Header = () => {
                   {user?.role === 'admin' && (
                     <Link 
                       href="/admin/payment-settings" 
-                      className="block text-gray-700 hover:text-primary-600"
+                      className="block text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400"
                       onClick={() => setIsMenuOpen(false)}
                     >
                       {t('header.paymentSettings')}
@@ -310,7 +310,7 @@ const Header = () => {
                   )}
                   <Link 
                     href="/profile" 
-                    className="block text-gray-700 hover:text-primary-600 border-t border-gray-200 pt-4"
+                    className="block text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400 border-t border-gray-200 dark:border-gray-600 pt-4"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     {t('header.profile')}
@@ -320,7 +320,7 @@ const Header = () => {
                       logout();
                       setIsMenuOpen(false);
                     }}
-                    className="block w-full text-left text-gray-700 hover:text-primary-600"
+                    className="block w-full text-left text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400"
                   >
                     {t('header.logout')}
                   </button>
@@ -330,38 +330,38 @@ const Header = () => {
                 <>
                   <Link 
                     href="/" 
-                    className="block text-gray-700 hover:text-primary-600"
+                    className="block text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     {t('header.home')}
                   </Link>
                   <Link 
                     href="/#rooms" 
-                    className="block text-gray-700 hover:text-primary-600"
+                    className="block text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     {t('header.rooms')}
                   </Link>
                   <Link 
                     href="/reviews/1" 
-                    className="block text-gray-700 hover:text-primary-600"
+                    className="block text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    รีวิว
+                    {language === 'en' ? 'Reviews' : 'รีวิว'}
                   </Link>
                   
                   {isAuthenticated ? (
                     <>
                       <Link 
                         href="/bookings" 
-                        className="block text-gray-700 hover:text-primary-600"
+                        className="block text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400"
                         onClick={() => setIsMenuOpen(false)}
                       >
                         {t('header.bookings')}
                       </Link>
                       <Link 
                         href="/notifications" 
-                        className="block text-gray-700 hover:text-primary-600 relative"
+                        className="block text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400 relative"
                         onClick={() => setIsMenuOpen(false)}
                       >
                         <div className="flex items-center space-x-2">
@@ -376,7 +376,7 @@ const Header = () => {
                       </Link>
                       <Link 
                         href="/profile" 
-                        className="block text-gray-700 hover:text-primary-600"
+                        className="block text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400"
                         onClick={() => setIsMenuOpen(false)}
                       >
                         {t('header.profile')}
@@ -386,7 +386,7 @@ const Header = () => {
                           logout();
                           setIsMenuOpen(false);
                         }}
-                        className="block w-full text-left text-gray-700 hover:text-primary-600 border-t border-gray-200 pt-4"
+                        className="block w-full text-left text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400 border-t border-gray-200 dark:border-gray-600 pt-4"
                       >
                         {t('header.logout')}
                       </button>
@@ -395,7 +395,7 @@ const Header = () => {
                     <>
                       <Link 
                         href="/login" 
-                        className="block text-gray-700 hover:text-primary-600"
+                        className="block text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400"
                         onClick={() => setIsMenuOpen(false)}
                       >
                         {t('header.login')}
@@ -411,13 +411,13 @@ const Header = () => {
                   )}
                   
                   {/* Mobile Language and Theme Switchers */}
-                  <div className="border-t border-gray-200 pt-4 space-y-3">
+                  <div className="border-t border-gray-200 dark:border-gray-600 pt-4 space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700">{t('theme.changeTheme')}:</span>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{t('theme.changeTheme')}:</span>
                       <ThemeSwitcher showLabel={true} size="default" />
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700">{t('language.changeLanguage')}:</span>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{t('language.changeLanguage')}:</span>
                       <LanguageSwitcher showLabel={true} size="default" />
                     </div>
                   </div>

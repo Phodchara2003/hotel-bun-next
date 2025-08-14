@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { useLanguage } from '../../../contexts/LanguageContext';
+import { useTranslation } from '../../../translations';
 import { usersAPI } from '../../../lib/api';
 import { isStaffOrAdmin, canEdit, canDelete, canCreate, isReadOnly } from '../../../lib/roles';
 import { 
@@ -27,6 +30,9 @@ import toast from 'react-hot-toast';
 
 export default function UsersManagement() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { theme } = useTheme();
+  const { language } = useLanguage();
+  const { t } = useTranslation(language);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -248,20 +254,20 @@ export default function UsersManagement() {
   const getRoleColor = (role) => {
     switch (role) {
       case 'admin':
-        return 'text-purple-600 bg-purple-100';
+        return 'text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/20';
       case 'user':
-        return 'text-blue-600 bg-blue-100';
+        return 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/20';
       default:
-        return 'text-gray-600 bg-gray-100';
+        return 'text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700';
     }
   };
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">กำลังโหลด...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">{language === 'en' ? 'Loading...' : 'กำลังโหลด...'}</p>
         </div>
       </div>
     );
@@ -269,10 +275,14 @@ export default function UsersManagement() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">กรุณาเข้าสู่ระบบ</h2>
-          <p className="text-gray-600">เพื่อเข้าถึงระบบจัดการ</p>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+            {language === 'en' ? 'Please login' : 'กรุณาเข้าสู่ระบบ'}
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400">
+            {language === 'en' ? 'To access the management system' : 'เพื่อเข้าถึงระบบจัดการ'}
+          </p>
         </div>
       </div>
     );
@@ -280,25 +290,34 @@ export default function UsersManagement() {
 
   if (!isStaffOrAdmin(user)) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">ไม่มีสิทธิ์เข้าถึง</h2>
-          <p className="text-gray-600">คุณไม่มีสิทธิ์เข้าถึงหน้านี้</p>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+            {language === 'en' ? 'Access Denied' : 'ไม่มีสิทธิ์เข้าถึง'}
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400">
+            {language === 'en' ? 'You do not have permission to access this page' : 'คุณไม่มีสิทธิ์เข้าถึงหน้านี้'}
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
       <div className="max-w-7xl mx-auto container-padding">
         {/* Header */}
         <div className="mb-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">จัดการสมาชิก</h1>
-              <p className="text-gray-600">
-                {isReadOnly(user) ? 'ดูข้อมูลสมาชิกของระบบ' : 'เพิ่ม แก้ไข และจัดการสมาชิกของระบบ'}
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                {language === 'en' ? 'Member Management' : 'จัดการสมาชิก'}
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400">
+                {isReadOnly(user) 
+                  ? (language === 'en' ? 'View system member information' : 'ดูข้อมูลสมาชิกของระบบ')
+                  : (language === 'en' ? 'Add, edit, and manage system members' : 'เพิ่ม แก้ไข และจัดการสมาชิกของระบบ')
+                }
               </p>
             </div>
             {canCreate(user) && (
@@ -307,30 +326,30 @@ export default function UsersManagement() {
                 className="btn-primary flex items-center space-x-2"
               >
                 <Plus className="h-5 w-5" />
-                <span>เพิ่มสมาชิกใหม่</span>
+                <span>{language === 'en' ? 'Add New Member' : 'เพิ่มสมาชิกใหม่'}</span>
               </button>
             )}
           </div>
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
           <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 h-5 w-5" />
                 <input
                   type="text"
                   name="search"
-                  placeholder="🔍 ค้นหาด้วยชื่อ, นามสกุล หรืออีเมล..."
+                  placeholder={language === 'en' ? '🔍 Search by name, surname or email...' : '🔍 ค้นหาด้วยชื่อ, นามสกุล หรืออีเมล...'}
                   value={filters.search}
                   onChange={handleFilterChange}
-                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
                 {filters.search && (
                   <button
                     onClick={() => handleFilterChange({ target: { name: 'search', value: '' } })}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -342,26 +361,31 @@ export default function UsersManagement() {
                 name="role"
                 value={filters.role}
                 onChange={handleFilterChange}
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
-                <option value="">ทุกสิทธิ์</option>
-                <option value="user">ผู้ใช้งาน</option>
-                <option value="admin">ผู้ดูแลระบบ</option>
+                <option value="">{language === 'en' ? 'All Roles' : 'ทุกสิทธิ์'}</option>
+                <option value="user">{language === 'en' ? 'User' : 'ผู้ใช้งาน'}</option>
+                <option value="admin">{language === 'en' ? 'Administrator' : 'ผู้ดูแลระบบ'}</option>
               </select>
             </div>
           </div>
           
           {/* Search Results Info */}
           {(filters.search || filters.role) && (
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800">
-                🔍 ผลการค้นหา: พบ <span className="font-semibold">{pagination.total}</span> รายการ
+            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+              <p className="text-sm text-blue-800 dark:text-blue-300">
+                🔍 {language === 'en' ? 'Search results: Found' : 'ผลการค้นหา: พบ'} <span className="font-semibold">{pagination.total}</span> {language === 'en' ? 'items' : 'รายการ'}
                 {filters.search && (
-                  <span> สำหรับ "<span className="font-semibold">{filters.search}</span>"</span>
+                  <span> {language === 'en' ? 'for' : 'สำหรับ'} "<span className="font-semibold">{filters.search}</span>"</span>
                 )}
                 {filters.role && (
-                  <span> ในกลุ่ม "<span className="font-semibold">
-                    {filters.role === 'admin' ? 'ผู้ดูแลระบบ' : filters.role === 'user' ? 'ผู้ใช้งาน' : filters.role}
+                  <span> {language === 'en' ? 'in group' : 'ในกลุ่ม'} "<span className="font-semibold">
+                    {filters.role === 'admin' 
+                      ? (language === 'en' ? 'Administrator' : 'ผู้ดูแลระบบ') 
+                      : filters.role === 'user' 
+                        ? (language === 'en' ? 'User' : 'ผู้ใช้งาน') 
+                        : filters.role
+                    }
                   </span>"</span>
                 )}
               </p>
@@ -370,70 +394,74 @@ export default function UsersManagement() {
         </div>
 
         {/* Users Table */}
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
           {loading ? (
             <div className="p-8 text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-              <p className="mt-2 text-gray-600">กำลังโหลดข้อมูล...</p>
+              <p className="mt-2 text-gray-600 dark:text-gray-400">
+                {language === 'en' ? 'Loading data...' : 'กำลังโหลดข้อมูล...'}
+              </p>
             </div>
           ) : users.length === 0 ? (
             <div className="p-8 text-center">
-              <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">ไม่พบข้อมูลสมาชิก</p>
+              <Users className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+              <p className="text-gray-600 dark:text-gray-400">
+                {language === 'en' ? 'No member data found' : 'ไม่พบข้อมูลสมาชิก'}
+              </p>
             </div>
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        สมาชิก
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        {language === 'en' ? 'Member' : 'สมาชิก'}
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        ติดต่อ
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        {language === 'en' ? 'Contact' : 'ติดต่อ'}
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        สิทธิ์
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        {language === 'en' ? 'Role' : 'สิทธิ์'}
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        วันที่สมัคร
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        {language === 'en' ? 'Registration Date' : 'วันที่สมัคร'}
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        การจัดการ
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        {language === 'en' ? 'Management' : 'การจัดการ'}
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {users.map((userData) => {
                       const RoleIcon = getRoleIcon(userData.role);
                       return (
-                        <tr key={userData.id} className="hover:bg-gray-50">
+                        <tr key={userData.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
                               <div className="flex-shrink-0 h-10 w-10">
-                                <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
-                                  <User className="h-5 w-5 text-primary-600" />
+                                <div className="h-10 w-10 rounded-full bg-primary-100 dark:bg-primary-900/20 flex items-center justify-center">
+                                  <User className="h-5 w-5 text-primary-600 dark:text-primary-400" />
                                 </div>
                               </div>
                               <div className="ml-4">
-                                <div className="text-sm font-medium text-gray-900">
+                                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                                   {userData.fullName}
                                 </div>
-                                <div className="text-sm text-gray-500">
+                                <div className="text-sm text-gray-500 dark:text-gray-400">
                                   ID: {userData.id}
                                 </div>
                               </div>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900 flex items-center">
-                              <Mail className="h-4 w-4 mr-2 text-gray-400" />
+                            <div className="text-sm text-gray-900 dark:text-gray-100 flex items-center">
+                              <Mail className="h-4 w-4 mr-2 text-gray-400 dark:text-gray-500" />
                               {userData.email}
                             </div>
                             {userData.phone && (
-                              <div className="text-sm text-gray-500 flex items-center mt-1">
-                                <Phone className="h-4 w-4 mr-2 text-gray-400" />
+                              <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center mt-1">
+                                <Phone className="h-4 w-4 mr-2 text-gray-400 dark:text-gray-500" />
                                 {userData.phone}
                               </div>
                             )}
@@ -444,9 +472,9 @@ export default function UsersManagement() {
                               {userRoles.find(r => r.value === userData.role)?.label}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                             <div className="flex items-center">
-                              <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                              <Calendar className="h-4 w-4 mr-2 text-gray-400 dark:text-gray-500" />
                               {new Date(userData.createdAt).toLocaleDateString('th-TH')}
                             </div>
                           </td>
@@ -454,16 +482,16 @@ export default function UsersManagement() {
                             <div className="flex justify-end space-x-2">
                               <button
                                 onClick={() => handleOpenModal('view', userData)}
-                                className="text-blue-600 hover:text-blue-900 p-1"
-                                title="ดูรายละเอียด"
+                                className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 p-1"
+                                title={language === 'en' ? 'View Details' : 'ดูรายละเอียด'}
                               >
                                 <Eye className="h-4 w-4" />
                               </button>
                               {canEdit(user) && (
                                 <button
                                   onClick={() => handleOpenModal('edit', userData)}
-                                  className="text-green-600 hover:text-green-900 p-1"
-                                  title="แก้ไข"
+                                  className="text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 p-1"
+                                  title={language === 'en' ? 'Edit' : 'แก้ไข'}
                                 >
                                   <Edit className="h-4 w-4" />
                                 </button>

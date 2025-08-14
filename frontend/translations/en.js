@@ -20,14 +20,30 @@ export const translations = {
     notifications: "Notifications"
   },
 
+  // Permissions Management
+  permissions: {
+    title: "User Permission Management",
+    description: "Assign system access permissions to individual users",
+    userList: "User List",
+    searchPlaceholder: "🔍 Search by name, surname or email...",
+    showCount: "Showing",
+    noUsers: "No users found matching search criteria",
+    manageFor: "Manage Permissions for:",
+    saveChanges: "Save Changes",
+    grantedAt: "Granted on:",
+    grantedBy: "by",
+    selectUser: "Select User to Manage Permissions",
+    selectUserDesc: "Click on a user name on the left to start managing permissions"
+  },
+
   // Homepage
   hero: {
     title: "Find Your Dream Accommodation",
-    subtitle: "Book quality rooms with great prices and excellent service",
-    search: "Search Accommodation",
+    subtitle: "Luxury 5-star hotel in the heart of Bangkok with complete amenities",
+    search: "Choose Your Desired Room",
     checkIn: "Check-in Date",
     checkOut: "Check-out Date",
-    guests: "Guests",
+    guests: "Number of Guests",
     searchButton: "Search",
     bookNow: "Book Now",
     viewRooms: "View Rooms"
@@ -98,7 +114,8 @@ export const translations = {
     alreadyHaveAccount: "Already have an account?",
     dontHaveAccount: "Don't have an account?",
     resetPassword: "Reset Password",
-    backToLogin: "Back to Login"
+    backToLogin: "Back to Login",
+    loginRequired: "Please Login"
   },  // Authentication
   auth: {
     loginTitle: "Login",
@@ -125,6 +142,7 @@ export const translations = {
   // Common
   common: {
     loading: "Loading...",
+    error: "Failed to load data",
     save: "Save",
     cancel: "Cancel",
     delete: "Delete",
@@ -151,7 +169,8 @@ export const translations = {
     upload: "Upload",
     download: "Download",
     print: "Print",
-    refresh: "Refresh"
+    refresh: "Refresh",
+    saving: "Saving..."
   },
 
   // Bookings

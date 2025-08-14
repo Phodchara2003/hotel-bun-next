@@ -33,7 +33,7 @@ export default function HomePage() {
       setRoomTypes(hotelResponse.roomTypes || []);
     } catch (error) {
       console.error('Error fetching hotel data:', error);
-      toast.error(language === 'en' ? 'Failed to load hotel data' : 'ไม่สามารถโหลดข้อมูลโรงแรมได้');
+      toast.error(t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -46,7 +46,7 @@ export default function HomePage() {
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-400">
-            {language === 'en' ? 'Checking user status...' : 'กำลังตรวจสอบสถานะผู้ใช้...'}
+            {t('common.loading')}
           </p>
         </div>
       </div>
@@ -64,12 +64,7 @@ export default function HomePage() {
               {hotel ? hotel.name : 'Royal Garden Hotel Bangkok'}
             </h1>
             <p className="text-xl md:text-2xl mb-8 text-primary-100 dark:text-primary-200">
-              {hotel ? hotel.description : 
-                (language === 'en' 
-                  ? 'Luxury 5-star hotel in the heart of Bangkok with complete amenities'
-                  : 'โรงแรมหรูระดับ 5 ดาว ใจกลางกรุงเทพฯ พร้อมสิ่งอำนวยความสะดวกครบครัน'
-                )
-              }
+              {hotel ? hotel.description : t('hero.subtitle')}
             </p>
           </div>
           
@@ -164,35 +159,41 @@ export default function HomePage() {
 
       {/* Hotel Information Section */}
       {hotel && (
-        <section className="section-padding bg-gray-50">
+        <section className="section-padding bg-gray-50 dark:bg-gray-800">
           <div className="max-w-7xl mx-auto container-padding">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
               <div>
-                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
-                  เกี่ยวกับโรงแรม
+                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-6">
+                  {language === 'en' ? 'About Hotel' : 'เกี่ยวกับโรงแรม'}
                 </h2>
-                <p className="text-lg text-gray-600 mb-6">
+                <p className="text-lg text-gray-600 dark:text-gray-300 mb-6">
                   {hotel.description}
                 </p>
                 <div className="space-y-4">
                   <div className="flex items-center">
                     <Star className="h-5 w-5 text-yellow-400 mr-2" />
-                    <span className="text-gray-700">คะแนนรีวิว {hotel.rating}/5.0</span>
+                    <span className="text-gray-700 dark:text-gray-300">
+                      {language === 'en' ? `Rating ${hotel.rating}/5.0` : `คะแนนรีวิว ${hotel.rating}/5.0`}
+                    </span>
                   </div>
                   <div className="flex items-center">
-                    <Bed className="h-5 w-5 text-primary-600 mr-2" />
-                    <span className="text-gray-700">{roomTypes.length} ประเภทห้องพัก</span>
+                    <Bed className="h-5 w-5 text-primary-600 dark:text-primary-400 mr-2" />
+                    <span className="text-gray-700 dark:text-gray-300">
+                      {language === 'en' ? `${roomTypes.length} Room Types` : `${roomTypes.length} ประเภทห้องพัก`}
+                    </span>
                   </div>
                 </div>
                 
                 {/* Hotel Amenities */}
                 {hotel.amenities && hotel.amenities.length > 0 && (
                   <div className="mt-6">
-                    <h3 className="text-xl font-semibold mb-4">สิ่งอำนวยความสะดวก</h3>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                      {language === 'en' ? 'Amenities' : 'สิ่งอำนวยความสะดวก'}
+                    </h3>
                     <div className="grid grid-cols-2 gap-2">
                       {hotel.amenities.map((amenity, index) => (
-                        <div key={index} className="flex items-center text-gray-600">
-                          <div className="w-2 h-2 bg-primary-600 rounded-full mr-3"></div>
+                        <div key={index} className="flex items-center text-gray-600 dark:text-gray-300">
+                          <div className="w-2 h-2 bg-primary-600 dark:bg-primary-400 rounded-full mr-3"></div>
                           {amenity}
                         </div>
                       ))}

@@ -98,19 +98,19 @@ a {
 }
 
 .card {
-  @apply bg-white rounded-lg shadow-lg overflow-hidden;
+  @apply bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700;
 }
 
 .btn-primary {
-  @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+  @apply bg-primary-600 hover:bg-primary-700 dark:bg-primary-700 dark:hover:bg-primary-800 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
 }
 
 .btn-secondary {
-  @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+  @apply bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
 }
 
 .input-field {
-  @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+  @apply w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent placeholder-gray-500 dark:placeholder-gray-400;
 }
 
 /* Modal animations */
@@ -202,9 +202,20 @@ a {
   transition: all 0.2s ease-in-out;
 }
 
+.dark .btn-outline-secondary {
+  color: #d1d5db;
+  background-color: #374151;
+  border-color: #6b7280;
+}
+
 .btn-outline-secondary:hover {
   background-color: #f9fafb;
   color: #111827;
+}
+
+.dark .btn-outline-secondary:hover {
+  background-color: #4b5563;
+  color: #f9fafb;
 }
 
 .btn-outline-secondary:focus {
@@ -223,9 +234,20 @@ a {
   transition: all 0.2s ease-in-out;
 }
 
+.dark .btn-outline-primary {
+  color: #60a5fa;
+  background-color: #374151;
+  border-color: #3b82f6;
+}
+
 .btn-outline-primary:hover {
   background-color: #eff6ff;
   color: #1d4ed8;
+}
+
+.dark .btn-outline-primary:hover {
+  background-color: #1e3a8a;
+  color: #bfdbfe;
 }
 
 .btn-outline-primary:focus {
@@ -244,9 +266,20 @@ a {
   transition: all 0.2s ease-in-out;
 }
 
+.dark .btn-outline-danger {
+  color: #f87171;
+  background-color: #374151;
+  border-color: #dc2626;
+}
+
 .btn-outline-danger:hover {
   background-color: #fef2f2;
   color: #7f1d1d;
+}
+
+.dark .btn-outline-danger:hover {
+  background-color: #7f1d1d;
+  color: #fecaca;
 }
 
 .btn-outline-danger:focus {

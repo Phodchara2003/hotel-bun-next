@@ -20,14 +20,30 @@ export const translations = {
     notifications: "แจ้งเตือน"
   },
 
+  // Permissions Management
+  permissions: {
+    title: "จัดการสิทธิ์ผู้ใช้",
+    description: "กำหนดสิทธิ์ในการใช้งานระบบให้กับผู้ใช้แต่ละคน",
+    userList: "รายชื่อผู้ใช้",
+    searchPlaceholder: "🔍 ค้นหาชื่อ, นามสกุล หรืออีเมล...",
+    showCount: "แสดง",
+    noUsers: "ไม่พบผู้ใช้ที่ตรงกับคำค้นหา",
+    manageFor: "จัดการสิทธิ์:",
+    saveChanges: "บันทึกการเปลี่ยนแปลง",
+    grantedAt: "ได้รับสิทธิ์:",
+    grantedBy: "โดย",
+    selectUser: "เลือกผู้ใช้เพื่อจัดการสิทธิ์",
+    selectUserDesc: "คลิกที่ชื่อผู้ใช้ทางซ้ายเพื่อเริ่มจัดการสิทธิ์"
+  },
+
   // Homepage
   hero: {
     title: "ค้นหาที่พักในฝันของคุณ",
-    subtitle: "จองห้องพักคุณภาพ ราคาดี บริการเยี่ยม",
-    search: "ค้นหาที่พัก",
-    checkIn: "วันเข้าพัก",
-    checkOut: "วันออก",
-    guests: "ผู้เข้าพัก",
+    subtitle: "โรงแรมหรูระดับ 5 ดาว ใจกลางกรุงเทพฯ พร้อมสิ่งอำนวยความสะดวกครบครัน",
+    search: "เลือกห้องพักที่ต้องการ",
+    checkIn: "วันที่เข้าพัก",
+    checkOut: "วันที่ออก",
+    guests: "จำนวนผู้เข้าพัก",
     searchButton: "ค้นหา",
     bookNow: "จองเลย",
     viewRooms: "ดูห้องพัก"
@@ -100,12 +116,14 @@ export const translations = {
     registerSuccess: "สมัครสมาชิกสำเร็จ!",
     logoutSuccess: "ออกจากระบบเรียบร้อย",
     loginError: "เข้าสู่ระบบไม่สำเร็จ",
-    registerError: "เกิดข้อผิดพลาดในการสมัครสมาชิก"
+    registerError: "เกิดข้อผิดพลาดในการสมัครสมาชิก",
+    loginRequired: "กรุณาเข้าสู่ระบบ"
   },
 
   // Common
   common: {
     loading: "กำลังโหลด...",
+    error: "ไม่สามารถโหลดข้อมูลได้",
     save: "บันทึก",
     cancel: "ยกเลิก",
     delete: "ลบ",
@@ -132,7 +150,8 @@ export const translations = {
     upload: "อัปโหลด",
     download: "ดาวน์โหลด",
     print: "พิมพ์",
-    refresh: "รีเฟรช"
+    refresh: "รีเฟรช",
+    saving: "กำลังบันทึก..."
   },
 
   // Bookings
