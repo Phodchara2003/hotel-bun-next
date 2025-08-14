@@ -322,11 +322,19 @@ export default function UsersManagement() {
                 <input
                   type="text"
                   name="search"
-                  placeholder="ค้นหาด้วยอีเมล หรือชื่อ..."
+                  placeholder="🔍 ค้นหาด้วยชื่อ, นามสกุล หรืออีเมล..."
                   value={filters.search}
                   onChange={handleFilterChange}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
+                {filters.search && (
+                  <button
+                    onClick={() => handleFilterChange({ target: { name: 'search', value: '' } })}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -342,6 +350,23 @@ export default function UsersManagement() {
               </select>
             </div>
           </div>
+          
+          {/* Search Results Info */}
+          {(filters.search || filters.role) && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                🔍 ผลการค้นหา: พบ <span className="font-semibold">{pagination.total}</span> รายการ
+                {filters.search && (
+                  <span> สำหรับ "<span className="font-semibold">{filters.search}</span>"</span>
+                )}
+                {filters.role && (
+                  <span> ในกลุ่ม "<span className="font-semibold">
+                    {filters.role === 'admin' ? 'ผู้ดูแลระบบ' : filters.role === 'user' ? 'ผู้ใช้งาน' : filters.role}
+                  </span>"</span>
+                )}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Users Table */}

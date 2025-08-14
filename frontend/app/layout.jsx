@@ -2,6 +2,8 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '../contexts/AuthContext'
 import { NotificationProvider } from '../contexts/NotificationContext'
+import { LanguageProvider } from '../contexts/LanguageContext'
+import { ThemeProvider } from '../contexts/ThemeContext'
 import Header from '../components/Header'
 import { Toaster } from 'react-hot-toast'
 
@@ -38,37 +40,43 @@ export default function RootLayout({ children }) {
             `,
           }}
         />
-        <AuthProvider>
-          <NotificationProvider>
-            <div className="min-h-screen bg-gray-50">
-              <Header />
-              <main>
-                {children}
-              </main>
-              <Toaster 
-                position="top-right"
-                toastOptions={{
-                  duration: 4000,
-                  style: {
-                    background: '#fff',
-                    color: '#333',
-                    fontSize: '14px',
-                  },
-                  success: {
-                    style: {
-                      border: '1px solid #10B981',
+        <ThemeProvider>
+          <LanguageProvider>
+            <AuthProvider>
+              <NotificationProvider>
+                <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+                  <Header />
+                  <main>
+                    {children}
+                  </main>
+                  <Toaster 
+                    position="top-right"
+                    toastOptions={{
+                      duration: 4000,
+                      className: '',
+                      style: {
+                        background: 'var(--toast-bg, #fff)',
+                        color: 'var(--toast-text, #333)',
+                        fontSize: '14px',
+                        border: '1px solid var(--toast-border, #e5e7eb)',
+                      },
+                      success: {
+                        style: {
+                          border: '1px solid #10B981',
+                        },
+                      },
+                      error: {
+                        style: {
+                          border: '1px solid #EF4444',
+                      },
                     },
-                  },
-                  error: {
-                    style: {
-                      border: '1px solid #EF4444',
-                  },
-                },
-              }}
-            />
-            </div>
-          </NotificationProvider>
-        </AuthProvider>
+                  }}
+                />
+                </div>
+              </NotificationProvider>
+            </AuthProvider>
+          </LanguageProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

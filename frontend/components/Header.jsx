@@ -5,10 +5,16 @@ import Link from 'next/link';
 import { Bell } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useTranslation } from '../translations';
+import LanguageSwitcher from './LanguageSwitcher';
+import ThemeSwitcher from './ThemeSwitcher';
 
 const Header = () => {
   const { user, logout, isAuthenticated, loading } = useAuth();
   const { unreadCount, hasUnread } = useNotifications();
+  const { language } = useLanguage();
+  const { t } = useTranslation(language);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
@@ -35,7 +41,7 @@ const Header = () => {
   }
 
   return (
-    <header className="bg-white shadow-lg sticky top-0 z-50">
+    <header className="bg-white dark:bg-gray-800 shadow-lg sticky top-0 z-50 border-b border-gray-200 dark:border-gray-700">
       <div className="max-w-7xl mx-auto container-padding">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
@@ -44,7 +50,7 @@ const Header = () => {
             className="flex items-center space-x-2"
           >
             <span className="text-2xl">🏨</span>
-            <span className="text-xl font-bold text-gray-900">
+            <span className="text-xl font-bold text-gray-900 dark:text-gray-100">
               {isAuthenticated && ['admin', 'staff'].includes(user?.role) ? 'HotelBook Admin' : 'HotelBook'}
             </span>
           </Link>
@@ -54,30 +60,30 @@ const Header = () => {
             {isAuthenticated && ['admin', 'staff'].includes(user?.role) ? (
               // Admin/Staff navigation
               <>
-                <Link href="/admin/dashboard" className="text-gray-700 hover:text-primary-600 transition-colors">
-                  🏠 แดชบอร์ด
+                <Link href="/admin/dashboard" className="text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                  🏠 {t('admin.dashboard')}
                 </Link>
                 
                 {/* Hotel Operations Dropdown */}
                 <div className="relative group">
-                  <button className="text-gray-700 hover:text-primary-600 transition-colors flex items-center">
-                    🏨 จัดการโรงแรม
+                  <button className="text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400 transition-colors flex items-center">
+                    🏨 {t('header.hotelManagement')}
                     <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
-                  <div className="absolute left-0 mt-2 w-56 bg-white rounded-lg shadow-lg border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                  <div className="absolute left-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                     <div className="py-2">
-                      <Link href="/admin/rooms" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
-                        🛏️ จัดการห้องพัก
+                      <Link href="/admin/rooms" className="block px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        🛏️ {t('header.roomsManagement')}
                       </Link>
-                      <Link href="/room-status" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                      <Link href="/room-status" className="block px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                         📊 สถานะห้อง
                       </Link>
-                      <Link href="/checkin-checkout" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
-                        🏨 Check-in & Check-out
+                      <Link href="/checkin-checkout" className="block px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        🏨 {t('header.checkinCheckout')}
                       </Link>
-                      <Link href="/housekeeping" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                      <Link href="/housekeeping" className="block px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                         🧹 Housekeeping
                       </Link>
                     </div>
@@ -86,8 +92,8 @@ const Header = () => {
 
                 {/* Management Dropdown */}
                 <div className="relative group">
-                  <button className="text-gray-700 hover:text-primary-600 transition-colors flex items-center">
-                    ⚙️ จัดการระบบ
+                  <button className="text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400 transition-colors flex items-center">
+                    ⚙️ {t('header.systemManagement')}
                     <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
@@ -95,18 +101,18 @@ const Header = () => {
                   <div className="absolute left-0 mt-2 w-56 bg-white rounded-lg shadow-lg border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                     <div className="py-2">
                       <Link href="/admin/users" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
-                        👥 จัดการสมาชิก
+                        👥 {t('header.userManagement')}
                       </Link>
                       <Link href="/admin/reports" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
-                        📈 รายงาน
+                        📈 {t('header.reports')}
                       </Link>
                       {user?.role === 'admin' && (
                         <>
                           <Link href="/admin/permissions" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
-                            🔐 จัดการสิทธิ์
+                            🔐 {t('header.permissions')}
                           </Link>
                           <Link href="/admin/payment-settings" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
-                            💳 ตั้งค่าการชำระเงิน
+                            💳 {t('header.paymentSettings')}
                           </Link>
                         </>
                       )}
@@ -118,10 +124,10 @@ const Header = () => {
               // Regular user navigation
               <>
                 <Link href="/" className="text-gray-700 hover:text-primary-600 transition-colors">
-                  หน้าหลัก
+                  {t('header.home')}
                 </Link>
                 <Link href="/#rooms" className="text-gray-700 hover:text-primary-600 transition-colors">
-                  ห้องพัก
+                  {t('header.rooms')}
                 </Link>
                 <Link href="/reviews/1" className="text-gray-700 hover:text-primary-600 transition-colors">
                   รีวิว
@@ -129,12 +135,12 @@ const Header = () => {
                 {isAuthenticated && (
                   <>
                     <Link href="/bookings" className="text-gray-700 hover:text-primary-600 transition-colors">
-                      การจองของฉัน
+                      {t('header.bookings')}
                     </Link>
                     <Link href="/notifications" className="text-gray-700 hover:text-primary-600 transition-colors relative">
                       <div className="flex items-center space-x-1">
                         <Bell className="h-5 w-5" />
-                        <span>การแจ้งเตือน</span>
+                        <span>{t('header.notifications')}</span>
                         {hasUnread && (
                           <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                             {unreadCount > 99 ? '99+' : unreadCount}
@@ -149,7 +155,15 @@ const Header = () => {
           </nav>
 
           {/* Desktop Auth */}
-          <div className="hidden md:flex items-center space-x-4">
+          <div className="hidden md:flex items-center space-x-3">
+            {/* Theme Switcher */}
+            <ThemeSwitcher showLabel={false} size="small" />
+            
+            {/* Language Switcher with current language indicator */}
+            <div className="flex items-center">
+              <LanguageSwitcher showLabel={false} size="small" />
+            </div>
+            
             {isAuthenticated ? (
               <div className="relative group">
                 <button className="flex items-center space-x-2 text-gray-700 hover:text-primary-600 transition-colors">
@@ -165,35 +179,35 @@ const Header = () => {
                       <>
                         <Link href="/admin/dashboard" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
                           <span className="text-sm mr-2">⚙️</span>
-                          แดชบอร์ด
+                          {t('admin.dashboard')}
                         </Link>
                         <Link href="/admin/rooms" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
                           <span className="text-sm mr-2">🏨</span>
-                          จัดการห้องพัก
+                          {t('header.roomsManagement')}
                         </Link>
                         <Link href="/admin/users" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
                           <span className="text-sm mr-2">👥</span>
-                          จัดการสมาชิก
+                          {t('header.userManagement')}
                         </Link>
                         <Link href="/admin/reports" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
                           <span className="text-sm mr-2">📊</span>
-                          รายงาน
+                          {t('header.reports')}
                         </Link>
                         {user?.role === 'admin' && (
                           <>
                             <Link href="/admin/permissions" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
                               <span className="text-sm mr-2">🔐</span>
-                              จัดการสิทธิ์
+                              {t('header.permissions')}
                             </Link>
                             <Link href="/admin/payment-settings" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
                               <span className="text-sm mr-2">💳</span>
-                              ตั้งค่าการชำระเงิน
+                              {t('header.paymentSettings')}
                             </Link>
                           </>
                         )}
                         <Link href="/profile" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100 border-t border-gray-100">
                           <span className="text-sm mr-2">⚙️</span>
-                          โปรไฟล์
+                          {t('header.profile')}
                         </Link>
                       </>
                     ) : (
@@ -201,15 +215,15 @@ const Header = () => {
                       <>
                         <Link href="/profile" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
                           <span className="text-sm mr-2">⚙️</span>
-                          โปรไฟล์
+                          {t('header.profile')}
                         </Link>
                         <Link href="/bookings" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
                           <span className="text-sm mr-2">📅</span>
-                          การจองของฉัน
+                          {t('header.bookings')}
                         </Link>
                         <Link href="/notifications" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
                           <span className="text-sm mr-2">🔔</span>
-                          การแจ้งเตือน
+                          {t('header.notifications')}
                         </Link>
                       </>
                     )}
@@ -218,7 +232,7 @@ const Header = () => {
                       className="flex items-center w-full px-4 py-2 text-gray-700 hover:bg-gray-100 border-t border-gray-100"
                     >
                       <span className="text-sm mr-2">🚪</span>
-                      ออกจากระบบ
+                      {t('header.logout')}
                     </button>
                   </div>
                 </div>
@@ -229,13 +243,13 @@ const Header = () => {
                   href="/login" 
                   className="text-gray-700 hover:text-primary-600 transition-colors"
                 >
-                  เข้าสู่ระบบ
+                  {t('header.login')}
                 </Link>
                 <Link 
                   href="/register" 
                   className="btn-primary"
                 >
-                  สมัครสมาชิก
+                  {t('header.register')}
                 </Link>
               </div>
             )}
@@ -262,28 +276,28 @@ const Header = () => {
                     className="block text-gray-700 hover:text-primary-600"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    แดชบอร์ด
+                    {t('admin.dashboard')}
                   </Link>
                   <Link 
                     href="/admin/rooms" 
                     className="block text-gray-700 hover:text-primary-600"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    จัดการห้องพัก
+                    {t('header.roomsManagement')}
                   </Link>
                   <Link 
                     href="/admin/users" 
                     className="block text-gray-700 hover:text-primary-600"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    จัดการสมาชิก
+                    {t('header.userManagement')}
                   </Link>
                   <Link 
                     href="/admin/reports" 
                     className="block text-gray-700 hover:text-primary-600"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    รายงาน
+                    {t('header.reports')}
                   </Link>
                   {user?.role === 'admin' && (
                     <Link 
@@ -291,7 +305,7 @@ const Header = () => {
                       className="block text-gray-700 hover:text-primary-600"
                       onClick={() => setIsMenuOpen(false)}
                     >
-                      ตั้งค่าการชำระเงิน
+                      {t('header.paymentSettings')}
                     </Link>
                   )}
                   <Link 
@@ -299,7 +313,7 @@ const Header = () => {
                     className="block text-gray-700 hover:text-primary-600 border-t border-gray-200 pt-4"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    โปรไฟล์
+                    {t('header.profile')}
                   </Link>
                   <button 
                     onClick={() => {
@@ -308,7 +322,7 @@ const Header = () => {
                     }}
                     className="block w-full text-left text-gray-700 hover:text-primary-600"
                   >
-                    ออกจากระบบ
+                    {t('header.logout')}
                   </button>
                 </>
               ) : (
@@ -319,14 +333,14 @@ const Header = () => {
                     className="block text-gray-700 hover:text-primary-600"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    หน้าหลัก
+                    {t('header.home')}
                   </Link>
                   <Link 
                     href="/#rooms" 
                     className="block text-gray-700 hover:text-primary-600"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    ห้องพัก
+                    {t('header.rooms')}
                   </Link>
                   <Link 
                     href="/reviews/1" 
@@ -343,7 +357,7 @@ const Header = () => {
                         className="block text-gray-700 hover:text-primary-600"
                         onClick={() => setIsMenuOpen(false)}
                       >
-                        การจองของฉัน
+                        {t('header.bookings')}
                       </Link>
                       <Link 
                         href="/notifications" 
@@ -352,7 +366,7 @@ const Header = () => {
                       >
                         <div className="flex items-center space-x-2">
                           <Bell className="h-5 w-5" />
-                          <span>การแจ้งเตือน</span>
+                          <span>{t('header.notifications')}</span>
                           {hasUnread && (
                             <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                               {unreadCount > 99 ? '99+' : unreadCount}
@@ -365,7 +379,7 @@ const Header = () => {
                         className="block text-gray-700 hover:text-primary-600"
                         onClick={() => setIsMenuOpen(false)}
                       >
-                        โปรไฟล์
+                        {t('header.profile')}
                       </Link>
                       <button 
                         onClick={() => {
@@ -374,7 +388,7 @@ const Header = () => {
                         }}
                         className="block w-full text-left text-gray-700 hover:text-primary-600 border-t border-gray-200 pt-4"
                       >
-                        ออกจากระบบ
+                        {t('header.logout')}
                       </button>
                     </>
                   ) : (
@@ -384,17 +398,29 @@ const Header = () => {
                         className="block text-gray-700 hover:text-primary-600"
                         onClick={() => setIsMenuOpen(false)}
                       >
-                        เข้าสู่ระบบ
+                        {t('header.login')}
                       </Link>
                       <Link 
                         href="/register" 
                         className="block btn-primary text-center"
                         onClick={() => setIsMenuOpen(false)}
                       >
-                        สมัครสมาชิก
+                        {t('header.register')}
                       </Link>
                     </>
                   )}
+                  
+                  {/* Mobile Language and Theme Switchers */}
+                  <div className="border-t border-gray-200 pt-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-700">{t('theme.changeTheme')}:</span>
+                      <ThemeSwitcher showLabel={true} size="default" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-700">{t('language.changeLanguage')}:</span>
+                      <LanguageSwitcher showLabel={true} size="default" />
+                    </div>
+                  </div>
                 </>
               )}
             </div>

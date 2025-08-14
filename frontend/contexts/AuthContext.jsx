@@ -4,6 +4,8 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import Cookies from 'js-cookie';
 import { authAPI } from '../lib/api';
 import toast from 'react-hot-toast';
+import { useLanguage } from './LanguageContext';
+import { useTranslation } from '../translations';
 
 const AuthContext = createContext({});
 

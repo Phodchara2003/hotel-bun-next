@@ -19,6 +19,8 @@ const PERMISSION_CATEGORIES = {
 export default function UserPermissionsPage() {
   const { user } = useAuth();
   const [users, setUsers] = useState([]);
+  const [filteredUsers, setFilteredUsers] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [permissions, setPermissions] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [userPermissions, setUserPermissions] = useState([]);
@@ -31,6 +33,7 @@ export default function UserPermissionsPage() {
     try {
       const response = await permissionsAPI.getUsersWithPermissions();
       setUsers(response.users);
+      setFilteredUsers(response.users);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('เกิดข้อผิดพลาดในการดึงข้อมูลผู้ใช้');
@@ -64,6 +67,22 @@ export default function UserPermissionsPage() {
     } catch (error) {
       console.error('Error fetching user permissions:', error);
       toast.error('เกิดข้อผิดพลาดในการดึงข้อมูลสิทธิ์ผู้ใช้');
+    }
+  };
+
+  // ฟังก์ชันค้นหา User
+  const handleSearchUsers = (term) => {
+    setSearchTerm(term);
+    if (!term.trim()) {
+      setFilteredUsers(users);
+    } else {
+      const filtered = users.filter(user => 
+        user.first_name?.toLowerCase().includes(term.toLowerCase()) ||
+        user.last_name?.toLowerCase().includes(term.toLowerCase()) ||
+        user.email?.toLowerCase().includes(term.toLowerCase()) ||
+        `${user.first_name} ${user.last_name}`.toLowerCase().includes(term.toLowerCase())
+      );
+      setFilteredUsers(filtered);
     }
   };
 
@@ -129,42 +148,71 @@ export default function UserPermissionsPage() {
         <div className="lg:col-span-1">
           <div className="bg-white rounded-lg shadow border">
             <div className="p-4 border-b">
-              <h2 className="text-lg font-semibold text-gray-900">รายชื่อผู้ใช้</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">รายชื่อผู้ใช้</h2>
+              {/* Search Box */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="🔍 ค้นหาชื่อ, นามสกุล หรืออีเมล..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearchUsers(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => handleSearchUsers('')}
+                    className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
+                  >
+                    ✖️
+                  </button>
+                )}
+              </div>
+              <p className="text-sm text-gray-500 mt-2">
+                แสดง {filteredUsers.length} จาก {users.length} ผู้ใช้
+              </p>
             </div>
             <div className="max-h-96 overflow-y-auto">
-              {users.map((userItem) => (
-                <div
-                  key={userItem.id}
-                  onClick={() => setSelectedUser(userItem)}
-                  className={`p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors ${
-                    selectedUser?.id === userItem.id ? 'bg-blue-50 border-blue-200' : ''
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-gray-900">
-                        {userItem.first_name} {userItem.last_name}
-                      </p>
-                      <p className="text-sm text-gray-600">{userItem.email}</p>
-                      <div className="flex items-center mt-1">
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          userItem.role === 'super_admin' ? 'bg-red-100 text-red-800' :
-                          userItem.role === 'admin' ? 'bg-purple-100 text-purple-800' :
-                          userItem.role === 'staff' ? 'bg-blue-100 text-blue-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {userItem.role === 'super_admin' ? 'Super Admin' :
-                           userItem.role === 'admin' ? 'Admin' :
-                           userItem.role === 'staff' ? 'Staff' : 'User'}
-                        </span>
+              {filteredUsers.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  <div className="text-4xl mb-2">🔍</div>
+                  <p>ไม่พบผู้ใช้ที่ตรงกับคำค้นหา</p>
+                  <p className="text-sm mt-1">"{searchTerm}"</p>
+                </div>
+              ) : (
+                filteredUsers.map((userItem) => (
+                  <div
+                    key={userItem.id}
+                    onClick={() => setSelectedUser(userItem)}
+                    className={`p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors ${
+                      selectedUser?.id === userItem.id ? 'bg-blue-50 border-blue-200' : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {userItem.first_name} {userItem.last_name}
+                        </p>
+                        <p className="text-sm text-gray-600">{userItem.email}</p>
+                        <div className="flex items-center mt-1">
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            userItem.role === 'super_admin' ? 'bg-red-100 text-red-800' :
+                            userItem.role === 'admin' ? 'bg-purple-100 text-purple-800' :
+                            userItem.role === 'staff' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {userItem.role === 'super_admin' ? 'Super Admin' :
+                             userItem.role === 'admin' ? 'Admin' :
+                             userItem.role === 'staff' ? 'Staff' : 'User'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-gray-500">{userItem.permission_count} สิทธิ์</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-500">{userItem.permission_count} สิทธิ์</p>
-                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>

@@ -4,10 +4,14 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Users, Maximize, Bed, Wifi, Car, Coffee, Bath, Camera } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useTranslation } from '../translations';
 import ImageCarousel from './ImageCarousel';
 
 const RoomCard = ({ roomType, hotelId }) => {
   const [showCarousel, setShowCarousel] = useState(false);
+  const { language } = useLanguage();
+  const { t } = useTranslation();
 
   const getAmenityIcon = (amenity) => {
     const amenityLower = amenity.toLowerCase();
@@ -38,7 +42,7 @@ const RoomCard = ({ roomType, hotelId }) => {
 
   return (
     <>
-      <div className="card hover:shadow-xl transition-shadow duration-300">
+      <div className="card hover:shadow-xl transition-shadow duration-300 dark:bg-gray-800 dark:border-gray-700">
         {/* Room Image */}
         <div className="relative h-48 sm:h-56 group">
           <Image
@@ -61,11 +65,13 @@ const RoomCard = ({ roomType, hotelId }) => {
           )}
           
           {/* Price Badge */}
-          <div className="absolute top-4 right-4 bg-white rounded-lg px-3 py-2 shadow-md">
-            <div className="text-lg font-bold text-primary-600">
+          <div className="absolute top-4 right-4 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 shadow-md dark:shadow-gray-900/20">
+            <div className="text-lg font-bold text-primary-600 dark:text-primary-400">
               ฿{roomType.pricePerNight?.toLocaleString()}
             </div>
-            <div className="text-xs text-gray-500">ต่อคืน</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              {language === 'en' ? 'per night' : 'ต่อคืน'}
+            </div>
           </div>
 
           {/* View More Images Overlay */}
@@ -75,7 +81,7 @@ const RoomCard = ({ roomType, hotelId }) => {
               onClick={() => setShowCarousel(true)}
             >
               <div className="opacity-0 group-hover:opacity-100 transition-opacity text-white text-sm font-medium bg-black bg-opacity-50 px-4 py-2 rounded-lg">
-                ดูรูปทั้งหมด {allImages.length} รูป
+                {language === 'en' ? `View all ${allImages.length} images` : `ดูรูปทั้งหมด ${allImages.length} รูป`}
               </div>
             </div>
           )}
@@ -85,47 +91,49 @@ const RoomCard = ({ roomType, hotelId }) => {
       <div className="p-6">
         {/* Room Name & Details */}
         <div className="mb-4">
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
             {roomType.name}
           </h3>
           
           {/* Room Specs */}
-          <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
+          <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 mb-3">
             <div className="flex items-center">
               <Users className="h-4 w-4 mr-1" />
-              <span>{roomType.maxGuests} ผู้เข้าพัก</span>
+              <span>{roomType.maxGuests} {language === 'en' ? 'guests' : 'ผู้เข้าพัก'}</span>
             </div>
             {roomType.sizeSqm && (
               <div className="flex items-center">
                 <Maximize className="h-4 w-4 mr-1" />
-                <span>{roomType.sizeSqm} ตรม.</span>
+                <span>{roomType.sizeSqm} {language === 'en' ? 'sqm' : 'ตรม.'}</span>
               </div>
             )}
           </div>
         </div>
 
         {/* Description */}
-        <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+        <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 line-clamp-2">
           {roomType.description}
         </p>
 
         {/* Amenities */}
         {roomType.amenities && roomType.amenities.length > 0 && (
           <div className="mb-6">
-            <h4 className="text-sm font-medium text-gray-900 mb-2">สิ่งอำนวยความสะดวก</h4>
+            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+              {language === 'en' ? 'Amenities' : 'สิ่งอำนวยความสะดวก'}
+            </h4>
             <div className="flex flex-wrap gap-2">
               {roomType.amenities.slice(0, 4).map((amenity, index) => (
                 <div 
                   key={index}
-                  className="flex items-center bg-gray-100 rounded-full px-2 py-1 text-xs text-gray-700"
+                  className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-full px-2 py-1 text-xs text-gray-700 dark:text-gray-300"
                 >
                   {getAmenityIcon(amenity)}
                   <span className="ml-1">{amenity}</span>
                 </div>
               ))}
               {roomType.amenities.length > 4 && (
-                <div className="flex items-center bg-gray-100 rounded-full px-2 py-1 text-xs text-gray-700">
-                  +{roomType.amenities.length - 4} อื่นๆ
+                <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-full px-2 py-1 text-xs text-gray-700 dark:text-gray-300">
+                  +{roomType.amenities.length - 4} {language === 'en' ? 'more' : 'อื่นๆ'}
                 </div>
               )}
             </div>
@@ -133,19 +141,21 @@ const RoomCard = ({ roomType, hotelId }) => {
         )}
 
         {/* Price & Action */}
-        <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+        <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
           <div>
-            <div className="text-2xl font-bold text-primary-600">
+            <div className="text-2xl font-bold text-primary-600 dark:text-primary-400">
               ฿{roomType.pricePerNight?.toLocaleString()}
             </div>
-            <div className="text-sm text-gray-500">ต่อคืน (รวมภาษี)</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              {language === 'en' ? 'per night (incl. tax)' : 'ต่อคืน (รวมภาษี)'}
+            </div>
           </div>
           
           <Link 
             href={`/rooms/${roomType.id}/book?hotelId=${hotelId}`}
             className="btn-primary"
           >
-            จองเลย
+            {language === 'en' ? 'Book Now' : 'จองเลย'}
           </Link>
         </div>
 
@@ -154,9 +164,12 @@ const RoomCard = ({ roomType, hotelId }) => {
           <div className="mt-3 text-center">
             <button 
               onClick={() => setShowCarousel(true)}
-              className="text-sm text-primary-600 hover:text-primary-700 transition-colors"
+              className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
             >
-              ดูรูปภาพทั้งหมด ({allImages.length} รูป)
+              {language === 'en' 
+                ? `View all images (${allImages.length} photos)` 
+                : `ดูรูปภาพทั้งหมด (${allImages.length} รูป)`
+              }
             </button>
           </div>
         )}

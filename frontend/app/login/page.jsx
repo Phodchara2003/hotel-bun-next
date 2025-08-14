@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslation } from '../../translations';
 import { Eye, EyeOff, Mail, Lock, Hotel } from 'lucide-react';
 import ForgotPassword from '../../components/ForgotPassword';
 
@@ -11,6 +13,8 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login } = useAuth();
+  const { language } = useLanguage();
+  const { t } = useTranslation(language);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -75,10 +79,13 @@ export default function LoginPage() {
             <Hotel className="h-12 w-12 text-primary-600" />
           </div>
           <h2 className="text-3xl font-bold text-gray-900">
-            เข้าสู่ระบบ
+            {t('auth.loginTitle')}
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            เข้าสู่ระบบเพื่อจองโรงแรมและจัดการการจองของคุณ
+            {language === 'en' 
+              ? 'Sign in to book hotels and manage your reservations'
+              : 'เข้าสู่ระบบเพื่อจองโรงแรมและจัดการการจองของคุณ'
+            }
           </p>
         </div>
 
@@ -88,7 +95,7 @@ export default function LoginPage() {
             {/* Email Field */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                อีเมล
+                {t('auth.email')}
               </label>
               <div className="relative">
                 <input
@@ -109,7 +116,7 @@ export default function LoginPage() {
             {/* Password Field */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                รหัสผ่าน
+                {t('auth.password')}
               </label>
               <div className="relative">
                 <input
@@ -143,7 +150,7 @@ export default function LoginPage() {
               {loading ? (
                 <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               ) : (
-                'เข้าสู่ระบบ'
+                t('auth.loginButton')
               )}
             </button>
 
@@ -154,7 +161,7 @@ export default function LoginPage() {
                 onClick={() => setShowForgotPassword(true)}
                 className="text-sm text-primary-600 hover:text-primary-500 font-medium"
               >
-                ลืมรหัสผ่าน?
+                {t('auth.forgotPassword')}
               </button>
             </div>
           </form>
@@ -162,9 +169,9 @@ export default function LoginPage() {
           {/* Footer Links */}
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
-              ยังไม่มีบัญชี?{' '}
+              {t('auth.noAccount')}{' '}
               <Link href="/register" className="text-primary-600 hover:text-primary-500 font-medium">
-                สมัครสมาชิก
+                {t('auth.clickHere')}
               </Link>
             </p>
           </div>

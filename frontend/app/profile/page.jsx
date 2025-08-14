@@ -5,11 +5,17 @@ import { User, Settings, Mail, Shield, Key, Bell, Save, Edit, X } from 'lucide-r
 import EmailSettings from '../../components/EmailSettings';
 import ChangeEmailModal from '../../components/ChangeEmailModal';
 import ChangePasswordModal from '../../components/ChangePasswordModal';
+import LanguageSwitcher from '../../components/LanguageSwitcher';
+import ThemeSwitcher from '../../components/ThemeSwitcher';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslation } from '../../translations';
 import toast from 'react-hot-toast';
 
 export default function ProfilePage() {
   const { user, updateUser, loading: authLoading } = useAuth();
+  const { language } = useLanguage();
+  const { t } = useTranslation(language);
   const [showEmailSettings, setShowEmailSettings] = useState(false);
   const [showChangeEmail, setShowChangeEmail] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -158,8 +164,13 @@ export default function ProfilePage() {
         
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">โปรไฟล์</h1>
-          <p className="text-gray-600">จัดการข้อมูลส่วนตัวและการตั้งค่าบัญชีของคุณ</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('profile.title')}</h1>
+          <p className="text-gray-600">
+            {language === 'en' 
+              ? 'Manage your personal information and account settings'
+              : 'จัดการข้อมูลส่วนตัวและการตั้งค่าบัญชีของคุณ'
+            }
+          </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -170,7 +181,7 @@ export default function ProfilePage() {
               <div className="p-6 border-b border-gray-200">
                 <h2 className="text-xl font-semibold text-gray-900 flex items-center">
                   <User className="w-5 h-5 mr-2 text-primary-600" />
-                  ข้อมูลส่วนตัว
+                  {t('profile.personalInfo')}
                 </h2>
               </div>
               
@@ -195,7 +206,10 @@ export default function ProfilePage() {
                         ? 'bg-purple-100 text-purple-800' 
                         : 'bg-blue-100 text-blue-800'
                     }`}>
-                      {user?.role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้ทั่วไป'}
+                      {user?.role === 'admin' 
+                        ? (language === 'en' ? 'Administrator' : 'ผู้ดูแลระบบ')
+                        : (language === 'en' ? 'User' : 'ผู้ใช้ทั่วไป')
+                      }
                     </span>
                   </div>
                   
@@ -207,7 +221,7 @@ export default function ProfilePage() {
                         className="btn-secondary flex items-center space-x-2"
                       >
                         <Edit className="w-4 h-4" />
-                        <span>แก้ไข</span>
+                        <span>{t('common.edit')}</span>
                       </button>
                     ) : (
                       <div className="flex space-x-2">
@@ -239,7 +253,7 @@ export default function ProfilePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      ชื่อ *
+                      {t('auth.firstName')} *
                     </label>
                     <input
                       type="text"
@@ -248,12 +262,12 @@ export default function ProfilePage() {
                       onChange={handleInputChange}
                       disabled={!isEditing}
                       className={`input-field ${!isEditing ? 'bg-gray-50' : ''}`}
-                      placeholder="กรอกชื่อ"
+                      placeholder={language === 'en' ? 'Enter first name' : 'กรอกชื่อ'}
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      นามสกุล *
+                      {t('auth.lastName')} *
                     </label>
                     <input
                       type="text"
@@ -262,12 +276,12 @@ export default function ProfilePage() {
                       onChange={handleInputChange}
                       disabled={!isEditing}
                       className={`input-field ${!isEditing ? 'bg-gray-50' : ''}`}
-                      placeholder="กรอกนามสกุล"
+                      placeholder={language === 'en' ? 'Enter last name' : 'กรอกนามสกุล'}
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      เบอร์โทรศัพท์
+                      {t('auth.phone')}
                     </label>
                     <input
                       type="tel"
@@ -339,7 +353,7 @@ export default function ProfilePage() {
                   className="w-full btn-outline-primary"
                 >
                   <Settings className="w-4 h-4 mr-2" />
-                  ตั้งค่าอีเมล
+                  {t('profile.emailSettings')}
                 </button>
               </div>
             </div>
@@ -364,6 +378,44 @@ export default function ProfilePage() {
                     <span className="text-gray-600">เข้าสู่ระบบล่าสุด</span>
                     <span className="text-gray-600">วันนี้</span>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Theme Settings Card */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+                  🎨
+                  <span className="ml-2">{t('theme.changeTheme')}</span>
+                </h3>
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                    {language === 'en' 
+                      ? 'Choose your preferred theme appearance'
+                      : 'เลือกธีมที่ต้องการใช้งาน'
+                    }
+                  </p>
+                  <ThemeSwitcher showLabel={true} size="default" />
+                </div>
+              </div>
+            </div>
+
+            {/* Language Settings Card */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  🌐
+                  <span className="ml-2">{t('language.changeLanguage')}</span>
+                </h3>
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-600 mb-3">
+                    {language === 'en' 
+                      ? 'Choose your preferred language for the interface'
+                      : 'เลือกภาษาที่ต้องการใช้งานในระบบ'
+                    }
+                  </p>
+                  <LanguageSwitcher showLabel={true} size="default" />
                 </div>
               </div>
             </div>
