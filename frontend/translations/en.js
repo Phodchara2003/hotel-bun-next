@@ -2,7 +2,7 @@ export const translations = {
   // Navigation & Header
   header: {
     home: "Home",
-    rooms: "Rooms",
+    rooms: "Rooms", 
     bookings: "My Bookings",
     profile: "Profile",
     login: "Login",
@@ -15,111 +15,16 @@ export const translations = {
     checkinCheckout: "Check-in/Check-out",
     reports: "Reports",
     userManagement: "User Management",
-    permissions: "Permission Management",
+    permissions: "Permissions Management",
     paymentSettings: "Payment Settings",
     notifications: "Notifications"
   },
 
-  // Permissions Management
-  permissions: {
-    title: "User Permission Management",
-    description: "Assign system access permissions to individual users",
-    userList: "User List",
-    searchPlaceholder: "🔍 Search by name, surname or email...",
-    showCount: "Showing",
-    noUsers: "No users found matching search criteria",
-    manageFor: "Manage Permissions for:",
-    saveChanges: "Save Changes",
-    grantedAt: "Granted on:",
-    grantedBy: "by",
-    selectUser: "Select User to Manage Permissions",
-    selectUserDesc: "Click on a user name on the left to start managing permissions"
-  },
-
-  // Homepage
-  hero: {
-    title: "Find Your Dream Accommodation",
-    subtitle: "Luxury 5-star hotel in the heart of Bangkok with complete amenities",
-    search: "Choose Your Desired Room",
-    checkIn: "Check-in Date",
-    checkOut: "Check-out Date",
-    guests: "Number of Guests",
-    searchButton: "Search",
-    bookNow: "Book Now",
-    viewRooms: "View Rooms"
-  },
-
-  quickActions: {
-    title: "Quick Actions",
-    viewBookings: "View My Bookings",
-    findRooms: "Find Rooms",
-    specialOffers: "Special Offers"
-  },
-
-  rooms: {
-    title: "Popular Rooms",
-    subtitle: "Choose the right room for you",
-    viewAll: "View All",
-    pricePerNight: "per night",
-    guests: "guests",
-    sqm: "sqm",
-    amenities: "Amenities",
-    bookNow: "Book Now",
-    viewImages: "View all images",
-    photos: "photos",
-    more: "more",
-    noRooms: "No rooms found",
-    tryAgain: "Please try again later"
-  },
-
-  features: {
-    title: "Why Choose Us?",
-    subtitle: "We provide the best service with convenience and security",
-    quality: {
-      title: "Quality Rooms",
-      description: "Carefully selected rooms with complete amenities"
-    },
-    secure: {
-      title: "Easy & Secure Booking",
-      description: "Secure booking system with multiple payment options"
-    },
-    cancellation: {
-      title: "Free Cancellation",
-      description: "Free cancellation up to 24 hours before check-in"
-    }
-  },
-
-  cta: {
-    title: "Ready to Book Your Room?",
-    subtitle: "Sign up today and get special discounts for your first booking",
-    signUp: "Sign Up Free",
-    viewRooms: "View All Rooms"
-  },
-
   // Authentication
-  auth: {
-    login: "Login",
-    register: "Register",
-    logout: "Logout",
-    email: "Email",
-    password: "Password",
-    confirmPassword: "Confirm Password",
-    name: "Name",
-    phone: "Phone",
-    forgotPassword: "Forgot Password?",
-    rememberMe: "Remember Me",
-    signIn: "Sign In",
-    signUp: "Sign Up",
-    createAccount: "Create Account",
-    alreadyHaveAccount: "Already have an account?",
-    dontHaveAccount: "Don't have an account?",
-    resetPassword: "Reset Password",
-    backToLogin: "Back to Login",
-    loginRequired: "Please Login"
-  },  // Authentication
   auth: {
     loginTitle: "Login",
     registerTitle: "Register", 
+    registerSubtitle: "Create a new account to start booking hotels with us",
     email: "Email",
     password: "Password",
     confirmPassword: "Confirm Password",
@@ -142,7 +47,6 @@ export const translations = {
   // Common
   common: {
     loading: "Loading...",
-    error: "Failed to load data",
     save: "Save",
     cancel: "Cancel",
     delete: "Delete",
@@ -170,7 +74,37 @@ export const translations = {
     download: "Download",
     print: "Print",
     refresh: "Refresh",
-    saving: "Saving..."
+    saving: "Saving...",
+    tryAgain: "Try Again",
+    hotel: "Hotel"
+  },
+
+  // Hotel Information
+  hotel: {
+    about: "About Hotel",
+    rating: "Review Rating",
+    roomTypes: "Room Types",
+    amenities: "Amenities"
+  },
+
+  // Features Section
+  features: {
+    title: "Why Choose Us?",
+    subtitle: "We provide the best service with convenience and security",
+    quality: "Quality Rooms",
+    qualityDesc: "Carefully selected rooms with complete amenities",
+    secure: "Easy & Secure Booking",
+    secureDesc: "Secure booking system supporting multiple payment channels",
+    flexible: "Free Cancellation",
+    flexibleDesc: "Free cancellation up to 24 hours before check-in"
+  },
+
+  // Call to Action
+  cta: {
+    title: "Ready to Book Your Room?",
+    subtitle: "Sign up today and get special discounts for your first booking",
+    register: "Sign Up Free",
+    viewRooms: "View All Rooms"
   },
 
   // Bookings
@@ -209,7 +143,9 @@ export const translations = {
     bookNow: "Book Now",
     selectRoom: "Select Room",
     roomDetails: "Room Details",
-    checkAvailability: "Check Availability"
+    checkAvailability: "Check Availability",
+    noRooms: "No rooms found",
+    tryAgain: "Please try again later"
   },
 
   // Profile
@@ -299,17 +235,37 @@ export const translations = {
   language: {
     thai: "ไทย",
     english: "English",
-    changeLanguage: "Change Language",
-    current: "Current"
+    changeLanguage: "Change Language"
   },
 
-  // Theme
-  theme: {
-    light: "Light Mode",
-    dark: "Dark Mode",
-    changeTheme: "Change Theme",
-    lightDescription: "Light theme",
-    darkDescription: "Dark theme"
+  // Admin
+  admin: {
+    dashboard: "Dashboard",
+    manager: "Manager",
+    staff: "Staff",
+    manageDescription: "Manage bookings and view hotel statistics",
+    viewDescription: "View booking data and hotel statistics",
+    viewOnlyMode: "View Only Mode",
+    totalBookings: "Total Bookings",
+    pendingBookings: "Pending",
+    confirmedBookings: "Confirmed",
+    completedBookings: "Completed",
+    cancelledBookings: "Cancelled",
+    totalRevenue: "Total Revenue",
+    manageBookings: "Manage Bookings",
+    manageRooms: "Manage Rooms",
+    manageUsers: "Manage Users",
+    reports: "Reports",
+    settings: "Settings",
+    bookingDetails: "Booking Details",
+    guestInformation: "Guest Information",
+    roomInformation: "Room Information",
+    paymentInformation: "Payment Information",
+    bookingStatus: "Booking Status",
+    confirmBooking: "Confirm Booking",
+    cancelBooking: "Cancel Booking",
+    deleteBooking: "Delete Booking",
+    viewReceipt: "View Receipt"
   },
 
   // Footer
@@ -319,5 +275,37 @@ export const translations = {
     privacyPolicy: "Privacy Policy",
     termsOfService: "Terms of Service",
     contactUs: "Contact Us"
+  },
+
+  // Reviews
+  reviews: {
+    title: "Hotel Reviews",
+    writeReview: "Write Review",
+    sortBy: "Sort by",
+    newest: "Newest",
+    oldest: "Oldest",
+    highest: "Highest Rating",
+    lowest: "Lowest Rating",
+    filterByRating: "Filter by Rating",
+    allRatings: "All Ratings",
+    fiveStars: "5 Stars",
+    fourStars: "4 Stars",
+    threeStars: "3 Stars",
+    twoStars: "2 Stars",
+    oneStar: "1 Star",
+    rating: "Rating",
+    comment: "Comment",
+    photos: "Photos",
+    reviewPhoto: "Review Photo",
+    loadingReviews: "Loading reviews...",
+    errorLoadingReviews: "Unable to load reviews",
+    noReviews: "No reviews yet",
+    averageRating: "Average Rating",
+    totalReviews: "Total Reviews",
+    writeFirstReview: "Write the first review",
+    yourReview: "Your Review",
+    submitReview: "Submit Review",
+    reviewSubmitted: "Review submitted successfully",
+    thankYou: "Thank you for your review"
   }
 };

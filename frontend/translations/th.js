@@ -20,86 +20,11 @@ export const translations = {
     notifications: "แจ้งเตือน"
   },
 
-  // Permissions Management
-  permissions: {
-    title: "จัดการสิทธิ์ผู้ใช้",
-    description: "กำหนดสิทธิ์ในการใช้งานระบบให้กับผู้ใช้แต่ละคน",
-    userList: "รายชื่อผู้ใช้",
-    searchPlaceholder: "🔍 ค้นหาชื่อ, นามสกุล หรืออีเมล...",
-    showCount: "แสดง",
-    noUsers: "ไม่พบผู้ใช้ที่ตรงกับคำค้นหา",
-    manageFor: "จัดการสิทธิ์:",
-    saveChanges: "บันทึกการเปลี่ยนแปลง",
-    grantedAt: "ได้รับสิทธิ์:",
-    grantedBy: "โดย",
-    selectUser: "เลือกผู้ใช้เพื่อจัดการสิทธิ์",
-    selectUserDesc: "คลิกที่ชื่อผู้ใช้ทางซ้ายเพื่อเริ่มจัดการสิทธิ์"
-  },
-
-  // Homepage
-  hero: {
-    title: "ค้นหาที่พักในฝันของคุณ",
-    subtitle: "โรงแรมหรูระดับ 5 ดาว ใจกลางกรุงเทพฯ พร้อมสิ่งอำนวยความสะดวกครบครัน",
-    search: "เลือกห้องพักที่ต้องการ",
-    checkIn: "วันที่เข้าพัก",
-    checkOut: "วันที่ออก",
-    guests: "จำนวนผู้เข้าพัก",
-    searchButton: "ค้นหา",
-    bookNow: "จองเลย",
-    viewRooms: "ดูห้องพัก"
-  },
-
-  quickActions: {
-    title: "การดำเนินการด่วน",
-    viewBookings: "ดูการจองของฉัน",
-    findRooms: "ค้นหาห้องพัก",
-    specialOffers: "โปรโมชั่นพิเศษ"
-  },
-
-  rooms: {
-    title: "ห้องพักยอดนิยม",
-    subtitle: "เลือกห้องพักที่ใช่สำหรับคุณ",
-    viewAll: "ดูทั้งหมด",
-    pricePerNight: "ต่อคืน",
-    guests: "ผู้เข้าพัก",
-    sqm: "ตรม.",
-    amenities: "สิ่งอำนวยความสะดวก",
-    bookNow: "จองเลย",
-    viewImages: "ดูรูปภาพทั้งหมด",
-    photos: "รูป",
-    more: "อื่นๆ",
-    noRooms: "ไม่พบข้อมูลห้องพัก",
-    tryAgain: "กรุณาลองใหม่อีกครั้งในภายหลัง"
-  },
-
-  features: {
-    title: "ทำไมต้องเลือกเรา?",
-    subtitle: "เราให้บริการที่ดีที่สุด พร้อมความสะดวกและปลอดภัย",
-    quality: {
-      title: "ห้องพักคุณภาพ",
-      description: "ห้องพักที่ผ่านการคัดสรรแล้ว พร้อมสิ่งอำนวยความสะดวกครบครัน"
-    },
-    secure: {
-      title: "จองง่าย ปลอดภัย",
-      description: "ระบบจองที่ปลอดภัย รองรับการชำระเงินหลายช่องทาง"
-    },
-    cancellation: {
-      title: "ยกเลิกได้ฟรี",
-      description: "ยกเลิกการจองได้ฟรีก่อน 24 ชั่วโมงของวันเข้าพัก"
-    }
-  },
-
-  cta: {
-    title: "พร้อมจองห้องพักแล้วใช่ไหม?",
-    subtitle: "สมัครสมาชิกวันนี้ รับส่วนลดพิเศษสำหรับการจองครั้งแรก",
-    signUp: "สมัครสมาชิกฟรี",
-    viewRooms: "ดูห้องพักทั้งหมด"
-  },
-
   // Authentication
   auth: {
     loginTitle: "เข้าสู่ระบบ",
     registerTitle: "สมัครสมาชิก", 
+    registerSubtitle: "สร้างบัญชีใหม่เพื่อเริ่มจองโรงแรมกับเรา",
     email: "อีเมล",
     password: "รหัสผ่าน",
     confirmPassword: "ยืนยันรหัสผ่าน",
@@ -116,14 +41,12 @@ export const translations = {
     registerSuccess: "สมัครสมาชิกสำเร็จ!",
     logoutSuccess: "ออกจากระบบเรียบร้อย",
     loginError: "เข้าสู่ระบบไม่สำเร็จ",
-    registerError: "เกิดข้อผิดพลาดในการสมัครสมาชิก",
-    loginRequired: "กรุณาเข้าสู่ระบบ"
+    registerError: "เกิดข้อผิดพลาดในการสมัครสมาชิก"
   },
 
   // Common
   common: {
     loading: "กำลังโหลด...",
-    error: "ไม่สามารถโหลดข้อมูลได้",
     save: "บันทึก",
     cancel: "ยกเลิก",
     delete: "ลบ",
@@ -151,7 +74,37 @@ export const translations = {
     download: "ดาวน์โหลด",
     print: "พิมพ์",
     refresh: "รีเฟรช",
-    saving: "กำลังบันทึก..."
+    saving: "กำลังบันทึก...",
+    tryAgain: "ลองใหม่",
+    hotel: "โรงแรม"
+  },
+
+  // Hotel Information
+  hotel: {
+    about: "เกี่ยวกับโรงแรม",
+    rating: "คะแนนรีวิว",
+    roomTypes: "ประเภทห้องพัก",
+    amenities: "สิ่งอำนวยความสะดวก"
+  },
+
+  // Features Section
+  features: {
+    title: "ทำไมต้องเลือกเรา?",
+    subtitle: "เราให้บริการที่ดีที่สุด พร้อมความสะดวกและปลอดภัย",
+    quality: "ห้องพักคุณภาพ",
+    qualityDesc: "ห้องพักที่ผ่านการคัดสรรแล้ว พร้อมสิ่งอำนวยความสะดวกครบครัน",
+    secure: "จองง่าย ปลอดภัย",
+    secureDesc: "ระบบจองที่ปลอดภัย รองรับการชำระเงินหลายช่องทาง",
+    flexible: "ยกเลิกได้ฟรี",
+    flexibleDesc: "ยกเลิกการจองได้ฟรีก่อน 24 ชั่วโมงของวันเข้าพัก"
+  },
+
+  // Call to Action
+  cta: {
+    title: "พร้อมจองห้องพักแล้วใช่ไหม?",
+    subtitle: "สมัครสมาชิกวันนี้ รับส่วนลดพิเศษสำหรับการจองครั้งแรก",
+    register: "สมัครสมาชิกฟรี",
+    viewRooms: "ดูห้องพักทั้งหมด"
   },
 
   // Bookings
@@ -190,7 +143,9 @@ export const translations = {
     bookNow: "จองเลย",
     selectRoom: "เลือกห้อง",
     roomDetails: "รายละเอียดห้อง",
-    checkAvailability: "ตรวจสอบห้องว่าง"
+    checkAvailability: "ตรวจสอบห้องว่าง",
+    noRooms: "ไม่พบข้อมูลห้องพัก",
+    tryAgain: "กรุณาลองใหม่อีกครั้งในภายหลัง"
   },
 
   // Profile
@@ -280,17 +235,37 @@ export const translations = {
   language: {
     thai: "ไทย",
     english: "English",
-    changeLanguage: "เปลี่ยนภาษา",
-    current: "ปัจจุบัน"
+    changeLanguage: "เปลี่ยนภาษา"
   },
 
-  // Theme
-  theme: {
-    light: "โหมดสว่าง",
-    dark: "โหมดมืด",
-    changeTheme: "เปลี่ยนธีม",
-    lightDescription: "ธีมสว่าง",
-    darkDescription: "ธีมมืด"
+  // Admin
+  admin: {
+    dashboard: "แดชบอร์ด",
+    manager: "ผู้จัดการ",
+    staff: "พนักงาน",
+    manageDescription: "จัดการการจองและดูสถิติโรงแรม",
+    viewDescription: "ดูข้อมูลการจองและสถิติโรงแรม",
+    viewOnlyMode: "โหมดดูอย่างเดียว",
+    totalBookings: "การจองทั้งหมด",
+    pendingBookings: "รอดำเนินการ",
+    confirmedBookings: "ยืนยันแล้ว",
+    completedBookings: "เสร็จสิ้น",
+    cancelledBookings: "ยกเลิกแล้ว",
+    totalRevenue: "รายได้รวม",
+    manageBookings: "จัดการการจอง",
+    manageRooms: "จัดการห้องพัก",
+    manageUsers: "จัดการผู้ใช้",
+    reports: "รายงาน",
+    settings: "ตั้งค่า",
+    bookingDetails: "รายละเอียดการจอง",
+    guestInformation: "ข้อมูลผู้เข้าพัก",
+    roomInformation: "ข้อมูลห้องพัก",
+    paymentInformation: "ข้อมูลการชำระเงิน",
+    bookingStatus: "สถานะการจอง",
+    confirmBooking: "ยืนยันการจอง",
+    cancelBooking: "ยกเลิกการจอง",
+    deleteBooking: "ลบการจอง",
+    viewReceipt: "ดูใบเสร็จ"
   },
 
   // Footer
@@ -300,5 +275,37 @@ export const translations = {
     privacyPolicy: "นโยบายความเป็นส่วนตัว",
     termsOfService: "ข้อกำหนดการใช้งาน",
     contactUs: "ติดต่อเรา"
+  },
+
+  // Reviews
+  reviews: {
+    title: "รีวิวโรงแรม",
+    writeReview: "เขียนรีวิว",
+    sortBy: "เรียงตาม",
+    newest: "ล่าสุด",
+    oldest: "เก่าสุด",
+    highest: "คะแนนสูงสุด",
+    lowest: "คะแนนต่ำสุด",
+    filterByRating: "กรองตามคะแนน",
+    allRatings: "ทุกคะแนน",
+    fiveStars: "5 ดาว",
+    fourStars: "4 ดาว",
+    threeStars: "3 ดาว",
+    twoStars: "2 ดาว",
+    oneStar: "1 ดาว",
+    rating: "คะแนน",
+    comment: "ความคิดเห็น",
+    photos: "รูปภาพ",
+    reviewPhoto: "รูปรีวิว",
+    loadingReviews: "กำลังโหลดรีวิว...",
+    errorLoadingReviews: "ไม่สามารถโหลดรีวิวได้",
+    noReviews: "ยังไม่มีรีวิว",
+    averageRating: "คะแนนเฉลี่ย",
+    totalReviews: "รีวิวทั้งหมด",
+    writeFirstReview: "เขียนรีวิวแรก",
+    yourReview: "รีวิวของคุณ",
+    submitReview: "ส่งรีวิว",
+    reviewSubmitted: "ส่งรีวิวสำเร็จ",
+    thankYou: "ขอบคุณสำหรับรีวิวของคุณ"
   }
 };

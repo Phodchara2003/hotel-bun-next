@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useAuth } from '../../../contexts/AuthContext';
-import { bookingAPI } from '../../../lib/api';
+import { useAuth } from '../../../../contexts/AuthContext';
+import { bookingAPI } from '../../../../lib/api';
 import toast from 'react-hot-toast';
 
 export default function PaymentSlipPage() {

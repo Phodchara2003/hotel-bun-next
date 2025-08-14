@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import { useLanguage } from '../../../contexts/LanguageContext';
+import { useTranslation } from '../../../translations';
 import WriteReview from '../../../components/WriteReview';
 
 const StarRating = ({ rating, size = 'sm' }) => {
@@ -113,40 +115,40 @@ const ReviewCard = ({ review }) => {
   );
 };
 
-const FilterSortControls = ({ sortBy, setSortBy, filterRating, setFilterRating }) => {
+const FilterSortControls = ({ sortBy, setSortBy, filterRating, setFilterRating, t }) => {
   return (
     <div className="flex flex-col sm:flex-row gap-4 mb-6">
       <div className="flex-1">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          เรียงตาม
+          {t('reviews.sortBy', 'เรียงตาม')}
         </label>
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value)}
           className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="newest">ล่าสุด</option>
-          <option value="oldest">เก่าสุด</option>
-          <option value="highest">คะแนนสูงสุด</option>
-          <option value="lowest">คะแนนต่ำสุด</option>
+          <option value="newest">{t('reviews.newest', 'ล่าสุด')}</option>
+          <option value="oldest">{t('reviews.oldest', 'เก่าสุด')}</option>
+          <option value="highest">{t('reviews.highest', 'คะแนนสูงสุด')}</option>
+          <option value="lowest">{t('reviews.lowest', 'คะแนนต่ำสุด')}</option>
         </select>
       </div>
       
       <div className="flex-1">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          กรองตามคะแนน
+          {t('reviews.filterByRating', 'กรองตามคะแนน')}
         </label>
         <select
           value={filterRating || ''}
           onChange={(e) => setFilterRating(e.target.value ? parseInt(e.target.value) : null)}
           className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="">ทุกคะแนน</option>
-          <option value="5">5 ดาว</option>
-          <option value="4">4 ดาว</option>
-          <option value="3">3 ดาว</option>
-          <option value="2">2 ดาว</option>
-          <option value="1">1 ดาว</option>
+          <option value="">{t('reviews.allRatings', 'ทุกคะแนน')}</option>
+          <option value="5">{t('reviews.fiveStars', '5 ดาว')}</option>
+          <option value="4">{t('reviews.fourStars', '4 ดาว')}</option>
+          <option value="3">{t('reviews.threeStars', '3 ดาว')}</option>
+          <option value="2">{t('reviews.twoStars', '2 ดาว')}</option>
+          <option value="1">{t('reviews.oneStar', '1 ดาว')}</option>
         </select>
       </div>
     </div>
@@ -156,6 +158,8 @@ const FilterSortControls = ({ sortBy, setSortBy, filterRating, setFilterRating }
 export default function HotelReviews() {
   const params = useParams();
   const hotelId = params.hotelId;
+  const { language } = useLanguage();
+  const { t } = useTranslation(language);
   
   const [reviewData, setReviewData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -164,7 +168,7 @@ export default function HotelReviews() {
   const [filterRating, setFilterRating] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [showWriteReview, setShowWriteReview] = useState(false);
-  const [hotelName, setHotelName] = useState('โรงแรม');
+  const [hotelName, setHotelName] = useState(t('common.hotel', 'โรงแรม'));
 
   const fetchReviews = async () => {
     try {
@@ -204,7 +208,7 @@ export default function HotelReviews() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">กำลังโหลดรีวิว...</p>
+          <p className="text-gray-600">{t('reviews.loadingReviews', 'กำลังโหลดรีวิว...')}</p>
         </div>
       </div>
     );
@@ -219,7 +223,7 @@ export default function HotelReviews() {
             onClick={fetchReviews}
             className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
           >
-            ลองใหม่
+            {t('common.tryAgain', 'ลองใหม่')}
           </button>
         </div>
       </div>
@@ -286,6 +290,7 @@ export default function HotelReviews() {
             setSortBy={setSortBy}
             filterRating={filterRating}
             setFilterRating={setFilterRating}
+            t={t}
           />
         </div>
 

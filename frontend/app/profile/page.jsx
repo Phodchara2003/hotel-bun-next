@@ -6,7 +6,6 @@ import EmailSettings from '../../components/EmailSettings';
 import ChangeEmailModal from '../../components/ChangeEmailModal';
 import ChangePasswordModal from '../../components/ChangePasswordModal';
 import LanguageSwitcher from '../../components/LanguageSwitcher';
-import ThemeSwitcher from '../../components/ThemeSwitcher';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useTranslation } from '../../translations';
@@ -378,25 +377,6 @@ export default function ProfilePage() {
                     <span className="text-gray-600">เข้าสู่ระบบล่าสุด</span>
                     <span className="text-gray-600">วันนี้</span>
                   </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Theme Settings Card */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-              <div className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
-                  🎨
-                  <span className="ml-2">{t('theme.changeTheme')}</span>
-                </h3>
-                <div className="space-y-3">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                    {language === 'en' 
-                      ? 'Choose your preferred theme appearance'
-                      : 'เลือกธีมที่ต้องการใช้งาน'
-                    }
-                  </p>
-                  <ThemeSwitcher showLabel={true} size="default" />
                 </div>
               </div>
             </div>

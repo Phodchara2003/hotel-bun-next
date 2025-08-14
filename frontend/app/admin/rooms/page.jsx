@@ -2,9 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { useTheme } from '../../../contexts/ThemeContext';
-import { useLanguage } from '../../../contexts/LanguageContext';
-import { useTranslation } from '../../../translations';
 import { roomsAPI } from '../../../lib/api';
 import { isStaffOrAdmin, canEdit, canDelete, canCreate, isReadOnly } from '../../../lib/roles';
 import { 
@@ -30,9 +27,6 @@ import toast from 'react-hot-toast';
 
 export default function RoomsManagement() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
-  const { theme } = useTheme();
-  const { language } = useLanguage();
-  const { t } = useTranslation(language);
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -366,10 +360,10 @@ export default function RoomsManagement() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">{t('common.loading')}</p>
+          <p className="mt-4 text-gray-600">กำลังโหลด...</p>
         </div>
       </div>
     );
@@ -377,14 +371,10 @@ export default function RoomsManagement() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-            {language === 'en' ? 'Please Login' : 'กรุณาเข้าสู่ระบบ'}
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400">
-            {language === 'en' ? 'To access the management system' : 'เพื่อเข้าถึงระบบจัดการ'}
-          </p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">กรุณาเข้าสู่ระบบ</h2>
+          <p className="text-gray-600">เพื่อเข้าถึงระบบจัดการ</p>
         </div>
       </div>
     );
@@ -392,34 +382,25 @@ export default function RoomsManagement() {
 
   if (!isStaffOrAdmin(user)) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-            {language === 'en' ? 'Access Denied' : 'ไม่มีสิทธิ์เข้าถึง'}
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400">
-            {language === 'en' ? 'You do not have permission to access this page' : 'คุณไม่มีสิทธิ์เข้าถึงหน้านี้'}
-          </p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">ไม่มีสิทธิ์เข้าถึง</h2>
+          <p className="text-gray-600">คุณไม่มีสิทธิ์เข้าถึงหน้านี้</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+    <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto container-padding">
         {/* Header */}
         <div className="mb-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                {language === 'en' ? 'Room Management' : 'จัดการห้องพัก'}
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400">
-                {language === 'en' 
-                  ? (isReadOnly(user) ? 'View hotel room information' : 'Add, edit and manage hotel rooms')
-                  : (isReadOnly(user) ? 'ดูข้อมูลห้องพักของโรงแรม' : 'เพิ่ม แก้ไข และจัดการห้องพักของโรงแรม')
-                }
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">จัดการห้องพัก</h1>
+              <p className="text-gray-600">
+                {isReadOnly(user) ? 'ดูข้อมูลห้องพักของโรงแรม' : 'เพิ่ม แก้ไข และจัดการห้องพักของโรงแรม'}
               </p>
             </div>
             {canCreate(user) && (

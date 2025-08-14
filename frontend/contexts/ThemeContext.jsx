@@ -13,7 +13,7 @@ export const useTheme = () => {
 };
 
 export const ThemeProvider = ({ children }) => {
-  const [theme, setTheme] = useState('light'); // default to light
+  const [theme, setTheme] = useState('light'); // default to light theme
 
   // Load saved theme from localStorage on mount
   useEffect(() => {
@@ -29,38 +29,34 @@ export const ThemeProvider = ({ children }) => {
 
   // Apply theme to document
   useEffect(() => {
-    const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
+    if (typeof document !== 'undefined') {
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
     }
   }, [theme]);
 
-  // Save theme preference
+  // Save theme preference and apply
+  const changeTheme = (newTheme) => {
+    if (['light', 'dark'].includes(newTheme)) {
+      setTheme(newTheme);
+      localStorage.setItem('preferred_theme', newTheme);
+    }
+  };
+
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    localStorage.setItem('preferred_theme', newTheme);
-  };
-
-  const setLightTheme = () => {
-    setTheme('light');
-    localStorage.setItem('preferred_theme', 'light');
-  };
-
-  const setDarkTheme = () => {
-    setTheme('dark');
-    localStorage.setItem('preferred_theme', 'dark');
+    changeTheme(newTheme);
   };
 
   const value = {
     theme,
+    changeTheme,
     toggleTheme,
-    setLightTheme,
-    setDarkTheme,
-    isLight: theme === 'light',
-    isDark: theme === 'dark'
+    isDark: theme === 'dark',
+    isLight: theme === 'light'
   };
 
   return (

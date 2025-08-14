@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslation } from '../../translations';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { Bell, BellRing, Check, CheckCheck, Trash2, X, Filter, RefreshCw, Archive, Calendar, Hotel, CreditCard, User, Clock, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -9,6 +11,8 @@ import Link from 'next/link';
 
 export default function NotificationsPage() {
   const { isAuthenticated, user } = useAuth();
+  const { language } = useLanguage();
+  const { t } = useTranslation(language);
   const {
     notifications,
     unreadCount,

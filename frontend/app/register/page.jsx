@@ -4,12 +4,16 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslation } from '../../translations';
 import { Eye, EyeOff, Mail, Lock, User, Phone, Hotel } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function RegisterPage() {
   const router = useRouter();
   const { register } = useAuth();
+  const { language } = useLanguage();
+  const { t } = useTranslation(language);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -74,10 +78,10 @@ export default function RegisterPage() {
             <Hotel className="h-12 w-12 text-primary-600" />
           </div>
           <h2 className="text-3xl font-bold text-gray-900">
-            สมัครสมาชิก
+            {t('auth.registerTitle', 'สมัครสมาชิก')}
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            สร้างบัญชีใหม่เพื่อเริ่มจองโรงแรมกับเรา
+            {t('auth.registerSubtitle', 'สร้างบัญชีใหม่เพื่อเริ่มจองโรงแรมกับเรา')}
           </p>
         </div>
 
@@ -88,7 +92,7 @@ export default function RegisterPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
-                  ชื่อ
+                  {t('auth.firstName', 'ชื่อ')}
                 </label>
                 <div className="relative">
                   <input

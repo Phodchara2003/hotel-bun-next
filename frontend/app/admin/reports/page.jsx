@@ -2,9 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { useTheme } from '../../../contexts/ThemeContext';
-import { useLanguage } from '../../../contexts/LanguageContext';
-import { useTranslation } from '../../../translations';
 import { bookingAPI } from '../../../lib/api';
 import { isStaffOrAdmin } from '../../../lib/roles';
 import toast from 'react-hot-toast';
@@ -24,9 +21,6 @@ import {
 
 export default function AdminReports() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
-  const { theme } = useTheme();
-  const { language } = useLanguage();
-  const { t } = useTranslation(language);
   const [loading, setLoading] = useState(true);
   const [reportType, setReportType] = useState('financial');
   const [period, setPeriod] = useState('monthly');
@@ -186,12 +180,10 @@ export default function AdminReports() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-12 w-12 animate-spin text-blue-600 dark:text-blue-400" />
-          <p className="text-gray-600 dark:text-gray-400">
-            {language === 'en' ? 'Loading report data...' : 'กำลังโหลดข้อมูลรายงาน...'}
-          </p>
+          <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
+          <p className="text-gray-600">กำลังโหลดข้อมูลรายงาน...</p>
         </div>
       </div>
     );
@@ -199,14 +191,10 @@ export default function AdminReports() {
 
   if (!isAuthenticated || !isStaffOrAdmin(user)) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-            {language === 'en' ? 'Access Denied' : 'ไม่มีสิทธิ์เข้าถึง'}
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            {language === 'en' ? 'You do not have permission to access this page' : 'คุณไม่มีสิทธิ์เข้าถึงหน้านี้'}
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">ไม่มีสิทธิ์เข้าถึง</h1>
+          <p className="text-gray-600">คุณไม่มีสิทธิ์เข้าถึงหน้านี้</p>
         </div>
       </div>
     );
@@ -215,87 +203,85 @@ export default function AdminReports() {
   const currentData = reportType === 'financial' ? reportData.financial : reportData.occupancy;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                {language === 'en' ? 'System Reports' : 'รายงานระบบ'}
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">
-                {language === 'en' ? 'View hotel statistics and reports' : 'ดูข้อมูลสถิติและรายงานของโรงแรม'}
+              <h1 className="text-3xl font-bold text-gray-900">รายงานระบบ</h1>
+              <p className="text-gray-600 mt-2">
+                ดูข้อมูลสถิติและรายงานของโรงแรม
                 {user?.role === 'staff' && (
-                  <span className="ml-2 px-2 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 text-xs rounded-full">
-                    {language === 'en' ? 'View Only Mode' : 'โหมดดูอย่างเดียว'}
+                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                    โหมดดูอย่างเดียว
                   </span>
                 )}
               </p>
             </div>
             <button
               onClick={() => fetchReportData()}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <RefreshCw className="h-4 w-4" />
-              {language === 'en' ? 'Refresh' : 'รีเฟรช'}
+              รีเฟรช
             </button>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {language === 'en' ? 'Report Type' : 'ประเภทรายงาน'}
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                ประเภทรายงาน
               </label>
               <select
                 value={reportType}
                 onChange={(e) => setReportType(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
               >
-                <option value="financial">{language === 'en' ? 'Financial Report' : 'รายงานการเงิน'}</option>
-                <option value="occupancy">{language === 'en' ? 'Occupancy Report' : 'รายงานการเข้าพัก'}</option>
+                <option value="financial">รายงานการเงิน</option>
+                <option value="occupancy">รายงานการเข้าพัก</option>
               </select>
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {language === 'en' ? 'Period' : 'ช่วงเวลา'}
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                ช่วงเวลา
               </label>
               <select
                 value={period}
                 onChange={(e) => setPeriod(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
               >
-                <option value="daily">{language === 'en' ? 'Daily' : 'รายวัน'}</option>
-                <option value="monthly">{language === 'en' ? 'Monthly' : 'รายเดือน'}</option>
-                <option value="yearly">{language === 'en' ? 'Yearly' : 'รายปี'}</option>
+                <option value="daily">รายวัน</option>
+                <option value="monthly">รายเดือน</option>
+                <option value="yearly">รายปี</option>
               </select>
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {language === 'en' ? 'Start Date' : 'วันที่เริ่มต้น'}
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                วันที่เริ่มต้น
               </label>
               <input
                 type="date"
                 value={dateRange.startDate}
                 onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {language === 'en' ? 'End Date' : 'วันที่สิ้นสุด'}
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                วันที่สิ้นสุด
               </label>
               <input
                 type="date"
                 value={dateRange.endDate}
                 onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
           </div>
@@ -304,89 +290,77 @@ export default function AdminReports() {
         {/* Stats Cards */}
         {reportType === 'financial' ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    {language === 'en' ? 'Total Revenue' : 'รายได้รวม'}
-                  </p>
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  <p className="text-sm font-medium text-gray-600">รายได้รวม</p>
+                  <p className="text-2xl font-bold text-green-600">
                     {formatCurrency(currentData.totalRevenue)}
                   </p>
                 </div>
-                <DollarSign className="h-8 w-8 text-green-600 dark:text-green-400" />
+                <DollarSign className="h-8 w-8 text-green-600" />
               </div>
             </div>
             
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    {language === 'en' ? 'Number of Bookings' : 'จำนวนการจอง'}
-                  </p>
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                  <p className="text-sm font-medium text-gray-600">จำนวนการจอง</p>
+                  <p className="text-2xl font-bold text-blue-600">
                     {formatNumber(currentData.bookingsCount)}
                   </p>
                 </div>
-                <Calendar className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                <Calendar className="h-8 w-8 text-blue-600" />
               </div>
             </div>
             
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    {language === 'en' ? 'Average per Booking' : 'ค่าเฉลี่ยต่อการจอง'}
-                  </p>
-                  <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                  <p className="text-sm font-medium text-gray-600">ค่าเฉลี่ยต่อการจอง</p>
+                  <p className="text-2xl font-bold text-purple-600">
                     {formatCurrency(currentData.averageBookingValue)}
                   </p>
                 </div>
-                <TrendingUp className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+                <TrendingUp className="h-8 w-8 text-purple-600" />
               </div>
             </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    {language === 'en' ? 'Total Bookings' : 'การจองทั้งหมด'}
-                  </p>
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                  <p className="text-sm font-medium text-gray-600">การจองทั้งหมด</p>
+                  <p className="text-2xl font-bold text-blue-600">
                     {formatNumber(currentData.totalBookings)}
                   </p>
                 </div>
-                <Users className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                <Users className="h-8 w-8 text-blue-600" />
               </div>
             </div>
             
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    {language === 'en' ? 'Occupancy Rate' : 'อัตราการเข้าพัก'}
-                  </p>
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  <p className="text-sm font-medium text-gray-600">อัตราการเข้าพัก</p>
+                  <p className="text-2xl font-bold text-green-600">
                     {(currentData.occupancyRate || 0).toFixed(1)}%
                   </p>
                 </div>
-                <Activity className="h-8 w-8 text-green-600 dark:text-green-400" />
+                <Activity className="h-8 w-8 text-green-600" />
               </div>
             </div>
             
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    {language === 'en' ? 'Average Stay Duration' : 'ระยะเวลาเข้าพักเฉลี่ย'}
-                  </p>
-                  <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                    {(currentData.averageStayDuration || 0).toFixed(1)} {language === 'en' ? 'nights' : 'คืน'}
+                  <p className="text-sm font-medium text-gray-600">ระยะเวลาเข้าพักเฉลี่ย</p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {(currentData.averageStayDuration || 0).toFixed(1)} คืน
                   </p>
                 </div>
-                <Clock className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+                <Clock className="h-8 w-8 text-purple-600" />
               </div>
             </div>
           </div>
@@ -395,34 +369,31 @@ export default function AdminReports() {
         {/* Data Tables */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Room Type Data */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              {reportType === 'financial' 
-                ? (language === 'en' ? 'Revenue by Room Type' : 'รายได้ตามประเภทห้อง')
-                : (language === 'en' ? 'Occupancy by Room Type' : 'การเข้าพักตามประเภทห้อง')
-              }
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {reportType === 'financial' ? 'รายได้ตามประเภทห้อง' : 'การเข้าพักตามประเภทห้อง'}
             </h3>
             <div className="space-y-3">
               {(reportType === 'financial' ? currentData.roomTypeRevenue : currentData.roomTypeOccupancy)?.map((room, index) => (
-                <div key={index} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <span className="font-medium text-gray-900 dark:text-gray-100">{room.type}</span>
+                <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                  <span className="font-medium text-gray-900">{room.type}</span>
                   <div className="text-right">
-                    <div className="font-semibold text-gray-900 dark:text-gray-100">
+                    <div className="font-semibold text-gray-900">
                       {reportType === 'financial' 
                         ? formatCurrency(room.revenue) 
-                        : `${formatNumber(room.count)} ${language === 'en' ? 'bookings' : 'การจอง'}`
+                        : `${formatNumber(room.count)} การจอง`
                       }
                     </div>
                     {reportType === 'occupancy' && (
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                      <div className="text-sm text-gray-600">
                         {(room.percentage || 0).toFixed(1)}%
                       </div>
                     )}
                   </div>
                 </div>
               )) || (
-                <div className="text-center text-gray-500 dark:text-gray-400 py-8">
-                  {language === 'en' ? 'No data available' : 'ไม่มีข้อมูล'}
+                <div className="text-center text-gray-500 py-8">
+                  ไม่มีข้อมูล
                 </div>
               )}
             </div>
@@ -430,21 +401,19 @@ export default function AdminReports() {
 
           {/* Payment Methods (Financial only) */}
           {reportType === 'financial' && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                {language === 'en' ? 'Payment Methods' : 'วิธีการชำระเงิน'}
-              </h3>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">วิธีการชำระเงิน</h3>
               <div className="space-y-3">
                 {currentData.paymentMethods?.map((payment, index) => (
-                  <div key={index} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <span className="font-medium text-gray-900 dark:text-gray-100">{payment.method}</span>
-                    <span className="font-semibold text-gray-900 dark:text-gray-100">
-                      {formatNumber(payment.count)} {language === 'en' ? 'times' : 'ครั้ง'}
+                  <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <span className="font-medium text-gray-900">{payment.method}</span>
+                    <span className="font-semibold text-gray-900">
+                      {formatNumber(payment.count)} ครั้ง
                     </span>
                   </div>
                 )) || (
-                  <div className="text-center text-gray-500 dark:text-gray-400 py-8">
-                    {language === 'en' ? 'No data available' : 'ไม่มีข้อมูล'}
+                  <div className="text-center text-gray-500 py-8">
+                    ไม่มีข้อมูล
                   </div>
                 )}
               </div>

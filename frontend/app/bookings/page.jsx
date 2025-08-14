@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslation } from '../../translations';
 import { bookingAPI } from '../../lib/api';
 import { Calendar, Users, CreditCard, X, Check, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -9,6 +11,8 @@ import ConfirmModal from '../../components/ConfirmModal';
 
 export default function BookingsPage() {
   const { isAuthenticated, loading: authLoading } = useAuth();
+  const { language } = useLanguage();
+  const { t } = useTranslation(language);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, pending, confirmed, cancelled

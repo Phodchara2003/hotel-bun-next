@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../../contexts/AuthContext';
+import { useLanguage } from '../../../../contexts/LanguageContext';
+import { useTranslation } from '../../../../translations';
 import { hotelAPI, bookingAPI } from '../../../../lib/api';
 import { Calendar, Users, CreditCard, ArrowLeft, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -11,6 +13,8 @@ export default function BookRoomPage({ params }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, loading: authLoading } = useAuth();
+  const { language } = useLanguage();
+  const { t } = useTranslation(language);
   const [roomType, setRoomType] = useState(null);
   const [hotel, setHotel] = useState(null);
   const [loading, setLoading] = useState(true);
