@@ -355,7 +355,7 @@ export default function NotificationsPage() {
                           )}
                         </h3>
                         <span className="text-xs text-gray-500">
-                          {formatTimeAgo(notification.createdAt)}
+                          {formatTimeAgo(notification.createdAt, language)}
                         </span>
                       </div>
                       
