@@ -1,16 +1,14 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { useLanguage } from '../../../contexts/LanguageContext';
-import { useTranslation } from '../../../translations';
+import { useTranslation } from '../../../contexts/LanguageContext';
 import { useRouter } from 'next/navigation';
 import { isAdmin } from '../../../lib/roles';
 import AdminPaymentSettings from '../../../components/AdminPaymentSettings';
 
 export default function PaymentSettings() {
   const { user, token, isAuthenticated } = useAuth();
-  const { language } = useLanguage();
-  const { t } = useTranslation(language);
+  const { t, language } = useTranslation();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('qr-payment');
 
@@ -86,8 +84,7 @@ export default function PaymentSettings() {
 
 // Legacy Bank Transfer Settings Component
 function BankTransferSettings() {
-  const { language } = useLanguage();
-  const { t } = useTranslation(language);
+  const { t, language } = useTranslation();
   const [settings, setSettings] = useState({
     qrCodeUrl: '',
     bankName: '',

@@ -157,16 +157,12 @@ const Header = () => {
           </nav>
 
           {/* Desktop Auth */}
-          <div className="hidden md:flex items-center space-x-3">
+          <div className="hidden md:flex items-center space-x-4">
             {/* Language Switcher */}
-            <div className="shrink-0">
-              <LanguageSwitcher showLabel={true} size="small" />
-            </div>
+            <LanguageSwitcher showLabel={false} size="small" />
             
             {/* Theme Switcher */}
-            <div className="shrink-0">
-              <ThemeSwitcher showLabel={false} size="small" />
-            </div>
+            <ThemeSwitcher showLabel={false} size="small" />
             
             {isAuthenticated ? (
               <div className="relative group">

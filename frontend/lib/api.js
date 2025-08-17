@@ -186,8 +186,17 @@ export const roomsAPI = {
 
   // Create new room (Admin)
   createRoom: async (roomData) => {
-    const response = await api.post('/admin/rooms/', roomData);
-    return response.data;
+    try {
+      console.log('🏨 API: Creating room with data:', JSON.stringify(roomData, null, 2));
+      const response = await api.post('/admin/rooms/', roomData);
+      console.log('✅ API: Room created successfully:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ API: Error creating room:', error.response?.data || error.message);
+      console.error('❌ API: Error status:', error.response?.status);
+      console.error('❌ API: Error details:', error.response?.data?.details || 'No details');
+      throw error;
+    }
   },
 
   // Update room (Admin)

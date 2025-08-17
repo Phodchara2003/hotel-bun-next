@@ -313,6 +313,25 @@ export default function RoomsManagement() {
         size_sqm: formData.size_sqm ? parseInt(formData.size_sqm) : null
       };
 
+      console.log('🏨 Sending room data to API:', JSON.stringify(roomData, null, 2));
+      console.log('🏨 Form data before processing:', JSON.stringify(formData, null, 2));
+
+      // Validate data before sending
+      if (!roomData.name || !roomData.type || !roomData.capacity || !roomData.price) {
+        toast.error('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน');
+        return;
+      }
+
+      if (isNaN(roomData.capacity) || roomData.capacity < 1) {
+        toast.error('จำนวนผู้พักต้องเป็นตัวเลขและมากกว่า 0');
+        return;
+      }
+
+      if (isNaN(roomData.price) || roomData.price <= 0) {
+        toast.error('ราคาต้องเป็นตัวเลขและมากกว่า 0');
+        return;
+      }
+
       if (modalType === 'add') {
         await roomsAPI.createRoom(roomData);
         toast.success('เพิ่มห้องพักสำเร็จ');
@@ -324,8 +343,27 @@ export default function RoomsManagement() {
       handleCloseModal();
       fetchRooms();
     } catch (error) {
-      console.error('Error saving room:', error);
-      toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+      console.error('❌ Error saving room:', error);
+      console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Error status:', error.response?.status);
+      
+      let errorMessage = 'เกิดข้อผิดพลาดในการบันทึกข้อมูล';
+      
+      if (error.response?.status === 422) {
+        // Validation error
+        const details = error.response.data?.details;
+        if (details && Array.isArray(details)) {
+          errorMessage = `ข้อมูลไม่ถูกต้อง: ${details.join(', ')}`;
+        } else {
+          errorMessage = error.response.data?.error || 'ข้อมูลไม่ถูกต้อง';
+        }
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setUploading(false);
     }

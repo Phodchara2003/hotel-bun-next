@@ -306,6 +306,37 @@ export const translations = {
     yourReview: "Your Review",
     submitReview: "Submit Review",
     reviewSubmitted: "Review submitted successfully",
-    thankYou: "Thank you for your review"
+    thankYou: "Thank you for your review",
+    ratingDistribution: "Rating Distribution"
+  },
+
+  // Date and Time Pickers
+  dateTime: {
+    selectDate: "Select date",
+    selectTime: "Select time",
+    checkInDate: "Check-in Date",
+    checkOutDate: "Check-out Date",
+    checkInTime: "Check-in Time",
+    checkOutTime: "Check-out Time",
+    selectCheckIn: "← Select check-out",
+    selectYourStayDates: "Select Your Stay Dates",
+    selectCheckInDate: "Select check-in date",
+    selectCheckOutDate: "Select check-out date",
+    duration: "Duration:",
+    nights: "nights",
+    checkIn: "Check-in",
+    checkOut: "Check-out",
+    stayPeriod: "Stay period",
+    clear: "Clear",
+    done: "Done",
+    close: "Close",
+    availableTimes: "available times",
+    standardCheckIn: "Standard check-in time 2:00 PM",
+    standardCheckOut: "Standard check-out time 12:00 PM",
+    specialTimeNote: "For special times, please specify in special requests",
+    am: "AM",
+    pm: "PM",
+    morning: "Morning",
+    afternoon: "Afternoon"
   }
 };

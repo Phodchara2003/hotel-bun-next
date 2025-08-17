@@ -15,6 +15,7 @@ import { roomStatusRoutes } from './routes/room-status-new.js';
 import { permissionRoutes } from './routes/permissions.js';
 import { checkinRoutes } from './routes/checkin.js';
 import { housekeepingRoutes } from './routes/housekeeping.js';
+import { qrPaymentRoutes } from './routes/qr-payment.js';
 import forgotPasswordRoutes from './routes/forgotPassword.js';
 import userEmailRoutes from './routes/userEmailSettings.js';
 import changeEmailRoutes from './routes/changeEmail.js';
@@ -130,6 +131,7 @@ const app = new Elysia()
       .use(userEmailRoutes)
       .use(changeEmailRoutes)
       .use(paymentSlipRoutes)
+      .use(qrPaymentRoutes)
   )
   
   // Error handling

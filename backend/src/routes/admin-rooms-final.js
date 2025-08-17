@@ -121,6 +121,8 @@ export const adminRoomsRoutes = new Elysia()
   // Create new room (Admin)
   .post('/', async ({ body, headers, set }) => {
     try {
+      console.log('🏨 Creating new room - Body received:', JSON.stringify(body, null, 2));
+      
       // Manual auth check
       const user = await authMiddleware({ headers, set });
       if (!user || user.error) {
@@ -135,10 +137,33 @@ export const adminRoomsRoutes = new Elysia()
       
       const { name, type, capacity, price, description, amenities, image, images, available, size_sqm } = body;
 
-      // Validation
-      if (!name || !type || !capacity || !price) {
-        set.status = 400;
-        return { error: 'Missing required fields' };
+      // Enhanced validation with detailed error messages
+      const errors = [];
+      
+      if (!name || typeof name !== 'string' || name.trim() === '') {
+        errors.push('Room name is required and must be a non-empty string');
+      }
+      
+      if (!type || typeof type !== 'string' || type.trim() === '') {
+        errors.push('Room type is required and must be a non-empty string');
+      }
+      
+      if (!capacity || typeof capacity !== 'number' || capacity < 1) {
+        errors.push('Capacity must be a positive number');
+      }
+      
+      if (!price || typeof price !== 'number' || price <= 0) {
+        errors.push('Price must be a positive number');
+      }
+
+      if (errors.length > 0) {
+        console.log('❌ Validation errors:', errors);
+        set.status = 422;
+        return { 
+          error: 'Validation failed', 
+          details: errors,
+          received_data: body
+        };
       }
 
       // Get default hotel (assuming single hotel system)
@@ -152,16 +177,49 @@ export const adminRoomsRoutes = new Elysia()
 
       // Use images array if provided, otherwise fallback to single image
       const finalImages = images && images.length > 0 ? images : (image ? [image] : []);
+      
+      // Clean and prepare data
+      const cleanedData = {
+        hotel_id: hotelId,
+        name: name.trim(),
+        type: type.trim(),
+        description: description || '',
+        price_per_night: parseFloat(price),
+        max_guests: parseInt(capacity),
+        amenities: Array.isArray(amenities) ? amenities : [],
+        images: finalImages,
+        available: available !== false,
+        beds: 1,
+        size_sqm: size_sqm ? parseInt(size_sqm) : 25
+      };
+
+      console.log('✅ Cleaned data for insertion:', JSON.stringify(cleanedData, null, 2));
 
       const result = await sql`
         INSERT INTO room_types (
           hotel_id, name, type, description, price_per_night, max_guests, 
           amenities, images, available, beds, size_sqm, created_at, updated_at
-        ) VALUES (${hotelId}, ${name}, ${type}, ${description}, ${price}, ${capacity}, ${amenities}, ${finalImages}, ${available !== false}, ${1}, ${size_sqm || 25}, NOW(), NOW())
+        ) VALUES (
+          ${cleanedData.hotel_id}, 
+          ${cleanedData.name}, 
+          ${cleanedData.type}, 
+          ${cleanedData.description}, 
+          ${cleanedData.price_per_night}, 
+          ${cleanedData.max_guests}, 
+          ${cleanedData.amenities}, 
+          ${cleanedData.images}, 
+          ${cleanedData.available}, 
+          ${cleanedData.beds}, 
+          ${cleanedData.size_sqm}, 
+          NOW(), 
+          NOW()
+        )
         RETURNING *
       `;
 
       const room = result[0];
+      
+      console.log('🎉 Room created successfully:', room.id);
       
       return {
         message: 'Room created successfully',

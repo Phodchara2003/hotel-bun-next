@@ -3,15 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { useTranslation } from '@/translations';
+import { useTranslation } from '@/contexts/LanguageContext';
 import QRCodePayment from '@/components/QRCodePayment';
 
 export default function PaymentPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
-  const { language } = useLanguage();
-  const { t } = useTranslation(language);
+  const { t, language } = useTranslation();
   
   const [paymentMethod, setPaymentMethod] = useState('qr-promptpay');
   const [bookingDetails, setBookingDetails] = useState(null);

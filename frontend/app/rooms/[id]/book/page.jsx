@@ -3,18 +3,16 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../../contexts/AuthContext';
-import { useLanguage } from '../../../../contexts/LanguageContext';
-import { useTranslation } from '../../../../translations';
 import { hotelAPI, bookingAPI } from '../../../../lib/api';
 import { Calendar, Users, CreditCard, ArrowLeft, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import SimpleDatePicker from '../../../../components/SimpleDatePicker';
+import TimePicker from '../../../../components/TimePicker';
 
 export default function BookRoomPage({ params }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, loading: authLoading } = useAuth();
-  const { language } = useLanguage();
-  const { t } = useTranslation(language);
   const [roomType, setRoomType] = useState(null);
   const [hotel, setHotel] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -26,8 +24,10 @@ export default function BookRoomPage({ params }) {
   const hotelId = searchParams.get('hotelId');
   
   const [bookingData, setBookingData] = useState({
-    checkInDate: '',
-    checkOutDate: '',
+    checkInDate: null,
+    checkOutDate: null,
+    checkInTime: '14:00', // Default check-in time
+    checkOutTime: '12:00', // Default check-out time
     guests: 1,
     specialRequests: ''
   });
@@ -100,37 +100,44 @@ export default function BookRoomPage({ params }) {
     }
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
+  const handleCheckInDateSelect = (date) => {
+    setBookingData(prev => ({
+      ...prev,
+      checkInDate: date,
+      checkOutDate: null // Reset checkout date when checkin changes
+    }));
     
-    // Validate date selection
-    if (name === 'checkInDate' || name === 'checkOutDate') {
-      const dateStatus = getDateStatus(value);
-      
-      if (dateStatus.status === 'past') {
-        toast.error('ไม่สามารถเลือกวันที่ในอดีตได้', { icon: '⚠️' });
-        return;
-      }
-      
-      if (dateStatus.status === 'unavailable') {
-        toast.error('วันที่นี้ไม่ว่าง - มีการจองแล้ว กรุณาเลือกวันที่อื่น', { 
-          icon: '❌',
-          duration: 4000
-        });
-        return;
-      }
-      
-      // If check-out date is before check-in date, show error
-      if (name === 'checkOutDate' && bookingData.checkInDate && value <= bookingData.checkInDate) {
-        toast.error('วันที่ออกต้องมาหลังวันที่เข้าพัก', { icon: '⚠️' });
-        return;
-      }
+    if (date) {
+      toast.success('เลือกวันเช็คอินแล้ว - กรุณาเลือกวันเช็คเอาท์', { 
+        icon: '✅',
+        duration: 3000
+      });
+    }
+  };
+
+  const handleCheckOutDateSelect = (date) => {
+    if (!bookingData.checkInDate) {
+      toast.error('กรุณาเลือกวันเช็คอินก่อน', { icon: '⚠️' });
+      return;
+    }
+    
+    if (date <= bookingData.checkInDate) {
+      toast.error('วันเช็คเอาท์ต้องมาหลังวันเช็คอิน', { icon: '⚠️' });
+      return;
     }
     
     setBookingData(prev => ({
       ...prev,
-      [name]: value
+      checkOutDate: date
     }));
+    
+    if (date) {
+      const nights = Math.ceil((date - bookingData.checkInDate) / (1000 * 60 * 60 * 24));
+      toast.success(`เลือกวันที่สำเร็จ - ${nights} คืน`, { 
+        icon: '🎉',
+        duration: 3000
+      });
+    }
   };
 
   const calculateTotalPrice = () => {
@@ -138,11 +145,17 @@ export default function BookRoomPage({ params }) {
       return 0;
     }
     
-    const checkIn = new Date(bookingData.checkInDate);
-    const checkOut = new Date(bookingData.checkOutDate);
-    const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+    const nights = Math.ceil((bookingData.checkOutDate - bookingData.checkInDate) / (1000 * 60 * 60 * 24));
     
     return nights > 0 ? nights * roomType.pricePerNight : 0;
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setBookingData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -160,8 +173,8 @@ export default function BookRoomPage({ params }) {
       const booking = {
         hotelId: parseInt(hotelId),
         roomTypeId: parseInt(roomTypeId),
-        checkInDate: bookingData.checkInDate,
-        checkOutDate: bookingData.checkOutDate,
+        checkInDate: bookingData.checkInDate.toISOString().split('T')[0],
+        checkOutDate: bookingData.checkOutDate.toISOString().split('T')[0],
         guests: parseInt(bookingData.guests),
         specialRequests: bookingData.specialRequests
       };
@@ -224,14 +237,14 @@ export default function BookRoomPage({ params }) {
 
     setCheckingAvailability(true);
     try {
-      const checkInDate = new Date(bookingData.checkInDate);
-      const checkOutDate = new Date(bookingData.checkOutDate);
+      const checkInDate = bookingData.checkInDate;
+      const checkOutDate = bookingData.checkOutDate;
       
       // Get current unavailable dates and check if selection conflicts
       const availability = await bookingAPI.getRoomAvailability(
         roomTypeId, 
-        bookingData.checkInDate,
-        bookingData.checkOutDate
+        checkInDate.toISOString().split('T')[0],
+        checkOutDate.toISOString().split('T')[0]
       );
       
       // Check if current selection conflicts with any existing booking
@@ -529,71 +542,81 @@ export default function BookRoomPage({ params }) {
                   </div>
                 </div>
               </div>
-              {/* Check-in Date */}
+              
+              {/* Check-in Date Picker */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Calendar className="h-4 w-4 inline mr-1" />
-                  วันที่เข้าพัก
-                </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    name="checkInDate"
-                    value={bookingData.checkInDate}
-                    onChange={handleInputChange}
-                    min={new Date().toISOString().split('T')[0]}
-                    className={`input-field ${bookingData.checkInDate && getDateStatus(bookingData.checkInDate).status === 'unavailable' ? 'border-red-500 bg-red-50' : ''}`}
-                    required
-                  />
-                  {bookingData.checkInDate && (
-                    <div className="mt-1 text-sm">
-                      <div className={`flex items-center ${
-                        getDateStatus(bookingData.checkInDate).status === 'available' ? 'text-green-600' :
-                        getDateStatus(bookingData.checkInDate).status === 'unavailable' ? 'text-red-600' :
-                        'text-gray-500'
-                      }`}>
-                        {getDateStatus(bookingData.checkInDate).status === 'available' && <CheckCircle className="h-4 w-4 mr-1" />}
-                        {getDateStatus(bookingData.checkInDate).status === 'unavailable' && <XCircle className="h-4 w-4 mr-1" />}
-                        {getDateStatus(bookingData.checkInDate).status === 'past' && <AlertCircle className="h-4 w-4 mr-1" />}
-                        {getDateStatus(bookingData.checkInDate).message}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <Calendar className="h-5 w-5 mr-2 text-blue-600" />
+                  วันที่เช็คอิน
+                </h3>
+                <SimpleDatePicker
+                  selectedDate={bookingData.checkInDate}
+                  onDateSelect={handleCheckInDateSelect}
+                  minDate={new Date()}
+                  maxDate={new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)}
+                  placeholder="เลือกวันเช็คอิน"
+                  className="mb-6"
+                />
               </div>
 
-              {/* Check-out Date */}
+              {/* Check-out Date Picker */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Calendar className="h-4 w-4 inline mr-1" />
-                  วันที่ออก
-                </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    name="checkOutDate"
-                    value={bookingData.checkOutDate}
-                    onChange={handleInputChange}
-                    min={bookingData.checkInDate || new Date().toISOString().split('T')[0]}
-                    className={`input-field ${bookingData.checkOutDate && getDateStatus(bookingData.checkOutDate).status === 'unavailable' ? 'border-red-500 bg-red-50' : ''}`}
-                    required
-                  />
-                  {bookingData.checkOutDate && (
-                    <div className="mt-1 text-sm">
-                      <div className={`flex items-center ${
-                        getDateStatus(bookingData.checkOutDate).status === 'available' ? 'text-green-600' :
-                        getDateStatus(bookingData.checkOutDate).status === 'unavailable' ? 'text-red-600' :
-                        'text-gray-500'
-                      }`}>
-                        {getDateStatus(bookingData.checkOutDate).status === 'available' && <CheckCircle className="h-4 w-4 mr-1" />}
-                        {getDateStatus(bookingData.checkOutDate).status === 'unavailable' && <XCircle className="h-4 w-4 mr-1" />}
-                        {getDateStatus(bookingData.checkOutDate).status === 'past' && <AlertCircle className="h-4 w-4 mr-1" />}
-                        {getDateStatus(bookingData.checkOutDate).message}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <Calendar className="h-5 w-5 mr-2 text-green-600" />
+                  วันที่เช็คเอาท์
+                </h3>
+                <SimpleDatePicker
+                  selectedDate={bookingData.checkOutDate}
+                  onDateSelect={handleCheckOutDateSelect}
+                  minDate={bookingData.checkInDate ? new Date(bookingData.checkInDate.getTime() + 24 * 60 * 60 * 1000) : new Date()}
+                  maxDate={new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)}
+                  placeholder="เลือกวันเช็คเอาท์"
+                  disabled={!bookingData.checkInDate}
+                  className="mb-6"
+                />
               </div>
+
+              {/* Time Selection */}
+              {bookingData.checkInDate && bookingData.checkOutDate && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <svg className="h-5 w-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    เลือกเวลาเช็คอิน/เช็คเอาท์
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <TimePicker
+                      label="เวลาเช็คอิน"
+                      value={bookingData.checkInTime}
+                      onChange={(time) => setBookingData(prev => ({ ...prev, checkInTime: time }))}
+                      minTime="06:00"
+                      maxTime="23:00"
+                      step={30}
+                      required
+                    />
+                    
+                    <TimePicker
+                      label="เวลาเช็คเอาท์"
+                      value={bookingData.checkOutTime}
+                      onChange={(time) => setBookingData(prev => ({ ...prev, checkOutTime: time }))}
+                      minTime="06:00"
+                      maxTime="23:00"
+                      step={30}
+                      required
+                    />
+                  </div>
+                  
+                  {/* Time Info */}
+                  <div className="mt-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                    <p className="text-sm text-purple-700">
+                      <strong>หมายเหตุ:</strong> เวลาเช็คอินมาตรฐาน 14:00 น. / เวลาเช็คเอาท์มาตรฐาน 12:00 น. 
+                      หากต้องการเวลาพิเศษ กรุณาระบุในความต้องการพิเศษ
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Guests */}
               <div>
@@ -632,7 +655,10 @@ export default function BookRoomPage({ params }) {
               </div>
 
               {/* Price Summary */}
-              {nights > 0 && (
+              {bookingData.checkInDate && bookingData.checkOutDate && (() => {
+                const nights = Math.ceil((bookingData.checkOutDate - bookingData.checkInDate) / (1000 * 60 * 60 * 24));
+                const totalPrice = calculateTotalPrice();
+                return nights > 0 && (
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="font-semibold text-gray-800 mb-3">สรุปราคา</h3>
                   <div className="space-y-2 text-sm">
@@ -646,24 +672,25 @@ export default function BookRoomPage({ params }) {
                     </div>
                   </div>
                 </div>
-              )}
+                );
+              })()}
 
               {/* Submit Button */}
               <button
                 type="submit"
                 disabled={
                   submitting || 
-                  totalPrice <= 0 || 
-                  checkingAvailability ||
-                  (bookingData.checkInDate && getDateStatus(bookingData.checkInDate).status !== 'available') ||
-                  (bookingData.checkOutDate && getDateStatus(bookingData.checkOutDate).status !== 'available')
+                  !bookingData.checkInDate ||
+                  !bookingData.checkOutDate ||
+                  calculateTotalPrice() <= 0 || 
+                  checkingAvailability
                 }
                 className={`w-full flex items-center justify-center py-3 text-lg font-medium rounded-lg transition-colors ${
                   submitting || 
-                  totalPrice <= 0 || 
-                  checkingAvailability ||
-                  (bookingData.checkInDate && getDateStatus(bookingData.checkInDate).status !== 'available') ||
-                  (bookingData.checkOutDate && getDateStatus(bookingData.checkOutDate).status !== 'available')
+                  !bookingData.checkInDate ||
+                  !bookingData.checkOutDate ||
+                  calculateTotalPrice() <= 0 || 
+                  checkingAvailability
                     ? 'bg-gray-400 cursor-not-allowed text-gray-600' 
                     : 'btn-primary hover:bg-primary-700'
                 }`}
@@ -678,7 +705,7 @@ export default function BookRoomPage({ params }) {
                     <div className="w-6 h-6 border-2 border-gray-600 border-t-transparent rounded-full animate-spin mr-2"></div>
                     กำลังตรวจสอบความพร้อม...
                   </>
-                ) : totalPrice <= 0 ? (
+                ) : !bookingData.checkInDate || !bookingData.checkOutDate ? (
                   <>
                     <AlertCircle className="h-5 w-5 mr-2" />
                     กรุณาเลือกวันที่
@@ -686,7 +713,7 @@ export default function BookRoomPage({ params }) {
                 ) : (
                   <>
                     <CreditCard className="h-5 w-5 mr-2" />
-                    จองและชำระเงิน (฿{totalPrice.toLocaleString()})
+                    จองและชำระเงิน (฿{calculateTotalPrice().toLocaleString()})
                   </>
                 )}
               </button>

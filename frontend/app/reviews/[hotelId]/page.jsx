@@ -55,14 +55,22 @@ const RatingDistribution = ({ distribution, totalReviews }) => {
   );
 };
 
-const ReviewCard = ({ review }) => {
+const ReviewCard = ({ review, t, language }) => {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('th-TH', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    if (language === 'en') {
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } else {
+      return date.toLocaleDateString('th-TH', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
   };
 
   return (
@@ -242,13 +250,13 @@ export default function HotelReviews() {
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-3xl font-bold text-gray-900">รีวิวโรงแรม</h1>
+            <h1 className="text-3xl font-bold text-gray-900">{t('reviews.title', 'รีวิวโรงแรม')}</h1>
             <button
               onClick={() => setShowWriteReview(true)}
               className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600 transition-colors flex items-center space-x-2"
             >
               <span>✍️</span>
-              <span>เขียนรีวิว</span>
+              <span>{t('reviews.writeReview', 'เขียนรีวิว')}</span>
             </button>
           </div>
           
@@ -262,19 +270,25 @@ export default function HotelReviews() {
                 <div>
                   <StarRating rating={Math.round(parseFloat(statistics.averageRating))} size="lg" />
                   <p className="text-gray-600 mt-1">
-                    จาก {statistics.totalReviews} รีวิว
+                    {language === 'en' 
+                      ? `From ${statistics.totalReviews} reviews`
+                      : `จาก ${statistics.totalReviews} รีวิว`
+                    }
                   </p>
                 </div>
               </div>
               
               <div className="flex items-center space-x-4 text-sm text-gray-600">
-                <span>✅ ยืนยันการเข้าพัก: {statistics.verifiedStays} รีวิว</span>
+                <span>✅ {language === 'en' 
+                  ? `Verified stays: ${statistics.verifiedStays} reviews`
+                  : `ยืนยันการเข้าพัก: ${statistics.verifiedStays} รีวิว`
+                }</span>
               </div>
             </div>
             
             {/* กราฟแยกคะแนน */}
             <div>
-              <h3 className="font-semibold text-gray-900 mb-3">การกระจายคะแนน</h3>
+              <h3 className="font-semibold text-gray-900 mb-3">{t('reviews.ratingDistribution', 'การกระจายคะแนน')}</h3>
               <RatingDistribution 
                 distribution={statistics.ratingDistribution}
                 totalReviews={statistics.totalReviews}
@@ -298,11 +312,11 @@ export default function HotelReviews() {
         <div className="space-y-6">
           {reviews.length === 0 ? (
             <div className="bg-white rounded-lg p-12 text-center">
-              <p className="text-gray-500 text-lg">ยังไม่มีรีวิวที่ตรงกับเงื่อนไข</p>
+              <p className="text-gray-500 text-lg">{t('reviews.noReviews', 'ยังไม่มีรีวิวที่ตรงกับเงื่อนไข')}</p>
             </div>
           ) : (
             reviews.map((review) => (
-              <ReviewCard key={review.id} review={review} />
+              <ReviewCard key={review.id} review={review} t={t} language={language} />
             ))
           )}
         </div>
@@ -312,7 +326,10 @@ export default function HotelReviews() {
           <div className="bg-white rounded-lg shadow-sm p-6 mt-8">
             <div className="flex items-center justify-between">
               <p className="text-sm text-gray-700">
-                แสดง {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} - {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} จาก {pagination.totalItems} รายการ
+                {language === 'en' 
+                  ? `Showing ${((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} - ${Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of ${pagination.totalItems} results`
+                  : `แสดง ${((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} - ${Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} จาก ${pagination.totalItems} รายการ`
+                }
               </p>
               
               <div className="flex space-x-2">
@@ -321,11 +338,14 @@ export default function HotelReviews() {
                   disabled={!pagination.hasPrevPage}
                   className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  ก่อนหน้า
+                  {t('common.previous', 'ก่อนหน้า')}
                 </button>
                 
                 <span className="px-3 py-2 text-sm font-medium text-gray-700">
-                  หน้า {pagination.currentPage} จาก {pagination.totalPages}
+                  {language === 'en' 
+                    ? `Page ${pagination.currentPage} of ${pagination.totalPages}`
+                    : `หน้า ${pagination.currentPage} จาก ${pagination.totalPages}`
+                  }
                 </span>
                 
                 <button
@@ -333,7 +353,7 @@ export default function HotelReviews() {
                   disabled={!pagination.hasNextPage}
                   className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  ถัดไป
+                  {t('common.next', 'ถัดไป')}
                 </button>
               </div>
             </div>

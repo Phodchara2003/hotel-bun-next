@@ -306,6 +306,37 @@ export const translations = {
     yourReview: "รีวิวของคุณ",
     submitReview: "ส่งรีวิว",
     reviewSubmitted: "ส่งรีวิวสำเร็จ",
-    thankYou: "ขอบคุณสำหรับรีวิวของคุณ"
+    thankYou: "ขอบคุณสำหรับรีวิวของคุณ",
+    ratingDistribution: "การกระจายคะแนน"
+  },
+
+  // Date and Time Pickers
+  dateTime: {
+    selectDate: "เลือกวันที่",
+    selectTime: "เลือกเวลา",
+    checkInDate: "วันเช็คอิน",
+    checkOutDate: "วันเช็คเอาท์",
+    checkInTime: "เวลาเช็คอิน",
+    checkOutTime: "เวลาเช็คเอาท์",
+    selectCheckIn: "← เลือกวันเช็คเอาท์",
+    selectYourStayDates: "เลือกวันที่เข้าพัก",
+    selectCheckInDate: "เลือกวันเช็คอิน",
+    selectCheckOutDate: "เลือกวันเช็คเอาท์",
+    duration: "ระยะเวลา:",
+    nights: "คืน",
+    checkIn: "เช็คอิน",
+    checkOut: "เช็คเอาท์",
+    stayPeriod: "ช่วงเข้าพัก",
+    clear: "ล้าง",
+    done: "เสร็จสิ้น",
+    close: "ปิด",
+    availableTimes: "เวลาที่เลือกได้",
+    standardCheckIn: "เวลาเช็คอินมาตรฐาน 14:00 น.",
+    standardCheckOut: "เวลาเช็คเอาท์มาตรฐาน 12:00 น.",
+    specialTimeNote: "หากต้องการเวลาพิเศษ กรุณาระบุในความต้องการพิเศษ",
+    am: "น.",
+    pm: "น.",
+    morning: "เช้า",
+    afternoon: "บ่าย/เย็น"
   }
 };
