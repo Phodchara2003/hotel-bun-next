@@ -221,9 +221,7 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
     try {
       console.log('=== CHECKING ROOM AVAILABILITY ===');
       
-      // Authenticate user
-      const user = await authMiddleware({ headers, set });
-      if (user.error) return user;
+      // No authentication required for checking availability - this is a public endpoint
       
       const { roomTypeId } = params;
       const { startDate, endDate } = query;
@@ -253,9 +251,9 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
       
       console.log('Found existing bookings:', existingBookings.length);
       
-      // Get room type info
+      // Get room type info (excluding large image fields)
       const roomType = await sql`
-        SELECT rt.*, h.name as hotel_name
+        SELECT rt.id, rt.name, rt.max_guests, rt.price_per_night, h.name as hotel_name
         FROM room_types rt
         JOIN hotels h ON rt.hotel_id = h.id
         WHERE rt.id = ${roomTypeId}

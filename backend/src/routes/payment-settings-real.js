@@ -217,6 +217,96 @@ export const paymentSettingsRoutes = new Elysia({ prefix: '/payment-settings' })
         message: 'เกิดข้อผิดพลาดในการอัพโหลด QR Code'
       };
     }
+  })
+  
+  // Simple admin payment settings routes
+  .get('/admin/payment-settings', async ({ set }) => {
+    console.log('📋 GET /admin/payment-settings - Simple bank settings');
+    
+    try {
+      // Create table if not exists
+      await sql`
+        CREATE TABLE IF NOT EXISTS simple_payment_settings (
+          id SERIAL PRIMARY KEY,
+          settings JSONB NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `;
+      
+      // Get payment settings from database
+      const settings = await sql`
+        SELECT settings FROM simple_payment_settings 
+        ORDER BY updated_at DESC 
+        LIMIT 1
+      `;
+      
+      console.log('📊 Simple settings from DB:', settings.length);
+      
+      if (settings.length === 0) {
+        // Return default settings
+        const defaultSettings = {
+          bankInfo: {
+            bankName: 'ธนาคารทดสอบใหม่',
+            accountNumber: '999-888-777',
+            accountName: 'New Test Account'
+          },
+          instructions: 'กรุณาโอนเงินเข้าบัญชีตามรายละเอียดข้างต้น และส่งสลิปการโอนเงินเพื่อยืนยันการชำระเงิน'
+        };
+        
+        return { settings: defaultSettings };
+      }
+      
+      return { settings: settings[0].settings };
+    } catch (error) {
+      console.error('❌ Error fetching simple payment settings:', error);
+      set.status = 500;
+      return { error: 'Internal server error' };
+    }
+  })
+  
+  .post('/admin/payment-settings', async ({ body, set }) => {
+    console.log('💾 POST /admin/payment-settings - Save simple bank settings');
+    
+    try {
+      const { settings } = body;
+      
+      if (!settings) {
+        console.log('❌ No settings provided');
+        set.status = 400;
+        return { error: 'Settings data is required' };
+      }
+      
+      console.log('📝 Saving simple settings:', JSON.stringify(settings, null, 2));
+      
+      // Create table if not exists
+      await sql`
+        CREATE TABLE IF NOT EXISTS simple_payment_settings (
+          id SERIAL PRIMARY KEY,
+          settings JSONB NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `;
+      
+      // Insert new settings
+      await sql`
+        INSERT INTO simple_payment_settings (settings, updated_at)
+        VALUES (${JSON.stringify(settings)}, CURRENT_TIMESTAMP)
+      `;
+      
+      console.log('✅ Simple settings saved successfully');
+      
+      return { 
+        success: true, 
+        message: 'Payment settings saved successfully',
+        settings 
+      };
+    } catch (error) {
+      console.error('❌ Error saving simple payment settings:', error);
+      set.status = 500;
+      return { error: 'Internal server error' };
+    }
   });
 
 console.log('✅ Real Payment Settings Routes loaded');

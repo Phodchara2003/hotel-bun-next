@@ -6,6 +6,7 @@ import { useAuth } from '../../../../contexts/AuthContext';
 import { hotelAPI, bookingAPI } from '../../../../lib/api';
 import { Calendar, Users, CreditCard, ArrowLeft, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import DateRangePicker from '../../../../components/DateRangePicker';
 import SimpleDatePicker from '../../../../components/SimpleDatePicker';
 import TimePicker from '../../../../components/TimePicker';
 
@@ -100,41 +101,35 @@ export default function BookRoomPage({ params }) {
     }
   };
 
-  const handleCheckInDateSelect = (date) => {
-    setBookingData(prev => ({
-      ...prev,
-      checkInDate: date,
-      checkOutDate: null // Reset checkout date when checkin changes
-    }));
-    
-    if (date) {
-      toast.success('เลือกวันเช็คอินแล้ว - กรุณาเลือกวันเช็คเอาท์', { 
-        icon: '✅',
-        duration: 3000
+  const handleDateRangeSelect = (checkIn, checkOut) => {
+    // Check if dates are available
+    if (checkIn && isDateUnavailable(checkIn.toISOString().split('T')[0])) {
+      toast.error('วันที่เข้าพักไม่ว่าง - กรุณาเลือกวันที่อื่น', { 
+        icon: '❌',
+        duration: 4000
       });
-    }
-  };
-
-  const handleCheckOutDateSelect = (date) => {
-    if (!bookingData.checkInDate) {
-      toast.error('กรุณาเลือกวันเช็คอินก่อน', { icon: '⚠️' });
       return;
     }
     
-    if (date <= bookingData.checkInDate) {
-      toast.error('วันเช็คเอาท์ต้องมาหลังวันเช็คอิน', { icon: '⚠️' });
+    if (checkOut && isDateUnavailable(checkOut.toISOString().split('T')[0])) {
+      toast.error('วันที่ออกไม่ว่าง - กรุณาเลือกวันที่อื่น', { 
+        icon: '❌',
+        duration: 4000
+      });
       return;
     }
     
     setBookingData(prev => ({
       ...prev,
-      checkOutDate: date
+      checkInDate: checkIn,
+      checkOutDate: checkOut
     }));
     
-    if (date) {
-      const nights = Math.ceil((date - bookingData.checkInDate) / (1000 * 60 * 60 * 24));
+    // Show success message when both dates are selected
+    if (checkIn && checkOut) {
+      const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
       toast.success(`เลือกวันที่สำเร็จ - ${nights} คืน`, { 
-        icon: '🎉',
+        icon: '✅',
         duration: 3000
       });
     }
@@ -421,49 +416,75 @@ export default function BookRoomPage({ params }) {
             
             {/* Hotel & Room Info */}
             <div className="mb-6">
-              <h2 className="text-lg font-semibold text-gray-800 mb-2">
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">
                 {hotel.name}
               </h2>
               <h3 className="text-xl font-bold text-primary-600 mb-2">
                 {roomType.name}
               </h3>
-              <p className="text-gray-600 mb-4">
+              <p className="text-gray-800 mb-4">
                 {roomType.description}
               </p>
               
               {/* Room Details */}
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="flex items-center">
-                  <Users className="h-4 w-4 mr-2 text-gray-500" />
-                  <span>สูงสุด {roomType.maxGuests} ผู้เข้าพัก</span>
+                  <Users className="h-4 w-4 mr-2 text-gray-600" />
+                  <span className="text-gray-800">สูงสุด {roomType.maxGuests} ผู้เข้าพัก</span>
                 </div>
                 {roomType.sizeSqm && (
                   <div className="flex items-center">
-                    <span className="text-gray-500 mr-2">📐</span>
-                    <span>{roomType.sizeSqm} ตรม.</span>
+                    <span className="text-gray-600 mr-2">📐</span>
+                    <span className="text-gray-800">{roomType.sizeSqm} ตรม.</span>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Room Image */}
-            {roomType.images && roomType.images.length > 0 && (
-              <div className="mb-6">
-                <img
-                  src={roomType.images[0]}
-                  alt={roomType.name}
-                  className="w-full h-48 object-cover rounded-lg"
-                />
-              </div>
-            )}
+            <div className="mb-6">
+              {(() => {
+                // Get room image with fallback logic similar to RoomCard
+                let imageUrl = '';
+                if (roomType.images && roomType.images.length > 0) {
+                  // Use first available image
+                  const firstImage = roomType.images[0];
+                  imageUrl = firstImage.startsWith('/api/') ? `http://localhost:3001${firstImage}` : firstImage;
+                } else {
+                  // Fallback images based on room type or name
+                  const roomTypeLower = (roomType.name || roomType.type || '').toLowerCase();
+                  if (roomTypeLower.includes('standard')) {
+                    imageUrl = 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600&q=80';
+                  } else if (roomTypeLower.includes('deluxe')) {
+                    imageUrl = 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=600&q=80';
+                  } else if (roomTypeLower.includes('junior') || roomTypeLower.includes('suite')) {
+                    imageUrl = 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=600&q=80';
+                  } else if (roomTypeLower.includes('executive')) {
+                    imageUrl = 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=600&q=80';
+                  } else if (roomTypeLower.includes('presidential')) {
+                    imageUrl = 'https://images.unsplash.com/photo-1506059612708-99d6c258160e?w=600&q=80';
+                  } else {
+                    imageUrl = 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=600&q=80';
+                  }
+                }
+                
+                return (
+                  <img
+                    src={imageUrl}
+                    alt={roomType.name}
+                    className="w-full h-48 object-cover rounded-lg"
+                  />
+                );
+              })()}
+            </div>
 
             {/* Amenities */}
             {roomType.amenities && roomType.amenities.length > 0 && (
               <div>
-                <h4 className="font-semibold text-gray-800 mb-3">สิ่งอำนวยความสะดวก</h4>
+                <h4 className="font-semibold text-gray-900 mb-3">สิ่งอำนวยความสะดวก</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {roomType.amenities.map((amenity, index) => (
-                    <div key={index} className="flex items-center text-sm text-gray-600">
+                    <div key={index} className="flex items-center text-sm text-gray-800">
                       <div className="w-2 h-2 bg-primary-600 rounded-full mr-3"></div>
                       {amenity}
                     </div>
@@ -490,96 +511,25 @@ export default function BookRoomPage({ params }) {
                 </div>
               )}
 
-              {/* Unavailable Dates Info */}
-              {unavailableDates.length > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="flex items-start">
-                    <AlertCircle className="h-5 w-5 text-red-600 mr-2 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <h4 className="font-medium text-red-800 mb-2">วันที่ไม่ว่าง</h4>
-                      <p className="text-sm text-red-700 mb-2">
-                        วันที่ต่อไปนี้มีการจองแล้ว กรุณาเลือกวันที่อื่น:
-                      </p>
-                      <div className="max-h-20 overflow-y-auto">
-                        <div className="text-sm text-red-600 space-y-1">
-                          {unavailableDates.slice(0, 10).map((date, index) => (
-                            <div key={index} className="flex items-center">
-                              <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
-                              {new Date(date).toLocaleDateString('th-TH', { 
-                                year: 'numeric', 
-                                month: 'long', 
-                                day: 'numeric' 
-                              })}
-                            </div>
-                          ))}
-                          {unavailableDates.length > 10 && (
-                            <div className="text-red-500 text-xs">
-                              และอีก {unavailableDates.length - 10} วัน...
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Availability Legend */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-medium text-gray-800 mb-3">คำอธิบายสถานะ</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center">
-                    <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
-                    <span className="text-green-700">ว่าง - สามารถจองได้</span>
-                  </div>
-                  <div className="flex items-center">
-                    <XCircle className="h-4 w-4 text-red-600 mr-2" />
-                    <span className="text-red-700">เต็ม - มีการจองแล้ว</span>
-                  </div>
-                  <div className="flex items-center">
-                    <AlertCircle className="h-4 w-4 text-gray-600 mr-2" />
-                    <span className="text-gray-700">วันที่ผ่านมาแล้ว</span>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Check-in Date Picker */}
+              {/* Date Range Picker */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                   <Calendar className="h-5 w-5 mr-2 text-blue-600" />
-                  วันที่เช็คอิน
+                  เลือกวันที่เข้าพัก
                 </h3>
                 <SimpleDatePicker
-                  selectedDate={bookingData.checkInDate}
-                  onDateSelect={handleCheckInDateSelect}
-                  minDate={new Date()}
-                  maxDate={new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)}
-                  placeholder="เลือกวันเช็คอิน"
-                  className="mb-6"
-                />
-              </div>
-
-              {/* Check-out Date Picker */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                  <Calendar className="h-5 w-5 mr-2 text-green-600" />
-                  วันที่เช็คเอาท์
-                </h3>
-                <SimpleDatePicker
-                  selectedDate={bookingData.checkOutDate}
-                  onDateSelect={handleCheckOutDateSelect}
-                  minDate={bookingData.checkInDate ? new Date(bookingData.checkInDate.getTime() + 24 * 60 * 60 * 1000) : new Date()}
-                  maxDate={new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)}
-                  placeholder="เลือกวันเช็คเอาท์"
-                  disabled={!bookingData.checkInDate}
-                  className="mb-6"
+                  checkInDate={bookingData.checkInDate}
+                  checkOutDate={bookingData.checkOutDate}
+                  onDateRangeSelect={handleDateRangeSelect}
+                  unavailableDates={unavailableDates}
+                  className="mb-4"
                 />
               </div>
 
               {/* Time Selection */}
               {bookingData.checkInDate && bookingData.checkOutDate && (
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                     <svg className="h-5 w-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
@@ -610,7 +560,7 @@ export default function BookRoomPage({ params }) {
                   
                   {/* Time Info */}
                   <div className="mt-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
-                    <p className="text-sm text-purple-700">
+                    <p className="text-sm text-gray-800">
                       <strong>หมายเหตุ:</strong> เวลาเช็คอินมาตรฐาน 14:00 น. / เวลาเช็คเอาท์มาตรฐาน 12:00 น. 
                       หากต้องการเวลาพิเศษ กรุณาระบุในความต้องการพิเศษ
                     </p>
@@ -620,7 +570,7 @@ export default function BookRoomPage({ params }) {
 
               {/* Guests */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-800 mb-2">
                   <Users className="h-4 w-4 inline mr-1" />
                   จำนวนผู้เข้าพัก
                 </label>
@@ -628,7 +578,7 @@ export default function BookRoomPage({ params }) {
                   name="guests"
                   value={bookingData.guests}
                   onChange={handleInputChange}
-                  className="input-field"
+                  className="input-field text-gray-900"
                   required
                 >
                   {[...Array(roomType.maxGuests)].map((_, i) => (
@@ -641,7 +591,7 @@ export default function BookRoomPage({ params }) {
 
               {/* Special Requests */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-800 mb-2">
                   ความต้องการพิเศษ (ไม่บังคับ)
                 </label>
                 <textarea
@@ -649,7 +599,7 @@ export default function BookRoomPage({ params }) {
                   value={bookingData.specialRequests}
                   onChange={handleInputChange}
                   rows={3}
-                  className="input-field"
+                  className="input-field text-gray-900"
                   placeholder="เช่น เตียงเสริม, ชั้นสูง, ห้องเงียบ..."
                 />
               </div>
@@ -660,13 +610,13 @@ export default function BookRoomPage({ params }) {
                 const totalPrice = calculateTotalPrice();
                 return nights > 0 && (
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="font-semibold text-gray-800 mb-3">สรุปราคา</h3>
-                  <div className="space-y-2 text-sm">
+                  <h3 className="font-semibold text-gray-900 mb-3">สรุปราคา</h3>
+                  <div className="space-y-2 text-sm text-gray-800">
                     <div className="flex justify-between">
                       <span>฿{roomType.pricePerNight.toLocaleString()} × {nights} คืน</span>
                       <span>฿{(roomType.pricePerNight * nights).toLocaleString()}</span>
                     </div>
-                    <div className="border-t border-gray-300 pt-2 flex justify-between font-semibold">
+                    <div className="border-t border-gray-300 pt-2 flex justify-between font-semibold text-gray-900">
                       <span>รวมทั้งหมด</span>
                       <span className="text-primary-600">฿{totalPrice.toLocaleString()}</span>
                     </div>

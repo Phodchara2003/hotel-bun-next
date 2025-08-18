@@ -91,18 +91,27 @@ export const hotelRoutes = new Elysia({ prefix: '/hotels' })
     try {
       const hotelId = parseInt(params.id);
       
-      const hotel = await sql`
-        SELECT * FROM hotels WHERE id = ${hotelId}
+      // Check if hotel exists first
+      const hotelCheck = await sql`
+        SELECT id, name, description, address, city, country, rating, amenities, created_at, updated_at
+        FROM hotels WHERE id = ${hotelId}
       `;
       
-      if (!hotel.length) {
+      if (!hotelCheck.length) {
         set.status = 404;
         return { error: 'Hotel not found' };
       }
       
-      // Get room types for this hotel
+      // Get hotel data without large images first
+      const hotel = await sql`
+        SELECT id, name, description, address, city, country, rating, amenities, created_at, updated_at
+        FROM hotels WHERE id = ${hotelId}
+      `;
+      
+      // Get room types for this hotel (exclude images initially for performance)
       const roomTypes = await sql`
-        SELECT * FROM room_types 
+        SELECT id, name, description, price_per_night, max_guests, size_sqm, amenities, hotel_id, type
+        FROM room_types 
         WHERE hotel_id = ${hotelId}
         ORDER BY price_per_night ASC
       `;
@@ -127,19 +136,21 @@ export const hotelRoutes = new Elysia({ prefix: '/hotels' })
         city: hotelData.city,
         country: hotelData.country,
         rating: parseFloat(hotelData.rating),
-        images: hotelData.images,
+        images: [], // Hotel images handled separately via /api/hotels/hotel-image endpoint
         amenities: hotelData.amenities,
-        roomTypes: roomTypes.map(rt => ({
-          id: rt.id,
-          name: rt.name,
-          description: rt.description,
-          pricePerNight: parseFloat(rt.price_per_night),
-          maxGuests: rt.max_guests,
-          sizeSqm: rt.size_sqm,
-          amenities: rt.amenities,
-          images: rt.images,
-          image: rt.image // เพิ่ม field image (base64/url) ที่แอดมินอัปโหลด
-        })),
+        roomTypes: roomTypes.map(rt => {
+          return {
+            id: rt.id,
+            name: rt.name,
+            type: rt.type,
+            description: rt.description,
+            pricePerNight: parseFloat(rt.price_per_night),
+            maxGuests: rt.max_guests,
+            sizeSqm: rt.size_sqm,
+            amenities: rt.amenities,
+            images: [`/api/hotels/room-image/${rt.id}/0`] // First image endpoint
+          };
+        }),
         reviews: reviews.map(review => ({
           id: review.id,
           rating: review.rating,
@@ -150,6 +161,52 @@ export const hotelRoutes = new Elysia({ prefix: '/hotels' })
       };
     } catch (error) {
       console.error('Get hotel details error:', error);
+      set.status = 500;
+      return { error: 'Internal server error' };
+    }
+  })
+
+  // Add hotel image endpoint
+  .get('/hotel-image/:id/:index', async ({ params, set }) => {
+    try {
+      const hotelId = parseInt(params.id);
+      const imageIndex = parseInt(params.index);
+      
+      const hotel = await sql`
+        SELECT images FROM hotels WHERE id = ${hotelId}
+      `;
+      
+      if (!hotel.length || !hotel[0].images || !Array.isArray(hotel[0].images)) {
+        set.status = 404;
+        return { error: 'Image not found' };
+      }
+      
+      const images = hotel[0].images;
+      if (imageIndex >= images.length || imageIndex < 0) {
+        set.status = 404;
+        return { error: 'Image index out of range' };
+      }
+      
+      const imageData = images[imageIndex];
+      if (!imageData || !imageData.startsWith('data:image')) {
+        set.status = 404;
+        return { error: 'Invalid image data' };
+      }
+      
+      // Extract image format and data
+      const [header, base64Data] = imageData.split(',');
+      const mimeMatch = header.match(/data:image\/([^;]+)/);
+      const mimeType = mimeMatch ? `image/${mimeMatch[1]}` : 'image/jpeg';
+      
+      // Convert base64 to buffer
+      const buffer = Buffer.from(base64Data, 'base64');
+      
+      set.headers['Content-Type'] = mimeType;
+      set.headers['Cache-Control'] = 'public, max-age=86400';
+      
+      return new Response(buffer);
+    } catch (error) {
+      console.error('Hotel image serve error:', error);
       set.status = 500;
       return { error: 'Internal server error' };
     }
@@ -165,9 +222,11 @@ export const hotelRoutes = new Elysia({ prefix: '/hotels' })
         return { error: 'Check-in and check-out dates are required' };
       }
       
-      // Find available room types
+      // Find available room types (exclude large base64 images)
       const availableRoomTypes = await sql`
-        SELECT DISTINCT rt.*, h.name as hotel_name, h.city, h.rating, h.images as hotel_images
+        SELECT DISTINCT rt.id, rt.name, rt.description, rt.price_per_night, rt.max_guests, 
+               rt.size_sqm, rt.amenities, rt.hotel_id,
+               h.name as hotel_name, h.city, h.rating, h.images as hotel_images
         FROM room_types rt
         JOIN hotels h ON rt.hotel_id = h.id
         WHERE rt.max_guests >= ${guests}
@@ -197,9 +256,8 @@ export const hotelRoutes = new Elysia({ prefix: '/hotels' })
           pricePerNight: parseFloat(rt.price_per_night),
           maxGuests: rt.max_guests,
           sizeSqm: rt.size_sqm,
-          amenities: rt.amenities,
-          images: rt.images,
-          image: rt.image // เพิ่ม field image (base64/url) ที่แอดมินอัปโหลด
+          amenities: rt.amenities
+          // Removed images field to prevent large response size issues
         }))
       };
     } catch (error) {
@@ -208,6 +266,90 @@ export const hotelRoutes = new Elysia({ prefix: '/hotels' })
         return { error: 'Validation failed', details: error.errors };
       }
       console.error('Search availability error:', error);
+      set.status = 500;
+      return { error: 'Internal server error' };
+    }
+  })
+  
+  // New endpoint to get room images
+  .get('/room-images/:roomTypeId', async ({ params, set }) => {
+    try {
+      const roomTypeId = parseInt(params.roomTypeId);
+      
+      const room = await sql`
+        SELECT images, name, type FROM room_types WHERE id = ${roomTypeId}
+      `;
+      
+      if (!room.length) {
+        set.status = 404;
+        return { error: 'Room not found' };
+      }
+      
+      const roomData = room[0];
+      let images = [];
+      
+      if (roomData.images && Array.isArray(roomData.images)) {
+        // Convert base64 images to data URLs or return URLs as-is
+        images = roomData.images.map((img, index) => {
+          if (img && img.startsWith('data:image')) {
+            // For base64 images, return them as-is but with an API endpoint reference
+            return `/api/hotels/room-image/${roomTypeId}/${index}`;
+          } else if (img && (img.startsWith('http') || img.startsWith('https'))) {
+            // For URL images, return as-is
+            return img;
+          }
+          return null;
+        }).filter(Boolean);
+      }
+      
+      return {
+        roomId: roomTypeId,
+        roomName: roomData.name,
+        roomType: roomData.type,
+        images
+      };
+    } catch (error) {
+      console.error('Get room images error:', error);
+      set.status = 500;
+      return { error: 'Internal server error' };
+    }
+  })
+  
+  // Endpoint to serve individual room image
+  .get('/room-image/:roomTypeId/:imageIndex', async ({ params, set }) => {
+    try {
+      const roomTypeId = parseInt(params.roomTypeId);
+      const imageIndex = parseInt(params.imageIndex);
+      
+      const room = await sql`
+        SELECT images FROM room_types WHERE id = ${roomTypeId}
+      `;
+      
+      if (!room.length || !room[0].images || !room[0].images[imageIndex]) {
+        set.status = 404;
+        return { error: 'Image not found' };
+      }
+      
+      const base64Image = room[0].images[imageIndex];
+      
+      if (base64Image.startsWith('data:image')) {
+        // Extract image data and content type
+        const matches = base64Image.match(/^data:image\/([a-zA-Z]*);base64,(.*)$/);
+        if (matches && matches.length === 3) {
+          const contentType = `image/${matches[1]}`;
+          const imageBuffer = Buffer.from(matches[2], 'base64');
+          
+          set.headers['content-type'] = contentType;
+          set.headers['cache-control'] = 'public, max-age=86400'; // Cache for 1 day
+          
+          return new Response(imageBuffer);
+        }
+      }
+      
+      set.status = 404;
+      return { error: 'Invalid image format' };
+    } catch (error) {
+      console.error('Serve room image error:', error);
       set.status = 500;
       return { error: 'Internal server error' };
     }

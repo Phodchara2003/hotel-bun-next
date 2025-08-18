@@ -1,273 +1,251 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { useTranslation } from '@/translations';
+import { Calendar, Clock } from 'lucide-react';
 
 const SimpleDatePicker = ({ 
-  selectedDate, 
-  onDateSelect,
-  minDate = new Date(),
-  maxDate = null,
-  placeholder,
-  disabled = false,
-  className = ""
+  checkInDate, 
+  checkOutDate, 
+  onDateRangeSelect,
+  unavailableDates = [],
+  className = "",
+  disabled = false 
 }) => {
-  const { language } = useLanguage();
-  const { t } = useTranslation(language);
-  
-  const [isOpen, setIsOpen] = useState(false);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [checkIn, setCheckIn] = useState('');
+  const [checkOut, setCheckOut] = useState('');
 
-  // Month and day names
-  const monthNames = {
-    th: [
-      'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-      'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
-    ],
-    en: [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ]
+  // Format date for input type="date" (YYYY-MM-DD)
+  const formatDateForInput = (date) => {
+    if (!date) return '';
+    const d = new Date(date);
+    return d.toISOString().split('T')[0];
   };
 
-  const dayNames = {
-    th: ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'],
-    en: ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
-  };
+  // Update local state when props change
+  useEffect(() => {
+    setCheckIn(formatDateForInput(checkInDate));
+    setCheckOut(formatDateForInput(checkOutDate));
+  }, [checkInDate, checkOutDate]);
 
-  // Generate calendar days
-  const generateCalendarDays = () => {
-    const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth();
-    
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startingDayOfWeek = firstDay.getDay();
-    
-    const days = [];
-    
-    // Previous month's trailing days
-    const prevMonth = new Date(year, month - 1, 0);
-    for (let i = startingDayOfWeek - 1; i >= 0; i--) {
-      const day = prevMonth.getDate() - i;
-      days.push({
-        day,
-        date: new Date(year, month - 1, day),
-        isCurrentMonth: false,
-        isDisabled: true
-      });
-    }
-    
-    // Current month's days
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(year, month, day);
-      const isDisabled = (minDate && date < minDate) || (maxDate && date > maxDate);
-      
-      days.push({
-        day,
-        date,
-        isCurrentMonth: true,
-        isDisabled
-      });
-    }
-    
-    // Next month's leading days
-    const remainingDays = 42 - days.length;
-    for (let day = 1; day <= remainingDays; day++) {
-      const date = new Date(year, month + 1, day);
-      days.push({
-        day,
-        date,
-        isCurrentMonth: false,
-        isDisabled: true
-      });
-    }
-    
-    return days;
-  };
-
-  const handleDateClick = (dayObj) => {
-    if (dayObj.isDisabled || !dayObj.isCurrentMonth) return;
-    
-    onDateSelect(dayObj.date);
-    setIsOpen(false);
-  };
-
-  const getDayClassName = (dayObj) => {
-    const { date, isCurrentMonth, isDisabled } = dayObj;
+  // Get minimum date (today)
+  const getMinDate = () => {
     const today = new Date();
-    const isToday = date.toDateString() === today.toDateString();
-    const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString();
-    
-    let classes = 'w-10 h-10 flex items-center justify-center text-sm rounded-lg transition-all duration-150 ';
-    
-    if (!isCurrentMonth || isDisabled) {
-      classes += 'text-gray-400 cursor-not-allowed ';
+    return today.toISOString().split('T')[0];
+  };
+
+  // Get minimum checkout date (day after checkin)
+  const getMinCheckOutDate = () => {
+    if (!checkIn) return getMinDate();
+    const checkInDate = new Date(checkIn);
+    checkInDate.setDate(checkInDate.getDate() + 1);
+    return checkInDate.toISOString().split('T')[0];
+  };
+
+  // Check if date is unavailable
+  const isDateUnavailable = (dateString) => {
+    return unavailableDates.includes(dateString);
+  };
+
+  // Handle check-in date change
+  const handleCheckInChange = (e) => {
+    const selectedDate = e.target.value;
+    setCheckIn(selectedDate);
+
+    if (isDateUnavailable(selectedDate)) {
+      alert('วันที่เลือกไม่ว่าง กรุณาเลือกวันที่อื่น');
+      return;
+    }
+
+    // If checkout is before or same as new checkin, clear checkout
+    if (checkOut && selectedDate >= checkOut) {
+      setCheckOut('');
+      onDateRangeSelect(new Date(selectedDate), null);
     } else {
-      classes += 'text-gray-800 hover:bg-blue-100 cursor-pointer ';
-      
-      if (isSelected) {
-        classes += 'bg-blue-600 text-white font-bold shadow-lg ';
-      } else if (isToday) {
-        classes += 'bg-orange-500 text-white font-semibold ';
-      }
+      onDateRangeSelect(
+        new Date(selectedDate), 
+        checkOut ? new Date(checkOut) : null
+      );
     }
-    
-    return classes.trim();
   };
 
-  const formatDisplayDate = (date) => {
-    if (!date) return placeholder || (language === 'en' ? 'Select date' : 'เลือกวันที่');
-    
-    const options = {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    };
-    
-    return date.toLocaleDateString(language === 'th' ? 'th-TH' : 'en-US', options);
-  };
+  // Handle check-out date change
+  const handleCheckOutChange = (e) => {
+    const selectedDate = e.target.value;
+    setCheckOut(selectedDate);
 
-  const navigateMonth = (direction) => {
-    setCurrentMonth(prev => {
-      const newMonth = new Date(prev);
-      newMonth.setMonth(prev.getMonth() + direction);
-      return newMonth;
-    });
-  };
-
-  // Close calendar when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest('.simple-date-picker-container')) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Update current month when selected date changes
-  useEffect(() => {
-    if (selectedDate) {
-      setCurrentMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
+    if (isDateUnavailable(selectedDate)) {
+      alert('วันที่เลือกไม่ว่าง กรุณาเลือกวันที่อื่น');
+      return;
     }
-  }, [selectedDate]);
 
-  const calendarDays = generateCalendarDays();
+    onDateRangeSelect(
+      checkIn ? new Date(checkIn) : null,
+      new Date(selectedDate)
+    );
+  };
+
+  // Calculate nights
+  const calculateNights = () => {
+    if (!checkIn || !checkOut) return 0;
+    const start = new Date(checkIn);
+    const end = new Date(checkOut);
+    const diffTime = end - start;
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  const nights = calculateNights();
 
   return (
-    <div className={`relative simple-date-picker-container ${className}`}>
-      {/* Input Field */}
-      <button
-        type="button"
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        disabled={disabled}
-        className={`
-          w-full px-4 py-3 text-left border-2 rounded-lg transition-all duration-200 flex items-center justify-between
-          ${disabled 
-            ? 'bg-gray-100 border-gray-300 text-gray-500 cursor-not-allowed' 
-            : 'bg-white border-gray-300 hover:border-blue-500 focus:border-blue-600 focus:ring-4 focus:ring-blue-100'
-          }
-          ${isOpen ? 'border-blue-600 ring-4 ring-blue-100' : ''}
-        `}
-      >
-        <span className={selectedDate ? 'text-gray-900 font-medium' : 'text-gray-500'}>
-          {formatDisplayDate(selectedDate)}
-        </span>
-        <svg 
-          className={`w-5 h-5 text-blue-600 transition-transform ${isOpen ? 'rotate-180' : ''}`} 
-          fill="none" 
-          stroke="currentColor" 
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+    <div className={`space-y-4 ${className}`}>
+      {/* Date Selection */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Check-in Date */}
+        <div>
+          <label className="block text-sm font-medium text-gray-800 mb-2">
+            <Calendar className="inline h-4 w-4 mr-1" />
+            วันเข้าพัก
+          </label>
+          <input
+            type="date"
+            value={checkIn}
+            onChange={handleCheckInChange}
+            min={getMinDate()}
+            disabled={disabled}
+            className={`
+              w-full px-4 py-3 border rounded-lg transition-all duration-200
+              focus:border-blue-500 focus:ring-2 focus:ring-blue-200
+              ${disabled ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white text-gray-900'}
+              ${isDateUnavailable(checkIn) ? 'border-red-300 bg-red-50' : 'border-gray-300'}
+            `}
+          />
+          {isDateUnavailable(checkIn) && (
+            <p className="text-sm text-red-600 mt-1">วันที่นี้ไม่ว่าง</p>
+          )}
+        </div>
 
-      {/* Calendar Dropdown */}
-      {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-gray-200 rounded-lg shadow-2xl z-50 overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b">
-            <button
-              type="button"
-              onClick={() => navigateMonth(-1)}
-              className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-600"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            
-            <h3 className="text-lg font-bold text-gray-800">
-              {monthNames[language][currentMonth.getMonth()]} {currentMonth.getFullYear()}
-            </h3>
-            
-            <button
-              type="button"
-              onClick={() => navigateMonth(1)}
-              className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-600"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
+        {/* Check-out Date */}
+        <div>
+          <label className="block text-sm font-medium text-gray-800 mb-2">
+            <Calendar className="inline h-4 w-4 mr-1" />
+            วันออก
+          </label>
+          <input
+            type="date"
+            value={checkOut}
+            onChange={handleCheckOutChange}
+            min={getMinCheckOutDate()}
+            disabled={disabled || !checkIn}
+            className={`
+              w-full px-4 py-3 border rounded-lg transition-all duration-200
+              focus:border-blue-500 focus:ring-2 focus:ring-blue-200
+              ${disabled || !checkIn ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white text-gray-900'}
+              ${isDateUnavailable(checkOut) ? 'border-red-300 bg-red-50' : 'border-gray-300'}
+            `}
+          />
+          {isDateUnavailable(checkOut) && (
+            <p className="text-sm text-red-600 mt-1">วันที่นี้ไม่ว่าง</p>
+          )}
+        </div>
+      </div>
 
-          {/* Calendar */}
-          <div className="p-4">
-            {/* Day Names */}
-            <div className="grid grid-cols-7 gap-1 mb-3">
-              {dayNames[language].map((day, index) => (
-                <div key={index} className="p-2 text-center text-xs font-bold text-gray-600 uppercase">
-                  {day}
-                </div>
-              ))}
-            </div>
-
-            {/* Calendar Days */}
-            <div className="grid grid-cols-7 gap-1">
-              {calendarDays.map((dayObj, index) => (
-                <button
-                  key={index}
-                  type="button"
-                  onClick={() => handleDateClick(dayObj)}
-                  disabled={dayObj.isDisabled || !dayObj.isCurrentMonth}
-                  className={getDayClassName(dayObj)}
-                >
-                  {dayObj.day}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="px-4 py-3 bg-gray-50 border-t flex items-center justify-between">
-            <div className="flex items-center space-x-4 text-sm">
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-blue-600 rounded"></div>
-                <span className="text-gray-600">{language === 'en' ? 'Selected' : 'เลือกแล้ว'}</span>
+      {/* Summary */}
+      {checkIn && checkOut && nights > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div>
+                <p className="text-sm font-medium text-gray-800">วันเข้าพัก</p>
+                <p className="text-lg text-gray-900 font-semibold">
+                  {new Date(checkIn).toLocaleDateString('th-TH', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </p>
               </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-orange-500 rounded"></div>
-                <span className="text-gray-600">{language === 'en' ? 'Today' : 'วันนี้'}</span>
+              <div>
+                <p className="text-sm font-medium text-gray-800">วันออก</p>
+                <p className="text-lg text-gray-900 font-semibold">
+                  {new Date(checkOut).toLocaleDateString('th-TH', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-800">จำนวนคืน</p>
+                <p className="text-lg font-bold text-gray-900">{nights} คืน</p>
               </div>
             </div>
-            
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium"
-            >
-              {language === 'en' ? 'Close' : 'ปิด'}
-            </button>
           </div>
         </div>
       )}
+
+      {/* Unavailable Dates Info */}
+      {unavailableDates.length > 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <h4 className="font-medium text-gray-800 mb-2">ข้อมูลวันที่ไม่ว่าง</h4>
+          <div className="text-sm text-gray-700">
+            <p className="mb-2">วันที่ต่อไปนี้มีการจองแล้ว:</p>
+            <div className="grid grid-cols-3 md:grid-cols-5 gap-2 max-h-20 overflow-y-auto">
+              {unavailableDates.slice(0, 15).map((date, index) => (
+                <span key={index} className="px-2 py-1 bg-yellow-100 rounded text-xs">
+                  {new Date(date).toLocaleDateString('th-TH', {
+                    month: 'short',
+                    day: 'numeric'
+                  })}
+                </span>
+              ))}
+              {unavailableDates.length > 15 && (
+                <span className="text-xs text-gray-600">และอีก {unavailableDates.length - 15} วัน...</span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Select Buttons */}
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-gray-800">เลือกช่วงเวลาด่วน:</p>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { label: 'คืนนี้', nights: 1 },
+            { label: 'สุดสัปดาห์นี้', nights: 2 },
+            { label: '1 สัปดาห์', nights: 7 },
+            { label: '2 สัปดาห์', nights: 14 }
+          ].map((option) => (
+            <button
+              key={option.label}
+              type="button"
+              onClick={() => {
+                const today = new Date();
+                const checkInDate = today.toISOString().split('T')[0];
+                const checkOutDate = new Date(today);
+                checkOutDate.setDate(today.getDate() + option.nights);
+                const checkOutStr = checkOutDate.toISOString().split('T')[0];
+                
+                // Check if any dates in range are unavailable
+                const hasUnavailable = unavailableDates.some(unavailableDate => {
+                  return unavailableDate >= checkInDate && unavailableDate < checkOutStr;
+                });
+                
+                if (!hasUnavailable) {
+                  setCheckIn(checkInDate);
+                  setCheckOut(checkOutStr);
+                  onDateRangeSelect(new Date(checkInDate), new Date(checkOutStr));
+                } else {
+                  alert('ช่วงเวลาที่เลือกมีวันที่ไม่ว่าง กรุณาเลือกวันที่อื่น');
+                }
+              }}
+              disabled={disabled}
+              className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:opacity-50 text-gray-800"
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };

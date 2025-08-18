@@ -6,7 +6,6 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { bookingAPI } from '../../../lib/api';
 import { 
   CreditCard, 
-  QrCode, 
   User, 
   Phone, 
   Mail, 
@@ -17,11 +16,11 @@ import {
   ArrowLeft,
   Clock,
   Upload,
-  ImageIcon
+  ImageIcon,
+  Building2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
-import QRCode from 'qrcode';
 
 export default function PaymentPage() {
   const params = useParams();
@@ -30,7 +29,6 @@ export default function PaymentPage() {
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [paymentStep, setPaymentStep] = useState('payment'); // payment, customer-info, completed
-  const [adminQrCodeUrl, setAdminQrCodeUrl] = useState('');
   const [paymentReceiptFile, setPaymentReceiptFile] = useState(null);
   const [paymentReceiptUrl, setPaymentReceiptUrl] = useState('');
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
@@ -53,17 +51,21 @@ export default function PaymentPage() {
 
   const fetchPaymentSettings = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/payment-settings');
+      console.log('🔍 Fetching payment settings for user...');
+      const response = await fetch('http://localhost:3001/api/simple-payment-settings');
+      console.log('📡 Response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('💳 Payment settings loaded:', data);
         setPaymentSettings(data);
-        setAdminQrCodeUrl(data.qrCodeUrl);
-        console.log('Payment settings loaded:', data);
       } else {
-        console.error('Failed to fetch payment settings:', response.status);
+        console.error('❌ Failed to fetch payment settings:', response.status);
+        const errorText = await response.text();
+        console.error('❌ Error response:', errorText);
       }
     } catch (error) {
-      console.error('Error fetching payment settings:', error);
+      console.error('❌ Error fetching payment settings:', error);
     }
   };
 
@@ -214,7 +216,7 @@ export default function PaymentPage() {
         <div className="mb-8">
           <button
             onClick={() => router.back()}
-            className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
+            className="flex items-center text-gray-700 hover:text-gray-900 mb-4 transition-colors"
           >
             <ArrowLeft className="h-5 w-5 mr-2" />
             กลับ
@@ -270,54 +272,100 @@ export default function PaymentPage() {
           {/* Main Content */}
           <div className="lg:col-span-2">
             {paymentStep === 'payment' && (
-              <div className="bg-white rounded-lg shadow-lg p-6">
+              <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
                 <h2 className="text-xl font-semibold text-gray-900 mb-6">ชำระเงิน</h2>
                 
                 {/* Bank Information */}
                 {paymentSettings && (
-                  <div className="bg-blue-50 rounded-lg p-4 mb-6">
-                    <h3 className="font-semibold text-blue-900 mb-3">ข้อมูลบัญชีธนาคาร</h3>
-                    <div className="space-y-2 text-sm text-blue-800">
-                      <div className="flex justify-between">
-                        <span className="font-medium">ธนาคาร:</span>
-                        <span>{paymentSettings.bankName}</span>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <h3 className="font-semibold text-blue-900 mb-3 flex items-center">
+                      <Building2 className="h-5 w-5 mr-2" />
+                      ข้อมูลบัญชีธนาคาร
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div className="bg-white rounded-lg p-3 border border-blue-200 shadow-sm">
+                        <span className="block text-gray-600 text-xs mb-1">ธนาคาร</span>
+                        <span className="text-blue-800 font-semibold">{paymentSettings.bankName}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium">เลขที่บัญชี:</span>
-                        <span className="font-mono">{paymentSettings.accountNumber}</span>
+                      <div className="bg-white rounded-lg p-3 border border-green-200 shadow-sm">
+                        <span className="block text-gray-600 text-xs mb-1">เลขที่บัญชี</span>
+                        <span className="text-green-800 font-mono font-semibold">{paymentSettings.accountNumber}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium">ชื่อบัญชี:</span>
-                        <span>{paymentSettings.accountName}</span>
+                      <div className="bg-white rounded-lg p-3 border border-orange-200 shadow-sm">
+                        <span className="block text-gray-600 text-xs mb-1">ชื่อบัญชี</span>
+                        <span className="text-orange-800 font-semibold">{paymentSettings.accountName}</span>
                       </div>
-                      <div className="mt-3 pt-3 border-t border-blue-200">
-                        <p className="text-xs text-blue-700">{paymentSettings.instructions}</p>
-                      </div>
+                    </div>
+                    <div className="mt-4 pt-3 border-t border-blue-200">
+                      <p className="text-xs text-blue-700">{paymentSettings.instructions}</p>
                     </div>
                   </div>
                 )}
                 
-                {/* QR Code Payment */}
+                {/* Bank Transfer Payment */}
                 <div className="text-center mb-8">
-                  <div className="bg-gray-100 rounded-lg p-8 mb-4">
-                    {adminQrCodeUrl ? (
+                  <div className="bg-gray-50 rounded-lg p-8 mb-4 border border-gray-200">
+                    {paymentSettings ? (
                       <div className="flex flex-col items-center">
-                        <Image
-                          src={`http://localhost:3001${adminQrCodeUrl}`}
-                          alt="QR Code สำหรับชำระเงิน"
-                          width={200}
-                          height={200}
-                          className="mb-4"
-                        />
-                        <p className="text-sm text-gray-600 mb-2">สแกน QR Code เพื่อชำระเงิน</p>
-                        <p className="text-lg font-semibold text-primary-600">
-                          จำนวนเงิน: ฿{booking.totalPrice?.toLocaleString()}
-                        </p>
+                        {paymentSettings.bankImageUrl ? (
+                          <div className="mb-6">
+                            <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center justify-center">
+                              <ImageIcon className="h-6 w-6 mr-2 text-green-600" />
+                              สแกน QR Code เพื่อชำระเงิน
+                            </h3>
+                            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-200">
+                              <img 
+                                src={`http://localhost:3001${paymentSettings.bankImageUrl}`} 
+                                alt="QR Code ธนาคาร" 
+                                className="w-80 h-80 object-contain mx-auto rounded-lg"
+                                onError={(e) => {
+                                  console.error('❌ Failed to load QR Code image:', e.target.src);
+                                  console.error('❌ Payment settings:', paymentSettings);
+                                }}
+                                onLoad={() => {
+                                  console.log('✅ QR Code image loaded successfully:', paymentSettings.bankImageUrl);
+                                }}
+                              />
+                            </div>
+                            <p className="text-green-700 font-medium mt-4 mb-2">สแกน QR Code ด้านบนเพื่อชำระเงิน</p>
+                            <p className="text-xs text-gray-500">Debug: {paymentSettings.bankImageUrl}</p>
+                          </div>
+                        ) : (
+                          <div className="mb-4">
+                            <Building2 className="h-32 w-32 mx-auto text-blue-600 mb-4" />
+                            <p className="text-xs text-red-600">Debug: No bankImageUrl - {JSON.stringify(paymentSettings, null, 2)}</p>
+                          </div>
+                        )}
+                        
+                        <h3 className="text-xl font-semibold text-gray-900 mb-4">
+                          {paymentSettings.bankImageUrl ? 'หรือโอนเงินตามข้อมูลด้านล่าง' : 'ข้อมูลบัญชีธนาคาร'}
+                        </h3>
+                        <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-6 border border-gray-200 shadow-sm">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="text-center p-4 bg-white rounded-lg border border-blue-200 shadow-sm">
+                              <span className="block text-gray-600 text-sm mb-2">ธนาคาร</span>
+                              <span className="text-blue-800 font-bold text-lg">{paymentSettings.bankName}</span>
+                            </div>
+                            <div className="text-center p-4 bg-white rounded-lg border border-green-200 shadow-sm">
+                              <span className="block text-gray-600 text-sm mb-2">เลขที่บัญชี</span>
+                              <span className="text-green-800 font-bold text-lg font-mono">{paymentSettings.accountNumber}</span>
+                            </div>
+                            <div className="text-center p-4 bg-white rounded-lg border border-orange-200 shadow-sm">
+                              <span className="block text-gray-600 text-sm mb-2">ชื่อบัญชี</span>
+                              <span className="text-orange-800 font-bold text-lg">{paymentSettings.accountName}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-6 bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg p-4 border border-primary-500 shadow-lg">
+                          <p className="text-white font-bold text-2xl">
+                            จำนวนเงิน: ฿{booking.totalPrice?.toLocaleString()}
+                          </p>
+                        </div>
                       </div>
                     ) : (
                       <div className="flex flex-col items-center">
-                        <QrCode className="h-32 w-32 mx-auto text-gray-600 mb-4" />
-                        <p className="text-sm text-gray-600 mb-2">กำลังโหลด QR Code...</p>
+                        <Building2 className="h-32 w-32 mx-auto text-gray-600 mb-4" />
+                        <p className="text-gray-600 mb-2">กำลังโหลดข้อมูลบัญชีธนาคาร...</p>
                         <p className="text-lg font-semibold text-primary-600">
                           จำนวนเงิน: ฿{booking.totalPrice?.toLocaleString()}
                         </p>
@@ -326,45 +374,79 @@ export default function PaymentPage() {
                   </div>
                   
                   {/* Payment Instructions */}
-                  <div className="bg-blue-50 rounded-lg p-4 mb-6">
-                    <h3 className="font-semibold text-blue-900 mb-2">วิธีการชำระเงิน</h3>
-                    <div className="text-sm text-blue-800 space-y-1">
-                      <p>1. เปิดแอพธนาคารบนมือถือ</p>
-                      <p>2. เลือกเมนู "สแกน QR Code"</p>
-                      <p>3. สแกน QR Code ด้านบน</p>
-                      <p>4. ตรวจสอบจำนวนเงินและยืนยันการชำระ</p>
-                      <p>5. อัพโหลดรูปใบเสร็จการชำระเงิน</p>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <h3 className="font-semibold text-blue-900 mb-3 flex items-center">
+                      <CheckCircle className="h-5 w-5 mr-2" />
+                      วิธีการชำระเงิน
+                    </h3>
+                    <div className="text-sm text-blue-800 space-y-2">
+                      {paymentSettings?.bankImageUrl ? (
+                        <>
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
+                            <p className="font-semibold text-green-800 mb-2">🔥 วิธีที่ 1: สแกน QR Code (แนะนำ - รวดเร็ว)</p>
+                            <div className="text-green-700 space-y-1 ml-4">
+                              <p>• เปิดแอพธนาคารบนมือถือ</p>
+                              <p>• เลือกเมนู "สแกน QR Code"</p>
+                              <p>• สแกน QR Code ด้านบน</p>
+                              <p>• ตรวจสอบจำนวนเงินและยืนยันการชำระ</p>
+                            </div>
+                          </div>
+                          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-3">
+                            <p className="font-semibold text-orange-800 mb-2">💰 วิธีที่ 2: โอนเงินด้วยตนเอง</p>
+                            <div className="text-orange-700 space-y-1 ml-4">
+                              <p>• โอนเงินผ่านแอพธนาคารหรือ ATM</p>
+                              <p>• ใช้ข้อมูลบัญชีธนาคารด้านบน</p>
+                              <p>• โอนจำนวนเงินที่แสดงด้านบน</p>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3">
+                          <div className="text-gray-700 space-y-1">
+                            <p>• โอนเงินผ่านแอพธนาคารหรือ ATM</p>
+                            <p>• ใช้ข้อมูลบัญชีธนาคารด้านบน</p>
+                            <p>• โอนจำนวนเงินที่แสดงด้านบน</p>
+                          </div>
+                        </div>
+                      )}
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                        <p className="font-semibold text-red-800 mb-2">📋 สุดท้าย - สำคัญมาก:</p>
+                        <div className="text-red-700 space-y-1 ml-4">
+                          <p>• เก็บหลักฐานการโอนเงิน</p>
+                          <p>• อัพโหลดรูปใบเสร็จการโอนเงิน</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                   {/* Payment Receipt Upload */}
-                  <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                  <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6 shadow-sm">
                     <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
-                      <Upload className="h-5 w-5 mr-2" />
-                      อัพโหลดใบเสร็จการชำระเงิน
+                      <Upload className="h-5 w-5 mr-2 text-green-600" />
+                      อัพโหลดใบเสร็จการโอนเงิน
                     </h3>
                     
                     <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          เลือกไฟล์รูปภาพ (JPEG, PNG, GIF - ขนาดไม่เกิน 5MB)
+                          เลือกไฟล์รูปภาพใบเสร็จการโอนเงิน (JPEG, PNG, GIF - ขนาดไม่เกิน 5MB)
                         </label>
                         <input
                           type="file"
                           accept="image/jpeg,image/jpg,image/png,image/gif"
                           onChange={handleReceiptFileChange}
-                          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
+                          className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 bg-gray-50 border border-gray-300 rounded-md"
                         />
                       </div>
                       
                       {paymentReceiptUrl && (
-                        <div className="border rounded-lg p-4 bg-white">
-                          <h4 className="font-medium text-gray-900 mb-2">ตัวอย่างใบเสร็จที่อัพโหลด:</h4>
+                        <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                          <h4 className="font-medium text-gray-900 mb-2">ตัวอย่างใบเสร็จการโอนเงินที่อัพโหลด:</h4>
                           <div className="flex justify-center">
                             <img
                               src={paymentReceiptUrl}
-                              alt="ใบเสร็จการชำระเงิน"
-                              className="max-w-full max-h-64 object-contain border rounded"
+                              alt="ใบเสร็จการโอนเงิน"
+                              className="max-w-full max-h-64 object-contain border border-gray-300 rounded"
                             />
                           </div>
                         </div>
@@ -375,8 +457,8 @@ export default function PaymentPage() {
                   <button
                     onClick={handlePaymentConfirm}
                     disabled={!paymentReceiptFile || isUploadingReceipt}
-                    className={`btn-primary flex items-center justify-center w-full py-3 ${
-                      !paymentReceiptFile || isUploadingReceipt ? 'opacity-50 cursor-not-allowed' : ''
+                    className={`bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold py-4 px-6 rounded-lg shadow-lg flex items-center justify-center w-full transition-all duration-200 transform hover:scale-105 ${
+                      !paymentReceiptFile || isUploadingReceipt ? 'opacity-50 cursor-not-allowed hover:scale-100' : ''
                     }`}
                   >
                     {isUploadingReceipt ? (
@@ -386,8 +468,8 @@ export default function PaymentPage() {
                       </>
                     ) : (
                       <>
-                        <CheckCircle className="h-5 w-5 mr-2" />
-                        ยืนยันการชำระเงิน
+                        <CheckCircle className="h-6 w-6 mr-2" />
+                        ยืนยันการโอนเงิน
                       </>
                     )}
                   </button>
@@ -396,7 +478,7 @@ export default function PaymentPage() {
             )}
 
             {paymentStep === 'customer-info' && (
-              <div className="bg-white rounded-lg shadow-lg p-6">
+              <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
                 <h2 className="text-xl font-semibold text-gray-900 mb-6">ข้อมูลผู้เข้าพัก</h2>
                 
                 <form onSubmit={handleCustomerInfoSubmit} className="space-y-6">
@@ -412,7 +494,7 @@ export default function PaymentPage() {
                         name="guestName"
                         value={customerInfo.guestName}
                         onChange={handleCustomerInfoChange}
-                        className="input-field"
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                         required
                         placeholder="ชื่อจริง นามสกุล"
                       />
@@ -429,7 +511,7 @@ export default function PaymentPage() {
                         name="guestPhone"
                         value={customerInfo.guestPhone}
                         onChange={handleCustomerInfoChange}
-                        className="input-field"
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                         required
                         placeholder="08X-XXX-XXXX"
                       />
@@ -446,7 +528,7 @@ export default function PaymentPage() {
                         name="guestEmail"
                         value={customerInfo.guestEmail}
                         onChange={handleCustomerInfoChange}
-                        className="input-field"
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                         required
                         placeholder="example@email.com"
                       />
@@ -463,7 +545,7 @@ export default function PaymentPage() {
                         name="guestIdNumber"
                         value={customerInfo.guestIdNumber}
                         onChange={handleCustomerInfoChange}
-                        className="input-field"
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                         placeholder="1-XXXX-XXXXX-XX-X"
                       />
                     </div>
@@ -480,7 +562,7 @@ export default function PaymentPage() {
                       value={customerInfo.guestAddress}
                       onChange={handleCustomerInfoChange}
                       rows={3}
-                      className="input-field"
+                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                       placeholder="ที่อยู่สำหรับจัดส่งเอกสาร (ถ้ามี)"
                     />
                   </div>
@@ -495,12 +577,14 @@ export default function PaymentPage() {
                       value={customerInfo.specialRequests}
                       onChange={handleCustomerInfoChange}
                       rows={3}
-                      className="input-field"
+                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                       placeholder="เช่น ขอเตียงเสริม, ห้องที่เงียบ, อาหารพิเศษ"
                     />
-                  </div>                    <button
+                  </div>
+
+                    <button
                       type="submit"
-                      className="btn-primary w-full py-3 flex items-center justify-center"
+                      className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold py-4 px-6 rounded-lg shadow-lg w-full flex items-center justify-center transition-all duration-200 transform hover:scale-105"
                     >
                       <CheckCircle className="h-5 w-5 mr-2" />
                       บันทึกข้อมูลและส่งรอการอนุมัติ
@@ -510,14 +594,14 @@ export default function PaymentPage() {
             )}
 
             {paymentStep === 'completed' && (
-              <div className="bg-white rounded-lg shadow-lg p-6 text-center">
+              <div className="bg-white rounded-lg shadow-lg p-6 text-center border border-gray-200">
                 <div className="mb-6">
                   <Clock className="h-16 w-16 text-orange-500 mx-auto mb-4" />
                   <h2 className="text-2xl font-semibold text-orange-600 mb-2">ข้อมูลถูกส่งแล้ว!</h2>
                   <p className="text-gray-600">รอการอนุมัติจากผู้ดูแลระบบ</p>
                 </div>
 
-                <div className="bg-orange-50 rounded-lg p-4 mb-6">
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
                   <p className="text-orange-800 font-medium">
                     ข้อมูลการจองและการชำระเงินได้ถูกส่งแล้ว กรุณารอการอนุมัติจากผู้ดูแลระบบ
                   </p>
@@ -532,13 +616,13 @@ export default function PaymentPage() {
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <button
                     onClick={() => router.push('/bookings')}
-                    className="btn-primary"
+                    className="bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white font-bold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105"
                   >
                     ดูการจองของฉัน
                   </button>
                   <button
                     onClick={() => router.push('/')}
-                    className="btn-secondary"
+                    className="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white font-bold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105"
                   >
                     กลับหน้าแรก
                   </button>
@@ -549,7 +633,7 @@ export default function PaymentPage() {
 
           {/* Booking Summary Sidebar */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-lg p-6 sticky top-8">
+            <div className="bg-white rounded-lg shadow-lg p-6 sticky top-8 border border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">สรุปการจอง</h3>
               
               <div className="space-y-4">
@@ -570,7 +654,7 @@ export default function PaymentPage() {
                   <span>{booking.guests} ผู้เข้าพัก</span>
                 </div>
 
-                <div className="border-t pt-4">
+                <div className="border-t border-gray-300 pt-4">
                   <div className="flex justify-between items-center">
                     <span className="font-medium text-gray-900">ราคารวม</span>
                     <span className="text-xl font-bold text-primary-600">

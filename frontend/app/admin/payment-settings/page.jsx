@@ -5,14 +5,13 @@ import { useLanguage } from '../../../contexts/LanguageContext';
 import { useTranslation } from '../../../translations';
 import { useRouter } from 'next/navigation';
 import { isAdmin } from '../../../lib/roles';
-import AdminPaymentSettings from '../../../components/AdminPaymentSettings';
 
 export default function PaymentSettings() {
   const { user, token, isAuthenticated } = useAuth();
   const { language } = useLanguage();
   const { t } = useTranslation(language);
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('qr-payment');
+  const [activeTab, setActiveTab] = useState('bank-transfer');
 
   // ตรวจสอบสิทธิ์ admin
   useEffect(() => {
@@ -52,16 +51,6 @@ export default function PaymentSettings() {
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8 px-6">
               <button
-                onClick={() => setActiveTab('qr-payment')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'qr-payment'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                🏦 {language === 'en' ? 'QR Code Payment' : 'การชำระผ่าน QR Code'}
-              </button>
-              <button
                 onClick={() => setActiveTab('bank-transfer')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'bank-transfer'
@@ -69,13 +58,12 @@ export default function PaymentSettings() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                💳 {language === 'en' ? 'Bank Transfer' : 'โอนเงินผ่านธนาคาร'}
+                💳 {language === 'en' ? 'Bank Transfer Payment' : 'การชำระเงินผ่านธนาคาร'}
               </button>
             </nav>
           </div>
 
           <div className="p-6">
-            {activeTab === 'qr-payment' && <AdminPaymentSettings />}
             {activeTab === 'bank-transfer' && <BankTransferSettings />}
           </div>
         </div>
@@ -84,18 +72,18 @@ export default function PaymentSettings() {
   );
 }
 
-// Legacy Bank Transfer Settings Component
+// Simple Bank Transfer Settings Component
 function BankTransferSettings() {
   const { language } = useLanguage();
   const { t } = useTranslation(language);
   const [settings, setSettings] = useState({
-    qrCodeUrl: '',
     bankName: '',
     accountNumber: '',
-    accountName: ''
+    accountName: '',
+    bankImageUrl: ''
   });
-  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -105,47 +93,78 @@ function BankTransferSettings() {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/payment-settings');
+      const response = await fetch('http://localhost:3001/api/admin/payment-settings');
       if (response.ok) {
         const data = await response.json();
-        setSettings(data.settings || {
-          qrCodeUrl: '',
-          bankName: '',
-          accountNumber: '',
-          accountName: ''
+        const bankInfo = data.settings?.bankInfo || {};
+        setSettings({
+          bankName: bankInfo.bankName || '',
+          accountNumber: bankInfo.accountNumber || '',
+          accountName: bankInfo.accountName || '',
+          bankImageUrl: bankInfo.bankImageUrl || ''
         });
       }
     } catch (err) {
       console.error('Error fetching settings:', err);
-      setError(language === 'en' ? 'Failed to load settings' : 'ไม่สามารถโหลดข้อมูลได้');
     }
   };
 
-  const handleFileUpload = async (event) => {
+  const handleImageUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
+    // Check file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      setError(language === 'en' ? 'File size must be less than 5MB' : 'ขนาดไฟล์ต้องไม่เกิน 5MB');
+      return;
+    }
+
     try {
       setUploading(true);
-      const formData = new FormData();
-      formData.append('qrCode', file);
+      
+      // Convert file to base64
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const base64 = e.target.result;
+          
+          const response = await fetch('http://localhost:3001/api/upload-bank-image', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              image: base64,
+              filename: file.name
+            }),
+          });
 
-      const response = await fetch('http://localhost:3001/api/upload-qr-code', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setSettings(prev => ({ ...prev, qrCodeUrl: data.url }));
-        setMessage(language === 'en' ? 'QR Code uploaded successfully!' : 'อัปโหลด QR Code สำเร็จ!');
-      } else {
-        throw new Error('Upload failed');
-      }
+          if (response.ok) {
+            const data = await response.json();
+            setSettings(prev => ({ ...prev, bankImageUrl: data.url }));
+            setMessage(language === 'en' ? 'Bank QR Code uploaded successfully!' : 'อัปโหลด QR Code ธนาคารสำเร็จ!');
+            setError('');
+          } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Upload failed');
+          }
+        } catch (err) {
+          console.error('Upload error:', err);
+          setError(language === 'en' ? 'Failed to upload bank QR code' : 'ไม่สามารถอัปโหลด QR Code ธนาคารได้');
+        } finally {
+          setUploading(false);
+        }
+      };
+      
+      reader.onerror = () => {
+        setError(language === 'en' ? 'Failed to read file' : 'ไม่สามารถอ่านไฟล์ได้');
+        setUploading(false);
+      };
+      
+      reader.readAsDataURL(file);
     } catch (err) {
       console.error('Upload error:', err);
-      setError(language === 'en' ? 'Failed to upload QR Code' : 'ไม่สามารถอัปโหลด QR Code ได้');
-    } finally {
+      setError(language === 'en' ? 'Failed to upload bank QR code' : 'ไม่สามารถอัปโหลด QR Code ธนาคารได้');
       setUploading(false);
     }
   };
@@ -153,16 +172,26 @@ function BankTransferSettings() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      const response = await fetch('http://localhost:3001/api/payment-settings', {
-        method: 'PUT',
+      const bankSettings = {
+        bankInfo: {
+          bankName: settings.bankName,
+          accountNumber: settings.accountNumber,
+          accountName: settings.accountName,
+          bankImageUrl: settings.bankImageUrl
+        },
+        instructions: 'กรุณาโอนเงินเข้าบัญชีตามรายละเอียดข้างต้น และส่งสลิปการโอนเงินเพื่อยืนยันการชำระเงิน'
+      };
+      
+      const response = await fetch('http://localhost:3001/api/admin/payment-settings', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ settings }),
+        body: JSON.stringify({ settings: bankSettings }),
       });
 
       if (response.ok) {
-        setMessage(language === 'en' ? 'Settings saved successfully!' : 'บันทึกการตั้งค่าสำเร็จ!');
+        setMessage(language === 'en' ? 'Bank settings saved successfully!' : 'บันทึกข้อมูลธนาคารสำเร็จ!');
         setError('');
       } else {
         throw new Error('Save failed');
@@ -189,16 +218,22 @@ function BankTransferSettings() {
         </div>
       )}
 
-      {/* QR Code Upload */}
+      {/* Bank QR Code Upload */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          {language === 'en' ? 'QR Code Image' : 'รูป QR Code'}
+          {language === 'en' ? 'Bank QR Code Image (Optional)' : 'รูป QR Code ธนาคาร (ไม่บังคับ)'}
         </label>
-        {settings.qrCodeUrl && (
+        <p className="text-xs text-gray-500 mb-3">
+          {language === 'en' 
+            ? 'Upload a QR code image that customers can scan to make payments easily. If no QR code is uploaded, customers will use bank account details below.' 
+            : 'อัปโหลดรูป QR Code ที่ลูกค้าสามารถสแกนเพื่อชำระเงินได้สะดวก หากไม่อัปโหลด QR Code ลูกค้าจะใช้ข้อมูลบัญชีธนาคารด้านล่าง'
+          }
+        </p>
+        {settings.bankImageUrl && (
           <div className="mb-4">
             <img 
-              src={settings.qrCodeUrl} 
-              alt="Payment QR Code" 
+              src={`http://localhost:3001${settings.bankImageUrl}`} 
+              alt="Bank QR Code" 
               className="w-64 h-64 object-contain border rounded-lg"
             />
           </div>
@@ -206,15 +241,26 @@ function BankTransferSettings() {
         <input
           type="file"
           accept="image/*"
-          onChange={handleFileUpload}
+          onChange={handleImageUpload}
           disabled={uploading}
           className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
         />
-        {uploading && <p className="text-sm text-gray-500 mt-2">กำลังอัปโหลด...</p>}
+        {uploading && <p className="text-sm text-gray-500 mt-2">กำลังอัปโหลดรูป...</p>}
+        <p className="text-xs text-gray-500 mt-1">
+          {language === 'en' ? 'Supported formats: JPG, PNG, GIF. Max size: 5MB' : 'รองรับไฟล์: JPG, PNG, GIF ขนาดไม่เกิน 5MB'}
+        </p>
       </div>
 
       {/* Bank Details */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="md:col-span-2">
+          <p className="text-sm text-gray-600 mb-4">
+            {language === 'en' 
+              ? 'Bank account details below will be shown to customers as an alternative payment method (required even if QR code is uploaded).'
+              : 'ข้อมูลบัญชีธนาคารด้านล่างจะแสดงให้ลูกค้าเป็นทางเลือกในการชำระเงิน (จำเป็นต้องกรอกแม้ว่าจะอัปโหลด QR Code แล้ว)'
+            }
+          </p>
+        </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             {language === 'en' ? 'Bank Name' : 'ชื่อธนาคาร'}
@@ -255,6 +301,45 @@ function BankTransferSettings() {
         </div>
       </div>
 
+      {/* Preview */}
+      <div className="bg-gray-50 rounded-lg p-4">
+        <h3 className="font-semibold text-gray-900 mb-3">
+          {language === 'en' ? 'Payment Page Preview' : 'ตัวอย่างหน้าการชำระเงิน'}
+        </h3>
+        <div className="space-y-4 bg-white rounded p-4 border">
+          {settings.bankImageUrl && (
+            <div className="text-center">
+              <h4 className="font-medium text-gray-900 mb-2">สแกน QR Code เพื่อชำระเงิน</h4>
+              <img 
+                src={`http://localhost:3001${settings.bankImageUrl}`} 
+                alt="QR Code Preview" 
+                className="w-32 h-32 object-contain mx-auto border rounded"
+              />
+              <p className="text-xs text-gray-500 mt-1">ลูกค้าจะเห็น QR Code นี้</p>
+            </div>
+          )}
+          <div>
+            <h4 className="font-medium text-gray-900 mb-2">
+              {settings.bankImageUrl ? 'หรือโอนเงินตามข้อมูลด้านล่าง' : 'ข้อมูลบัญชีธนาคาร'}
+            </h4>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-600">{language === 'en' ? 'Bank:' : 'ธนาคาร:'}</span>
+                <span className="font-semibold">{settings.bankName || '-'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">{language === 'en' ? 'Account Number:' : 'เลขที่บัญชี:'}</span>
+                <span className="font-semibold">{settings.accountNumber || '-'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">{language === 'en' ? 'Account Name:' : 'ชื่อบัญชี:'}</span>
+                <span className="font-semibold">{settings.accountName || '-'}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="flex justify-end">
         <button
           onClick={handleSave}
@@ -263,7 +348,7 @@ function BankTransferSettings() {
         >
           {saving 
             ? (language === 'en' ? 'Saving...' : 'กำลังบันทึก...') 
-            : (language === 'en' ? 'Save Settings' : 'บันทึกการตั้งค่า')
+            : (language === 'en' ? 'Save Bank Settings' : 'บันทึกข้อมูลธนาคาร')
           }
         </button>
       </div>

@@ -10,6 +10,9 @@ import { reviewRoutes } from './routes/reviews.js';
 import { adminRoomsRoutes } from './routes/admin-rooms-final.js';
 import { adminUsersRoutes } from './routes/admin-users.js';
 import { paymentSettingsRoutes } from './routes/payment-settings-real.js';
+import { bankPaymentRoutes } from './routes/bank-payment.js';
+import { simplePaymentRoutes, userPaymentRoutes } from './routes/simple-payment-settings.js';
+import { bankImageRoutes } from './routes/bank-image-upload.js';
 import { paymentSlipRoutes } from './routes/payment-slip.js';
 import { roomStatusRoutes } from './routes/room-status-new.js';
 import { permissionRoutes } from './routes/permissions.js';
@@ -126,6 +129,7 @@ const app = new Elysia()
       .group('/housekeeping', (housekeepingApp) => housekeepingApp.use(housekeepingRoutes))
       .use(adminUsersRoutes)
       .use(paymentSettingsRoutes)
+      .use(bankPaymentRoutes)
       .use(roomStatusRoutes)
       .use(forgotPasswordRoutes)
       .use(userEmailRoutes)
@@ -133,6 +137,15 @@ const app = new Elysia()
       .use(paymentSlipRoutes)
       .use(qrPaymentRoutes)
   )
+  
+  // Admin payment settings routes (outside /api group)
+  .use(simplePaymentRoutes)
+  
+  // User-facing payment routes (without /api prefix)
+  .use(userPaymentRoutes)
+  
+  // Bank image upload route
+  .use(bankImageRoutes)
   
   // Error handling
   .onError(({ code, error, set }) => {
