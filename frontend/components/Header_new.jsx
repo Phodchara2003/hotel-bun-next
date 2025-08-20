@@ -11,16 +11,16 @@ const Header = () => {
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
   return (
-    <header className="bg-white shadow-lg sticky top-0 z-50">
+    <header className="dark-card shadow-lg sticky top-0 z-50 border-b">
       <div className="max-w-7xl mx-auto container-padding">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link 
             href={isAuthenticated && user?.role === 'admin' ? '/admin/dashboard' : '/'} 
-            className="flex items-center space-x-2"
+            className="flex items-center space-x-3 group"
           >
-            <span className="text-2xl">🏨</span>
-            <span className="text-xl font-bold text-gray-900">
+            <span className="text-2xl group-hover:scale-110 transition-transform duration-200">🏨</span>
+            <span className="text-xl font-bold dark-text">
               {isAuthenticated && user?.role === 'admin' ? 'HotelBook Admin' : 'HotelBook'}
             </span>
           </Link>
@@ -30,37 +30,37 @@ const Header = () => {
             {isAuthenticated && user?.role === 'admin' ? (
               // Admin navigation
               <>
-                <Link href="/admin/dashboard" className="text-gray-700 hover:text-primary-600 transition-colors">
+                <Link href="/admin/dashboard" className="dark-text hover:text-primary-600 transition-colors font-medium">
                   แดชบอร์ด
                 </Link>
-                <Link href="/admin/rooms" className="text-gray-700 hover:text-primary-600 transition-colors">
+                <Link href="/admin/rooms" className="dark-text hover:text-primary-600 transition-colors font-medium">
                   จัดการห้องพัก
                 </Link>
-                <Link href="/admin/users" className="text-gray-700 hover:text-primary-600 transition-colors">
+                <Link href="/admin/users" className="dark-text hover:text-primary-600 transition-colors font-medium">
                   จัดการสมาชิก
                 </Link>
-                <Link href="/admin/reports" className="text-gray-700 hover:text-primary-600 transition-colors">
+                <Link href="/admin/reports" className="dark-text hover:text-primary-600 transition-colors font-medium">
                   รายงาน
                 </Link>
               </>
             ) : (
               // Regular user navigation
               <>
-                <Link href="/" className="text-gray-700 hover:text-primary-600 transition-colors">
+                <Link href="/" className="dark-text hover:text-primary-600 transition-colors font-medium">
                   หน้าหลัก
                 </Link>
-                <Link href="/#rooms" className="text-gray-700 hover:text-primary-600 transition-colors">
+                <Link href="/#rooms" className="dark-text hover:text-primary-600 transition-colors font-medium">
                   ห้องพัก
                 </Link>
-                <Link href="/reviews/1" className="text-gray-700 hover:text-primary-600 transition-colors">
+                <Link href="/reviews/1" className="dark-text hover:text-primary-600 transition-colors font-medium">
                   รีวิว
                 </Link>
                 {isAuthenticated && (
                   <>
-                    <Link href="/bookings" className="text-gray-700 hover:text-primary-600 transition-colors">
+                    <Link href="/bookings" className="dark-text hover:text-primary-600 transition-colors font-medium">
                       การจองของฉัน
                     </Link>
-                    <Link href="/notifications" className="text-gray-700 hover:text-primary-600 transition-colors">
+                    <Link href="/notifications" className="dark-text hover:text-primary-600 transition-colors font-medium">
                       การแจ้งเตือน
                     </Link>
                   </>
@@ -73,34 +73,35 @@ const Header = () => {
           <div className="hidden md:flex items-center space-x-4">
             {isAuthenticated ? (
               <div className="relative group">
-                <button className="flex items-center space-x-2 text-gray-700 hover:text-primary-600 transition-colors">
+                <button className="flex items-center space-x-2 dark-text hover:text-primary-600 transition-colors">
                   <span className="text-lg">👤</span>
                   <span>{user?.firstName} {user?.lastName}</span>
                 </button>
                 
                 {/* Dropdown Menu */}
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                <div className="absolute right-0 mt-2 w-48 dark-card rounded-xl shadow-lg border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
                   <div className="py-2">
                     {user?.role === 'admin' ? (
                       // Admin dropdown
                       <>
-                        <Link href="/admin/dashboard" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
+                        <Link href="/admin/dashboard" className="flex items-center px-4 py-2 dark-text dark-hover rounded-lg mx-2">
                           <span className="text-sm mr-2">⚙️</span>
                           แดชบอร์ด
                         </Link>
-                        <Link href="/admin/rooms" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
+                        <Link href="/admin/rooms" className="flex items-center px-4 py-2 dark-text dark-hover rounded-lg mx-2">
                           <span className="text-sm mr-2">🏨</span>
                           จัดการห้องพัก
                         </Link>
-                        <Link href="/admin/users" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
+                        <Link href="/admin/users" className="flex items-center px-4 py-2 dark-text dark-hover rounded-lg mx-2">
                           <span className="text-sm mr-2">👥</span>
                           จัดการสมาชิก
                         </Link>
-                        <Link href="/admin/reports" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
+                        <Link href="/admin/reports" className="flex items-center px-4 py-2 dark-text dark-hover rounded-lg mx-2">
                           <span className="text-sm mr-2">📊</span>
                           รายงาน
                         </Link>
-                        <Link href="/profile" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100 border-t border-gray-100">
+                        <div className="my-2 mx-2 dark-border border-t"></div>
+                        <Link href="/profile" className="flex items-center px-4 py-2 dark-text dark-hover rounded-lg mx-2">
                           <span className="text-sm mr-2">⚙️</span>
                           โปรไฟล์
                         </Link>
@@ -108,23 +109,24 @@ const Header = () => {
                     ) : (
                       // Regular user dropdown
                       <>
-                        <Link href="/profile" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
+                        <Link href="/profile" className="flex items-center px-4 py-2 dark-text dark-hover rounded-lg mx-2">
                           <span className="text-sm mr-2">⚙️</span>
                           โปรไฟล์
                         </Link>
-                        <Link href="/bookings" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
+                        <Link href="/bookings" className="flex items-center px-4 py-2 dark-text dark-hover rounded-lg mx-2">
                           <span className="text-sm mr-2">📅</span>
                           การจองของฉัน
                         </Link>
-                        <Link href="/notifications" className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100">
+                        <Link href="/notifications" className="flex items-center px-4 py-2 dark-text dark-hover rounded-lg mx-2">
                           <span className="text-sm mr-2">🔔</span>
                           การแจ้งเตือน
                         </Link>
+                        <div className="my-2 mx-2 dark-border border-t"></div>
                       </>
                     )}
                     <button 
                       onClick={logout}
-                      className="flex items-center w-full px-4 py-2 text-gray-700 hover:bg-gray-100 border-t border-gray-100"
+                      className="flex items-center w-full px-4 py-2 dark-text hover:bg-error-50 hover:text-error-600 rounded-lg mx-2 transition-colors"
                     >
                       <span className="text-sm mr-2">🚪</span>
                       ออกจากระบบ
@@ -136,13 +138,13 @@ const Header = () => {
               <div className="flex items-center space-x-4">
                 <Link 
                   href="/login" 
-                  className="text-gray-700 hover:text-primary-600 transition-colors"
+                  className="dark-text hover:text-primary-600 transition-colors font-medium"
                 >
                   เข้าสู่ระบบ
                 </Link>
                 <Link 
                   href="/register" 
-                  className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors"
+                  className="btn-primary"
                 >
                   สมัครสมาชิก
                 </Link>
@@ -153,7 +155,7 @@ const Header = () => {
           {/* Mobile Menu Button */}
           <button
             onClick={toggleMenu}
-            className="md:hidden p-2 rounded-lg text-gray-700 hover:bg-gray-100"
+            className="md:hidden p-2 rounded-lg dark-text dark-hover"
           >
             {isMenuOpen ? <span className="text-xl">✕</span> : <span className="text-xl">☰</span>}
           </button>
@@ -161,21 +163,21 @@ const Header = () => {
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden border-t border-gray-200">
-            <div className="py-4 space-y-4">
+          <div className="md:hidden dark-border border-t">
+            <div className="py-4 space-y-2">
               {isAuthenticated && user?.role === 'admin' ? (
                 // Admin mobile menu
                 <>
                   <Link 
                     href="/admin/dashboard" 
-                    className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded"
+                    className="block px-4 py-3 dark-text dark-hover rounded-lg mx-2 font-medium"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     แดชบอร์ด
                   </Link>
                   <Link 
                     href="/admin/rooms" 
-                    className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded"
+                    className="block px-4 py-3 dark-text dark-hover rounded-lg mx-2 font-medium"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     จัดการห้องพัก

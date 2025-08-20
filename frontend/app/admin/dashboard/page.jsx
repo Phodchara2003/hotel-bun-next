@@ -286,15 +286,15 @@ export default function AdminDashboard() {
   const getStatusColor = (status) => {
     switch (status) {
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'status-warning';
       case 'confirmed':
-        return 'bg-green-100 text-green-800';
+        return 'status-success';
       case 'cancelled':
-        return 'bg-red-100 text-red-800';
+        return 'status-error';
       case 'completed':
-        return 'bg-blue-100 text-blue-800';
+        return 'status-info';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-neutral-100 text-neutral-800 border border-neutral-200 dark:bg-neutral-800 dark:text-neutral-200 dark:border-neutral-700';
     }
   };
 
@@ -394,28 +394,28 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 transition-all duration-300 ease-in-out">
+    <div className="min-h-screen dark-bg py-8 transition-all duration-300 ease-in-out">
       <div className={`max-w-7xl mx-auto container-padding transform transition-all duration-700 ease-out ${
         isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
       }`}>
         {/* Header */}
-        <div className={`mb-8 transform transition-all duration-500 delay-100 ease-out ${
+        <div className={`mb-12 transform transition-all duration-500 delay-100 ease-out ${
           isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
         }`}>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              <h1 className="text-4xl font-bold dark-text mb-3 tracking-tight">
                 {t('admin.dashboard', 'แดชบอร์ด')}{canEdit(user) ? t('admin.manager', 'ผู้จัดการ') : t('admin.staff', 'พนักงาน')}
               </h1>
-              <p className="text-gray-600">
+              <p className="text-lg dark-text-secondary">
                 {canEdit(user) ? t('admin.manageDescription', 'จัดการการจองและดูสถิติโรงแรม') : t('admin.viewDescription', 'ดูข้อมูลการจองและสถิติโรงแรม')}
               </p>
             </div>
             {isReadOnly(user) && (
-              <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg border border-blue-200">
-                <div className="flex items-center gap-2">
-                  <Eye className="h-4 w-4" />
-                  <span className="text-sm font-medium">{t('admin.viewOnlyMode', 'โหมดดูอย่างเดียว')}</span>
+              <div className="status-info px-6 py-3 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <Eye className="h-5 w-5" />
+                  <span className="font-medium">{t('admin.viewOnlyMode', 'โหมดดูอย่างเดียว')}</span>
                 </div>
               </div>
             )}
@@ -423,22 +423,24 @@ export default function AdminDashboard() {
         </div>
 
         {/* Stats Cards */}
-        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 transform transition-all duration-700 delay-200 ease-out ${
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12 transform transition-all duration-700 delay-200 ease-out ${
           isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
         }`}>
-          <div className={`bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift ${
+          <div className={`card-elevated p-8 hover:shadow-2xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift group ${
             statsVisible ? 'animate-slideUp stagger-1' : ''
           }`}>
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <Calendar className="h-8 w-8 text-blue-600" />
+                <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
+                  <Calendar className="h-8 w-8 text-white" />
+                </div>
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-6 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
+                  <dt className="text-sm font-medium dark-text-secondary truncate mb-1">
                     การจองทั้งหมด
                   </dt>
-                  <dd className="text-2xl font-bold text-gray-900">
+                  <dd className="text-3xl font-bold dark-text">
                     {stats.totalBookings}
                   </dd>
                 </dl>
@@ -446,19 +448,21 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className={`bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift ${
+          <div className={`card-elevated p-8 hover:shadow-2xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift group ${
             statsVisible ? 'animate-slideUp stagger-2' : ''
           }`}>
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <Clock className="h-8 w-8 text-yellow-600" />
+                <div className="w-16 h-16 bg-gradient-to-br from-warning-500 to-warning-600 rounded-2xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
+                  <Clock className="h-8 w-8 text-white" />
+                </div>
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-6 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
+                  <dt className="text-sm font-medium dark-text-secondary truncate mb-1">
                     รอการยืนยัน
                   </dt>
-                  <dd className="text-2xl font-bold text-gray-900">
+                  <dd className="text-3xl font-bold dark-text">
                     {stats.pendingBookings}
                   </dd>
                 </dl>
@@ -466,19 +470,21 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className={`bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift ${
+          <div className={`card-elevated p-8 hover:shadow-2xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift group ${
             statsVisible ? 'animate-slideUp stagger-3' : ''
           }`}>
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <CheckCircle className="h-8 w-8 text-green-600" />
+                <div className="w-16 h-16 bg-gradient-to-br from-success-500 to-success-600 rounded-2xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
+                  <CheckCircle className="h-8 w-8 text-white" />
+                </div>
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-6 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
+                  <dt className="text-sm font-medium dark-text-secondary truncate mb-1">
                     ยืนยันแล้ว
                   </dt>
-                  <dd className="text-2xl font-bold text-gray-900">
+                  <dd className="text-3xl font-bold dark-text">
                     {stats.confirmedBookings}
                   </dd>
                 </dl>
@@ -486,19 +492,21 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className={`bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift ${
+          <div className={`card-elevated p-8 hover:shadow-2xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift group ${
             statsVisible ? 'animate-slideUp stagger-4' : ''
           }`}>
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <TrendingUp className="h-8 w-8 text-purple-600" />
+                <div className="w-16 h-16 bg-gradient-to-br from-secondary-500 to-secondary-600 rounded-2xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
+                  <TrendingUp className="h-8 w-8 text-white" />
+                </div>
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-6 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
+                  <dt className="text-sm font-medium dark-text-secondary truncate mb-1">
                     รายได้รวม
                   </dt>
-                  <dd className="text-2xl font-bold text-gray-900">
+                  <dd className="text-3xl font-bold dark-text">
                     ฿{stats.totalRevenue.toLocaleString()}
                   </dd>
                 </dl>
@@ -506,19 +514,21 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className={`bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift ${
+          <div className={`card-elevated p-8 hover:shadow-2xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift group ${
             statsVisible ? 'animate-slideUp stagger-5' : ''
           }`}>
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <Users className="h-8 w-8 text-blue-600" />
+                <div className="w-16 h-16 bg-gradient-to-br from-primary-400 to-primary-500 rounded-2xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
+                  <Users className="h-8 w-8 text-white" />
+                </div>
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-6 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
+                  <dt className="text-sm font-medium dark-text-secondary truncate mb-1">
                     สำเร็จแล้ว
                   </dt>
-                  <dd className="text-2xl font-bold text-gray-900">
+                  <dd className="text-3xl font-bold dark-text">
                     {stats.completedBookings}
                   </dd>
                 </dl>
@@ -526,17 +536,21 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 ease-in-out">
+          <div className={`card-elevated p-8 hover:shadow-2xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift group ${
+            statsVisible ? 'animate-slideUp stagger-6' : ''
+          }`}>
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <Receipt className="h-8 w-8 text-green-600" />
+                <div className="w-16 h-16 bg-gradient-to-br from-success-400 to-success-500 rounded-2xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
+                  <Receipt className="h-8 w-8 text-white" />
+                </div>
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-6 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
+                  <dt className="text-sm font-medium dark-text-secondary truncate mb-1">
                     มีใบเสร็จ
                   </dt>
-                  <dd className="text-2xl font-bold text-gray-900">
+                  <dd className="text-3xl font-bold dark-text">
                     {stats.bookingsWithReceipts}
                   </dd>
                 </dl>
@@ -544,17 +558,21 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 ease-in-out">
+          <div className={`card-elevated p-8 hover:shadow-2xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift group ${
+            statsVisible ? 'animate-slideUp stagger-7' : ''
+          }`}>
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <XCircle className="h-8 w-8 text-red-600" />
+                <div className="w-16 h-16 bg-gradient-to-br from-error-500 to-error-600 rounded-2xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
+                  <XCircle className="h-8 w-8 text-white" />
+                </div>
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-6 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
+                  <dt className="text-sm font-medium dark-text-secondary truncate mb-1">
                     ยกเลิกแล้ว
                   </dt>
-                  <dd className="text-2xl font-bold text-gray-900">
+                  <dd className="text-3xl font-bold dark-text">
                     {stats.cancelledBookings}
                   </dd>
                 </dl>
@@ -562,17 +580,21 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 ease-in-out">
+          <div className={`card-elevated p-8 hover:shadow-2xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift group ${
+            statsVisible ? 'animate-slideUp stagger-8' : ''
+          }`}>
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <TrendingUp className="h-8 w-8 text-indigo-600" />
+                <div className="w-16 h-16 bg-gradient-to-br from-primary-600 to-secondary-600 rounded-2xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
+                  <TrendingUp className="h-8 w-8 text-white" />
+                </div>
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-6 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
+                  <dt className="text-sm font-medium dark-text-secondary truncate mb-1">
                     อัตราสำเร็จ
                   </dt>
-                  <dd className="text-2xl font-bold text-gray-900">
+                  <dd className="text-3xl font-bold dark-text">
                     {stats.totalBookings > 0 ? Math.round((stats.completedBookings / stats.totalBookings) * 100) : 0}%
                   </dd>
                 </dl>
@@ -584,22 +606,24 @@ export default function AdminDashboard() {
 
 
         {/* Filters */}
-        <div className={`bg-white rounded-lg shadow-lg p-6 mb-8 transform transition-all duration-700 delay-300 ease-out hover:shadow-xl ${
+        <div className={`card-elevated p-8 mb-12 transform transition-all duration-700 delay-300 ease-out hover:shadow-xl ${
           isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
         }`}>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <Filter className="h-5 w-5 mr-2" />
+          <h2 className="text-xl font-semibold dark-text mb-6 flex items-center">
+            <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center mr-3">
+              <Filter className="h-4 w-4 text-white" />
+            </div>
             ค้นหาและกรองข้อมูล
           </h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Search */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium dark-text-secondary mb-2">
                 ค้นหา
               </label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
                 <input
                   type="text"
                   placeholder="รหัสจอง, อีเมล, ชื่อผู้เข้าพัก..."
@@ -612,7 +636,7 @@ export default function AdminDashboard() {
             
             {/* Status Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium dark-text-secondary mb-2">
                 สถานะ
               </label>
               <select
@@ -630,7 +654,7 @@ export default function AdminDashboard() {
             
             {/* Date From */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium dark-text-secondary mb-2">
                 วันเข้าพักจาก
               </label>
               <input
@@ -643,7 +667,7 @@ export default function AdminDashboard() {
             
             {/* Date To */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium dark-text-secondary mb-2">
                 วันเข้าพักถึง
               </label>
               <input
@@ -655,9 +679,9 @@ export default function AdminDashboard() {
             </div>
           </div>
           
-          <div className="mt-4 flex justify-between items-center">
-            <span className="text-sm text-gray-600">
-              แสดงผล {filteredBookings.length} จาก {bookings.length} รายการ
+          <div className="mt-6 flex justify-between items-center">
+            <span className="text-sm dark-text-secondary">
+              แสดงผล <span className="font-semibold dark-text">{filteredBookings.length}</span> จาก <span className="font-semibold dark-text">{bookings.length}</span> รายการ
             </span>
             <button
               onClick={clearFilters}
@@ -669,31 +693,31 @@ export default function AdminDashboard() {
         </div>
 
         {/* Recent Bookings */}
-        <div className={`bg-white rounded-lg shadow-lg transform transition-all duration-700 delay-400 ease-out hover:shadow-xl ${
+        <div className={`card-elevated transform transition-all duration-700 delay-400 ease-out hover:shadow-xl ${
           isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
         }`}>
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">การจองล่าสุด</h2>
+          <div className="px-8 py-6 dark-border border-b">
+            <h2 className="text-xl font-semibold dark-text">การจองล่าสุด</h2>
           </div>
           
           {loading ? (
-            <div className="text-center py-12">
+            <div className="text-center py-16">
               <div className="w-16 h-16 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-gray-600">กำลังโหลดข้อมูล...</p>
+              <p className="dark-text-secondary">กำลังโหลดข้อมูล...</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               {/* Bulk Actions Bar */}
               {showBulkActions && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <div className="bg-primary-50 border border-primary-200 rounded-xl p-6 mb-6 animate-slideUp">
                   <div className="flex items-center justify-between">
-                    <span className="text-blue-800 font-medium">
+                    <span className="text-primary-800 font-medium">
                       เลือกแล้ว {selectedBookings.length} รายการ
                     </span>
-                    <div className="flex space-x-2">
+                    <div className="flex space-x-3">
                       <button
                         onClick={handleBulkDeleteNew}
-                        className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center"
+                        className="btn-error flex items-center"
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
                         ลบที่เลือก
@@ -703,7 +727,7 @@ export default function AdminDashboard() {
                           setSelectedBookings([]);
                           setShowBulkActions(false);
                         }}
-                        className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
+                        className="btn-secondary"
                       >
                         ยกเลิก
                       </button>
@@ -712,67 +736,67 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y dark-border">
+                <thead className="dark-bg-secondary">
                   <tr>
-                    <th className="px-3 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-bold dark-text-secondary uppercase tracking-wider">
                       <input
                         type="checkbox"
                         checked={selectedBookings.length === filteredBookings.length && filteredBookings.length > 0}
                         onChange={handleSelectAllBookings}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        className="rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
                       />
                     </th>
-                    <th className="px-3 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-bold dark-text-secondary uppercase tracking-wider">
                       รหัส/ลูกค้า
                     </th>
-                    <th className="px-3 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-bold dark-text-secondary uppercase tracking-wider">
                       ห้องพัก/วันที่
                     </th>
-                    <th className="px-3 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-bold dark-text-secondary uppercase tracking-wider">
                       ราคา/ใบเสร็จ
                     </th>
-                    <th className="px-3 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-bold dark-text-secondary uppercase tracking-wider">
                       สถานะ
                     </th>
-                    <th className="px-3 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-bold dark-text-secondary uppercase tracking-wider">
                       จัดการ
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y dark-border">
                   {filteredBookings.slice(0, 20).map((booking, index) => (
-                    <tr key={booking.id} className={`hover:bg-gray-50 transform transition-all duration-300 ease-in-out hover:scale-[1.01] ${
-                      selectedBookings.includes(booking.id) ? 'bg-blue-50' : ''
+                    <tr key={booking.id} className={`dark-hover transform transition-all duration-300 ease-in-out hover:scale-[1.005] ${
+                      selectedBookings.includes(booking.id) ? 'bg-primary-50 dark:bg-primary-900/20' : ''
                     } ${isVisible ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'}`}
                     style={{ transitionDelay: `${index * 50}ms` }}>
-                      <td className="px-3 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <input
                           type="checkbox"
                           checked={selectedBookings.includes(booking.id)}
                           onChange={() => handleSelectBooking(booking.id)}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          className="rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
                         />
                       </td>
-                      <td className="px-3 py-4 text-sm">
+                      <td className="px-6 py-4 text-sm">
                         <div>
-                          <div className="font-semibold text-gray-900">{booking.bookingReference}</div>
-                          <div className="text-gray-600 text-xs">{booking.userEmail}</div>
-                          <div className="text-gray-500 text-xs">
+                          <div className="font-semibold dark-text">{booking.bookingReference}</div>
+                          <div className="dark-text-secondary text-xs">{booking.userEmail}</div>
+                          <div className="dark-text-muted text-xs">
                             {new Date(booking.createdAt).toLocaleDateString('th-TH')}
                           </div>
                           {booking.guestName && (
-                            <div className="text-gray-600 text-xs mt-1">
+                            <div className="dark-text-secondary text-xs mt-1">
                               👤 {booking.guestName}
                             </div>
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-4 text-sm">
+                      <td className="px-6 py-4 text-sm">
                         <div>
-                          <div className="font-medium text-gray-900">{booking.roomTypeName}</div>
-                          <div className="text-gray-600 text-xs">{booking.guests} ผู้เข้าพัก</div>
-                          <div className="text-gray-500 text-xs">
+                          <div className="font-medium dark-text">{booking.roomTypeName}</div>
+                          <div className="dark-text-secondary text-xs">{booking.guests} ผู้เข้าพัก</div>
+                          <div className="dark-text-muted text-xs">
                             {new Date(booking.checkInDate).toLocaleDateString('th-TH')} - 
                             {new Date(booking.checkOutDate).toLocaleDateString('th-TH')}
                           </div>

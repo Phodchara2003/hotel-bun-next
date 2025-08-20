@@ -18,8 +18,8 @@ import {
   Square,
   MapPin,
   Wifi,
-  Car,
-  Coffee,
+  Star,
+  FileText,
   Search,
   Filter
 } from 'lucide-react';
@@ -60,11 +60,11 @@ export default function RoomsManagement() {
   // Available amenities
   const availableAmenities = [
     { id: 'wifi', name: 'Wi-Fi ฟรี', icon: Wifi },
-    { id: 'parking', name: 'ที่จอดรถ', icon: Car },
-    { id: 'breakfast', name: 'อาหารเช้า', icon: Coffee },
+    { id: 'parking', name: 'ที่จอดรถ', icon: MapPin },
+    { id: 'breakfast', name: 'อาหารเช้า', icon: Star },
     { id: 'tv', name: 'โทรทัศน์', icon: Eye },
     { id: 'aircon', name: 'เครื่องปรับอากาศ', icon: Square },
-    { id: 'minibar', name: 'มินิบาร์', icon: Coffee }
+    { id: 'minibar', name: 'มินิบาร์', icon: Star }
   ];
 
   // Room types
@@ -430,21 +430,21 @@ export default function RoomsManagement() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen dark-bg py-8">
       <div className="max-w-7xl mx-auto container-padding">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-12 animate-slideUp">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">จัดการห้องพัก</h1>
-              <p className="text-gray-600">
+              <h1 className="text-4xl font-bold dark-text mb-3 tracking-tight">จัดการห้องพัก</h1>
+              <p className="text-lg dark-text-secondary">
                 {isReadOnly(user) ? 'ดูข้อมูลห้องพักของโรงแรม' : 'เพิ่ม แก้ไข และจัดการห้องพักของโรงแรม'}
               </p>
             </div>
             {canCreate(user) && (
               <button
                 onClick={() => handleOpenModal('add')}
-                className="btn-primary flex items-center space-x-2"
+                className="btn-primary flex items-center space-x-2 shadow-lg hover-lift"
               >
                 <Plus className="h-5 w-5" />
                 <span>เพิ่มห้องพัก</span>
@@ -454,20 +454,22 @@ export default function RoomsManagement() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <Filter className="h-5 w-5 mr-2" />
+        <div className="card-elevated p-8 mb-8 animate-slideUp">
+          <h2 className="text-xl font-semibold dark-text mb-6 flex items-center">
+            <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center mr-3">
+              <Filter className="h-4 w-4 text-white" />
+            </div>
             ค้นหาและกรองข้อมูล
           </h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Search */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium dark-text-secondary mb-2">
                 ค้นหา
               </label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
                 <input
                   type="text"
                   placeholder="ชื่อห้อง, ประเภท, รายละเอียด..."
@@ -480,7 +482,7 @@ export default function RoomsManagement() {
             
             {/* Type Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium dark-text-secondary mb-2">
                 ประเภทห้อง
               </label>
               <select
@@ -497,7 +499,7 @@ export default function RoomsManagement() {
             
             {/* Available Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium dark-text-secondary mb-2">
                 สถานะ
               </label>
               <select
@@ -526,128 +528,156 @@ export default function RoomsManagement() {
         </div>
 
         {/* Rooms Grid */}
-        {loading ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-600">กำลังโหลดข้อมูล...</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredRooms.map((room) => (
-              <div key={room.id} className="bg-white rounded-lg shadow-lg overflow-hidden">
-                {/* Room Image */}
-                <div className="h-48 bg-gray-200 relative">
-                  {room.image ? (
-                    <img
-                      src={room.image}
-                      alt={room.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                      <Hotel className="h-12 w-12 text-gray-400" />
-                    </div>
-                  )}
-                  
-                  {/* Status Badge */}
-                  <div className="absolute top-4 right-4">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      room.available 
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {room.available ? 'พร้อมใช้งาน' : 'ไม่พร้อมใช้งาน'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Room Details */}
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">{room.name}</h3>
-                    <span className="text-lg font-bold text-primary-600">
-                      ฿{room.price?.toLocaleString()}
-                    </span>
-                  </div>
-                  
-                  <p className="text-sm text-gray-600 mb-2">{room.type}</p>
-                  
-                  <div className="flex items-center space-x-4 mb-3">
-                    <div className="flex items-center text-sm text-gray-500">
-                      <Users className="h-4 w-4 mr-1" />
-                      <span>{room.capacity} คน</span>
-                    </div>
-                    <div className="flex items-center text-sm text-gray-500">
-                      <Bed className="h-4 w-4 mr-1" />
-                      <span>{room.beds || 1} เตียง</span>
-                    </div>
-                    {room.size_sqm && (
-                      <div className="flex items-center text-sm text-gray-500">
-                        <Square className="h-4 w-4 mr-1" />
-                        <span>{room.size_sqm} ตรม.</span>
+        <div className="animate-slideUp stagger-2">
+          {loading ? (
+            <div className="text-center py-16">
+              <div className="w-16 h-16 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="dark-text-secondary">กำลังโหลดข้อมูล...</p>
+            </div>
+          ) : filteredRooms.length === 0 ? (
+            <div className="text-center py-16">
+              <Hotel className="h-16 w-16 text-neutral-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold dark-text-secondary mb-2">ไม่พบข้อมูลห้องพัก</h3>
+              <p className="dark-text-muted mb-6">
+                {filters.search || filters.type || filters.available 
+                  ? 'ลองปรับเปลี่ยนเงื่อนไขการค้นหา' 
+                  : 'เริ่มต้นด้วยการเพิ่มห้องพักแรก'
+                }
+              </p>
+              {canCreate(user) && (
+                <button
+                  onClick={() => handleOpenModal('add')}
+                  className="btn-primary"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  เพิ่มห้องพัก
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {filteredRooms.map((room, index) => (
+                <div 
+                  key={room.id} 
+                  className={`card-elevated group hover-lift transition-all duration-300 animate-slideUp`}
+                  style={{ animationDelay: `${index * 100}ms` }}
+                >
+                  {/* Room Image */}
+                  <div className="relative h-48 overflow-hidden rounded-t-2xl">
+                    {room.image ? (
+                      <img
+                        src={room.image}
+                        alt={room.name}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
+                        <Hotel className="h-12 w-12 text-neutral-400" />
                       </div>
                     )}
+                    
+                    {/* Status Badge */}
+                    <div className="absolute top-4 right-4">
+                      <span className={`px-3 py-1.5 text-xs font-medium rounded-full ${
+                        room.available 
+                          ? 'status-success'
+                          : 'status-error'
+                      }`}>
+                        {room.available ? 'พร้อมใช้งาน' : 'ไม่พร้อมใช้งาน'}
+                      </span>
+                    </div>
                   </div>
-                  
-                  <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-                    {room.description}
-                  </p>
 
-                  {/* Amenities */}
-                  {room.amenities && room.amenities.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-4">
-                      {room.amenities.slice(0, 3).map(amenityId => {
-                        const amenity = availableAmenities.find(a => a.id === amenityId);
-                        return amenity ? (
-                          <span key={amenityId} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                            {amenity.name}
-                          </span>
-                        ) : null;
-                      })}
-                      {room.amenities.length > 3 && (
-                        <span className="text-xs text-gray-500">
-                          +{room.amenities.length - 3} อื่นๆ
-                        </span>
+                  {/* Room Details */}
+                  <div className="p-6">
+                    <div className="flex justify-between items-start mb-3">
+                      <h3 className="text-xl font-semibold dark-text group-hover:text-primary-600 transition-colors">
+                        {room.name}
+                      </h3>
+                      <span className="text-xl font-bold text-primary-600">
+                        ฿{room.price?.toLocaleString()}
+                      </span>
+                    </div>
+                    
+                    <p className="text-sm dark-text-secondary mb-3 font-medium">{room.type}</p>
+                    
+                    <div className="flex items-center space-x-4 mb-4">
+                      <div className="flex items-center text-sm dark-text-muted">
+                        <Users className="h-4 w-4 mr-1" />
+                        <span>{room.capacity} คน</span>
+                      </div>
+                      <div className="flex items-center text-sm dark-text-muted">
+                        <Bed className="h-4 w-4 mr-1" />
+                        <span>{room.beds || 1} เตียง</span>
+                      </div>
+                      {room.size_sqm && (
+                        <div className="flex items-center text-sm dark-text-muted">
+                          <Square className="h-4 w-4 mr-1" />
+                          <span>{room.size_sqm} ตรม.</span>
+                        </div>
                       )}
                     </div>
-                  )}
-
-                  {/* Actions */}
-                  <div className="flex justify-between items-center">
-                    <button
-                      onClick={() => handleOpenModal('view', room)}
-                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                    >
-                      <Eye className="h-4 w-4 inline mr-1" />
-                      ดูรายละเอียด
-                    </button>
                     
-                    <div className="flex space-x-2">
-                      {canEdit(user) && (
-                        <button
-                          onClick={() => handleOpenModal('edit', room)}
-                          className="text-yellow-600 hover:text-yellow-800 p-1"
-                          title="แก้ไข"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                      )}
-                      {canDelete(user) && (
-                        <button
-                          onClick={() => handleDelete(room.id)}
-                          className="text-red-600 hover:text-red-800 p-1"
-                          title="ลบ"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
+                    <p className="text-sm dark-text-secondary mb-4 line-clamp-2 leading-relaxed">
+                      {room.description}
+                    </p>
+
+                    {/* Amenities */}
+                    {room.amenities && room.amenities.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-6">
+                        {room.amenities.slice(0, 3).map(amenityId => {
+                          const amenity = availableAmenities.find(a => a.id === amenityId);
+                          return amenity ? (
+                            <span key={amenityId} className="status-info text-xs px-2 py-1 rounded-lg">
+                              {amenity.name}
+                            </span>
+                          ) : null;
+                        })}
+                        {room.amenities.length > 3 && (
+                          <span className="text-xs dark-text-muted px-2 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-800">
+                            +{room.amenities.length - 3} อื่นๆ
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex justify-between items-center pt-4 border-t dark-border">
+                      <button
+                        onClick={() => handleOpenModal('view', room)}
+                        className="btn-ghost text-sm flex items-center"
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        ดูรายละเอียด
+                      </button>
+                      
+                      <div className="flex space-x-2">
+                        {canEdit(user) && (
+                          <button
+                            onClick={() => handleOpenModal('edit', room)}
+                            className="p-2 text-warning-600 hover:bg-warning-50 rounded-lg transition-colors"
+                            title="แก้ไข"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                        )}
+                        {canDelete(user) && (
+                          <button
+                            onClick={() => handleDelete(room.id)}
+                            className="p-2 text-error-600 hover:bg-error-50 rounded-lg transition-colors"
+                            title="ลบ"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Empty State */}
         {!loading && filteredRooms.length === 0 && (
@@ -671,19 +701,26 @@ export default function RoomsManagement() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="card-elevated max-w-4xl w-full max-h-[90vh] overflow-y-auto animate-scaleInBounce">
+            <div className="p-8">
               {/* Modal Header */}
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-900">
-                  {modalType === 'add' && 'เพิ่มห้องพัก'}
-                  {modalType === 'edit' && 'แก้ไขห้องพัก'}
-                  {modalType === 'view' && 'รายละเอียดห้องพัก'}
-                </h2>
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <h2 className="text-2xl font-bold dark-text">
+                    {modalType === 'add' && 'เพิ่มห้องพัก'}
+                    {modalType === 'edit' && 'แก้ไขห้องพัก'}
+                    {modalType === 'view' && 'รายละเอียดห้องพัก'}
+                  </h2>
+                  <p className="text-sm dark-text-muted mt-1">
+                    {modalType === 'add' && 'กรอกข้อมูลห้องพักใหม่'}
+                    {modalType === 'edit' && 'แก้ไขข้อมูลห้องพัก'}
+                    {modalType === 'view' && 'ดูข้อมูลห้องพักโดยละเอียด'}
+                  </p>
+                </div>
                 <button
                   onClick={handleCloseModal}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="p-2 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
                 >
                   <X className="h-6 w-6" />
                 </button>
@@ -691,10 +728,10 @@ export default function RoomsManagement() {
 
               {modalType === 'view' && selectedRoom ? (
                 /* View Mode */
-                <div className="space-y-6">
+                <div className="space-y-8">
                   {/* Room Image */}
                   {selectedRoom.image && (
-                    <div className="w-full h-64 bg-gray-200 rounded-lg overflow-hidden">
+                    <div className="w-full h-64 bg-neutral-100 dark:bg-neutral-800 rounded-2xl overflow-hidden">
                       <img
                         src={selectedRoom.image}
                         alt={selectedRoom.name}
@@ -703,141 +740,230 @@ export default function RoomsManagement() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <h3 className="font-semibold text-gray-900 mb-2">ข้อมูลพื้นฐาน</h3>
-                      <div className="space-y-2 text-sm">
-                        <p><span className="font-medium">ชื่อห้อง:</span> {selectedRoom.name}</p>
-                        <p><span className="font-medium">ประเภท:</span> {selectedRoom.type}</p>
-                        <p><span className="font-medium">ความจุ:</span> {selectedRoom.capacity} คน</p>
-                        <p><span className="font-medium">ราคา:</span> ฿{selectedRoom.price?.toLocaleString()}</p>
-                        <p><span className="font-medium">สถานะ:</span> 
-                          <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${
-                            selectedRoom.available 
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {selectedRoom.available ? 'พร้อมใช้งาน' : 'ไม่พร้อมใช้งาน'}
-                          </span>
-                        </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="card p-6">
+                      <h3 className="text-lg font-semibold dark-text mb-4 flex items-center">
+                        <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center mr-3">
+                          <Hotel className="h-4 w-4 text-white" />
+                        </div>
+                        ข้อมูลพื้นฐาน
+                      </h3>
+                      <div className="space-y-3">
+                        <div>
+                          <span className="text-sm font-medium dark-text-muted">ชื่อห้อง</span>
+                          <p className="dark-text font-medium">{selectedRoom.name}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium dark-text-muted">ประเภท</span>
+                          <p className="dark-text font-medium">{selectedRoom.type}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium dark-text-muted">ความจุ</span>
+                          <p className="dark-text font-medium">{selectedRoom.capacity} คน</p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium dark-text-muted">ราคา</span>
+                          <p className="text-xl font-bold text-primary-600">฿{selectedRoom.price?.toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium dark-text-muted">สถานะ</span>
+                          <div className="mt-1">
+                            <span className={`px-3 py-1.5 text-sm font-medium rounded-full ${
+                              selectedRoom.available 
+                                ? 'status-success'
+                                : 'status-error'
+                            }`}>
+                              {selectedRoom.available ? 'พร้อมใช้งาน' : 'ไม่พร้อมใช้งาน'}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    <div>
-                      <h3 className="font-semibold text-gray-900 mb-2">สิ่งอำนวยความสะดวก</h3>
-                      <div className="space-y-2">
-                        {selectedRoom.amenities?.map(amenityId => {
+                    <div className="card p-6">
+                      <h3 className="text-lg font-semibold dark-text mb-4 flex items-center">
+                        <div className="w-8 h-8 bg-gradient-to-br from-accent-500 to-accent-600 rounded-lg flex items-center justify-center mr-3">
+                          <Star className="h-4 w-4 text-white" />
+                        </div>
+                        สิ่งอำนวยความสะดวก
+                      </h3>
+                      <div className="space-y-3">
+                        {selectedRoom.amenities?.length > 0 ? selectedRoom.amenities.map(amenityId => {
                           const amenity = availableAmenities.find(a => a.id === amenityId);
                           return amenity ? (
-                            <div key={amenityId} className="flex items-center text-sm">
-                              <amenity.icon className="h-4 w-4 mr-2 text-blue-600" />
-                              <span>{amenity.name}</span>
+                            <div key={amenityId} className="flex items-center">
+                              <div className="w-6 h-6 bg-primary-100 rounded-lg flex items-center justify-center mr-3">
+                                <amenity.icon className="h-4 w-4 text-primary-600" />
+                              </div>
+                              <span className="dark-text">{amenity.name}</span>
                             </div>
                           ) : null;
-                        })}
+                        }) : (
+                          <p className="dark-text-muted">ไม่มีข้อมูลสิ่งอำนวยความสะดวก</p>
+                        )}
                       </div>
                     </div>
                   </div>
 
                   {selectedRoom.description && (
-                    <div>
-                      <h3 className="font-semibold text-gray-900 mb-2">รายละเอียด</h3>
-                      <p className="text-sm text-gray-600">{selectedRoom.description}</p>
+                    <div className="card p-6">
+                      <h3 className="text-lg font-semibold dark-text mb-4 flex items-center">
+                        <div className="w-8 h-8 bg-gradient-to-br from-secondary-500 to-secondary-600 rounded-lg flex items-center justify-center mr-3">
+                          <FileText className="h-4 w-4 text-white" />
+                        </div>
+                        รายละเอียด
+                      </h3>
+                      <p className="dark-text-secondary leading-relaxed">{selectedRoom.description}</p>
                     </div>
                   )}
                 </div>
               ) : (
                 /* Add/Edit Form */
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* Basic Information */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        ชื่อห้อง <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        className="input-field"
-                        placeholder="เช่น Standard Room 101"
-                        required
-                      />
-                    </div>
+                <form onSubmit={handleSubmit} className="space-y-8">
+                  {/* Basic Information Section */}
+                  <div className="card p-6">
+                    <h3 className="text-lg font-semibold dark-text mb-6 flex items-center">
+                      <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center mr-3">
+                        <Hotel className="h-4 w-4 text-white" />
+                      </div>
+                      ข้อมูลพื้นฐาน
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium dark-text-secondary mb-2">
+                          ชื่อห้อง <span className="text-error-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          name="name"
+                          value={formData.name}
+                          onChange={handleInputChange}
+                          className="input-field"
+                          placeholder="เช่น Standard Room 101"
+                          required
+                        />
+                      </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        ประเภทห้องพัก <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        name="type"
-                        value={formData.type}
-                        onChange={handleInputChange}
-                        className="input-field"
-                        required
-                      >
-                        <option value="">-- เลือกประเภทห้องพัก --</option>
-                        {roomTypes.map(type => (
-                          <option key={type} value={type}>{type}</option>
-                        ))}
-                      </select>
-                    </div>
+                      <div>
+                        <label className="block text-sm font-medium dark-text-secondary mb-2">
+                          ประเภทห้องพัก <span className="text-error-500">*</span>
+                        </label>
+                        <select
+                          name="type"
+                          value={formData.type}
+                          onChange={handleInputChange}
+                          className="input-field"
+                          required
+                        >
+                          <option value="">-- เลือกประเภทห้องพัก --</option>
+                          {roomTypes.map(type => (
+                            <option key={type} value={type}>{type}</option>
+                          ))}
+                        </select>
+                      </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        ความจุ (คน) <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        name="capacity"
-                        value={formData.capacity}
-                        onChange={handleInputChange}
-                        className="input-field"
-                        min="1"
-                        max="20"
-                        required
-                      />
-                    </div>
+                      <div>
+                        <label className="block text-sm font-medium dark-text-secondary mb-2">
+                          ความจุ (คน) <span className="text-error-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="capacity"
+                          value={formData.capacity}
+                          onChange={handleInputChange}
+                          className="input-field"
+                          min="1"
+                          max="20"
+                          required
+                        />
+                      </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        ราคาต่อคืน (บาท) <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        name="price"
-                        value={formData.price}
-                        onChange={handleInputChange}
-                        className="input-field"
-                        min="0"
-                        step="0.01"
-                        required
-                      />
-                    </div>
+                      <div>
+                        <label className="block text-sm font-medium dark-text-secondary mb-2">
+                          ราคาต่อคืน (บาท) <span className="text-error-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="price"
+                          value={formData.price}
+                          onChange={handleInputChange}
+                          className="input-field"
+                          min="0"
+                          step="0.01"
+                          required
+                        />
+                      </div>
 
+                      <div>
+                        <label className="block text-sm font-medium dark-text-secondary mb-2">
+                          ขนาดห้อง (ตารางเมตร)
+                        </label>
+                        <input
+                          type="number"
+                          name="size_sqm"
+                          value={formData.size_sqm}
+                          onChange={handleInputChange}
+                          className="input-field"
+                          min="1"
+                          placeholder="เช่น 25"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium dark-text-secondary mb-2">
+                          สถานะ
+                        </label>
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            name="available"
+                            checked={formData.available}
+                            onChange={handleInputChange}
+                            className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-neutral-300 rounded"
+                          />
+                          <label className="ml-2 text-sm dark-text">
+                            พร้อมใช้งาน
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Description Section */}
+                  <div className="card p-6">
+                    <h3 className="text-lg font-semibold dark-text mb-6 flex items-center">
+                      <div className="w-8 h-8 bg-gradient-to-br from-secondary-500 to-secondary-600 rounded-lg flex items-center justify-center mr-3">
+                        <FileText className="h-4 w-4 text-white" />
+                      </div>
+                      รายละเอียด
+                    </h3>
+                    
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        ขนาดห้อง (ตารางเมตร)
+                      <label className="block text-sm font-medium dark-text-secondary mb-2">
+                        คำอธิบายห้องพัก
                       </label>
-                      <input
-                        type="number"
-                        name="size_sqm"
-                        value={formData.size_sqm}
+                      <textarea
+                        name="description"
+                        value={formData.description}
                         onChange={handleInputChange}
+                        rows={4}
                         className="input-field"
-                        min="1"
-                        placeholder="เช่น 25"
+                        placeholder="อธิบายเกี่ยวกับห้องพัก เช่น ทิวทัศน์ สิ่งอำนวยความสะดวกพิเศษ..."
                       />
                     </div>
                   </div>
 
-                  {/* Multiple Images Upload */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      รูปภาพห้องพัก (สูงสุด 10 รูป)
-                    </label>
-                    <div className="space-y-3">
+                  {/* Image Upload Section */}
+                  <div className="card p-6">
+                    <h3 className="text-lg font-semibold dark-text mb-6 flex items-center">
+                      <div className="w-8 h-8 bg-gradient-to-br from-accent-500 to-accent-600 rounded-lg flex items-center justify-center mr-3">
+                        <Upload className="h-4 w-4 text-white" />
+                      </div>
+                      รูปภาพห้องพัก
+                    </h3>
+                    
+                    <div className="space-y-4">
                       {/* File Upload Option */}
                       <div className="flex items-center space-x-4">
                         <input
@@ -850,12 +976,15 @@ export default function RoomsManagement() {
                         />
                         <label
                           htmlFor="images-upload"
-                          className={`cursor-pointer flex items-center space-x-2 px-4 py-2 border border-dashed border-gray-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          className={`cursor-pointer flex items-center space-x-3 px-6 py-3 border-2 border-dashed border-neutral-300 rounded-xl hover:border-primary-400 hover:bg-primary-50 transition-all duration-200 ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
-                          <Upload className="h-5 w-5 text-gray-400" />
-                          <span className="text-sm text-gray-600">
-                            {uploading ? 'กำลังอัปโหลด...' : imageFiles.length > 0 ? `เลือกแล้ว ${imageFiles.length} รูป` : 'เลือกไฟล์รูปภาพ'}
-                          </span>
+                          <Upload className="h-5 w-5 text-neutral-400" />
+                          <div>
+                            <div className="text-sm font-medium dark-text">
+                              {uploading ? 'กำลังอัปโหลด...' : imageFiles.length > 0 ? `เลือกแล้ว ${imageFiles.length} รูป` : 'เลือกไฟล์รูปภาพ'}
+                            </div>
+                            <div className="text-xs dark-text-muted">สูงสุด 10 รูป, ขนาดไม่เกิน 5MB ต่อรูป</div>
+                          </div>
                         </label>
                         
                         {imageFiles.length > 0 && !uploading && (
@@ -866,7 +995,7 @@ export default function RoomsManagement() {
                               setImagePreviews([]);
                               setFormData(prev => ({ ...prev, images: [] }));
                             }}
-                            className="text-red-600 hover:text-red-800 text-sm font-medium"
+                            className="btn-error"
                           >
                             ลบรูปทั้งหมด
                           </button>
@@ -875,24 +1004,24 @@ export default function RoomsManagement() {
 
                       {/* Image Previews */}
                       {imagePreviews.length > 0 && (
-                        <div className="mt-4">
-                          <div className="text-sm font-medium text-gray-700 mb-2">ตัวอย่างรูปภาพ:</div>
+                        <div>
+                          <div className="text-sm font-medium dark-text-secondary mb-3">ตัวอย่างรูปภาพ:</div>
                           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                             {imagePreviews.map((preview, index) => (
-                              <div key={index} className="relative">
+                              <div key={index} className="relative group">
                                 <img
                                   src={preview}
                                   alt={`Preview ${index + 1}`}
-                                  className="w-full h-32 object-cover rounded-lg shadow-md border"
+                                  className="w-full h-32 object-cover rounded-xl shadow-md border border-neutral-200 group-hover:shadow-lg transition-shadow"
                                 />
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveImage(index)}
-                                  className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 transition-colors"
+                                  className="absolute top-2 right-2 bg-error-600 text-white rounded-full p-1.5 hover:bg-error-700 transition-colors opacity-0 group-hover:opacity-100"
                                 >
-                                  <X className="h-4 w-4" />
+                                  <X className="h-3 w-3" />
                                 </button>
-                                <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                                <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-lg">
                                   {index + 1}
                                 </div>
                               </div>
@@ -903,58 +1032,33 @@ export default function RoomsManagement() {
                     </div>
                   </div>
 
-                  {/* Description */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      รายละเอียด
-                    </label>
-                    <textarea
-                      name="description"
-                      value={formData.description}
-                      onChange={handleInputChange}
-                      rows={3}
-                      className="input-field"
-                      placeholder="รายละเอียดของห้องพัก..."
-                    />
-                  </div>
-
-                  {/* Amenities */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {/* Amenities Section */}
+                  <div className="card p-6">
+                    <h3 className="text-lg font-semibold dark-text mb-6 flex items-center">
+                      <div className="w-8 h-8 bg-gradient-to-br from-success-500 to-success-600 rounded-lg flex items-center justify-center mr-3">
+                        <Star className="h-4 w-4 text-white" />
+                      </div>
                       สิ่งอำนวยความสะดวก
-                    </label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {availableAmenities.map(amenity => (
-                        <label key={amenity.id} className="flex items-center space-x-2 cursor-pointer">
+                        <label key={amenity.id} className="flex items-center space-x-3 p-3 rounded-lg border border-neutral-200 hover:border-primary-300 hover:bg-primary-50 cursor-pointer transition-all">
                           <input
                             type="checkbox"
                             checked={formData.amenities.includes(amenity.id)}
                             onChange={() => handleAmenityChange(amenity.id)}
-                            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                            className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-neutral-300 rounded"
                           />
-                          <amenity.icon className="h-4 w-4 text-gray-500" />
-                          <span className="text-sm text-gray-700">{amenity.name}</span>
+                          <amenity.icon className="h-5 w-5 text-primary-600" />
+                          <span className="text-sm dark-text font-medium">{amenity.name}</span>
                         </label>
                       ))}
                     </div>
                   </div>
 
-                  {/* Available Status */}
-                  <div>
-                    <label className="flex items-center space-x-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        name="available"
-                        checked={formData.available}
-                        onChange={handleInputChange}
-                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                      />
-                      <span className="text-sm font-medium text-gray-700">พร้อมใช้งาน</span>
-                    </label>
-                  </div>
-
                   {/* Form Actions */}
-                  <div className="flex justify-end space-x-3 pt-4 border-t">
+                  <div className="flex justify-end space-x-3 pt-6 border-t dark-border">
                     <button
                       type="button"
                       onClick={handleCloseModal}

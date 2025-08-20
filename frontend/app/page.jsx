@@ -57,18 +57,18 @@ export default function HomePage() {
   }
 
   return (
-    <div className="scroll-smooth bg-white dark:bg-gray-900 min-h-screen">
+    <div className="scroll-smooth dark-bg min-h-screen">
       <ThemeLanguageHandler />
       
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-r from-sky-400 to-blue-500 dark:from-primary-700 dark:to-primary-900 text-white">
-        <div className="absolute inset-0 bg-black opacity-10"></div>
+      <section className="relative bg-gradient-to-br from-primary-600 via-primary-700 to-secondary-600 text-white">
+        <div className="absolute inset-0 bg-black/20"></div>
         <div className="relative max-w-7xl mx-auto container-padding section-padding">
           <div className="text-center mb-12">
-            <h1 className="text-4xl md:text-6xl font-bold mb-6">
+            <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
               {hotel ? hotel.name : t('hero.title', 'ค้นหาที่พักในฝันของคุณ')}
             </h1>
-            <p className="text-xl md:text-2xl mb-8 text-blue-100">
+            <p className="text-xl md:text-2xl mb-8 text-blue-100 max-w-3xl mx-auto leading-relaxed">
               {hotel ? hotel.description : t('hero.subtitle', 'โรงแรมหรูระดับ 5 ดาว ใจกลางกรุงเทพฯ พร้อมสิ่งอำนวยความสะดวกครบครัน')}
             </p>
           </div>
@@ -79,12 +79,12 @@ export default function HomePage() {
       </section>
 
       {/* Quick Actions Section */}
-      <section className="py-8 bg-slate-100 dark:bg-gray-800">
+      <section className="py-12 dark-bg-secondary">
         <div className="max-w-7xl mx-auto container-padding">
           <div className="flex flex-wrap justify-center gap-4">
             <a 
               href="#rooms" 
-              className="bg-sky-600 hover:bg-sky-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+              className="btn-primary shadow-lg"
             >
               {t('hero.viewRooms', 'ดูห้องพัก')}
             </a>
@@ -92,17 +92,13 @@ export default function HomePage() {
               <>
                 <a 
                   href="/login" 
-                  className="bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 
-                           text-sky-600 dark:text-primary-400 border border-sky-600 dark:border-primary-400 
-                           px-6 py-3 rounded-lg font-medium transition-colors"
+                  className="btn-outline shadow-sm"
                 >
                   {t('header.login', 'เข้าสู่ระบบ')}
                 </a>
                 <a 
                   href="/register" 
-                  className="bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 
-                           text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 
-                           px-6 py-3 rounded-lg font-medium transition-colors"
+                  className="btn-secondary shadow-sm"
                 >
                   {t('header.register', 'สมัครสมาชิก')}
                 </a>
@@ -110,9 +106,7 @@ export default function HomePage() {
             ) : (
               <a 
                 href="/bookings" 
-                className="bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 
-                         text-sky-600 dark:text-primary-400 border border-sky-600 dark:border-primary-400 
-                         px-6 py-3 rounded-lg font-medium transition-colors"
+                className="btn-outline shadow-sm"
               >
                 {t('header.bookings', 'ดูการจองของฉัน')}
               </a>
@@ -122,13 +116,13 @@ export default function HomePage() {
       </section>
 
       {/* Room Types Section */}
-      <section id="rooms" className="section-padding bg-blue-50 dark:bg-gray-800">
+      <section id="rooms" className="section-padding dark-bg">
         <div className="max-w-7xl mx-auto container-padding">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold dark-text mb-6">
               {t('rooms.title', 'ห้องพักของเรา')}
             </h2>
-            <p className="text-xl text-gray-600 dark:text-gray-400">
+            <p className="text-xl dark-text-secondary max-w-2xl mx-auto">
               {t('rooms.subtitle', 'เลือกห้องพักที่เหมาะสมกับความต้องการของคุณ')}
             </p>
           </div>
@@ -136,12 +130,12 @@ export default function HomePage() {
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {[...Array(6)].map((_, index) => (
-                <div key={index} className="bg-white dark:bg-gray-700 rounded-lg shadow-lg overflow-hidden animate-pulse">
-                  <div className="h-56 bg-gray-300 dark:bg-gray-600"></div>
+                <div key={index} className="card animate-pulse">
+                  <div className="h-56 bg-neutral-300 dark:bg-neutral-600"></div>
                   <div className="p-6">
-                    <div className="h-6 bg-gray-300 dark:bg-gray-600 rounded mb-3"></div>
-                    <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded mb-2"></div>
-                    <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-3/4"></div>
+                    <div className="h-6 bg-neutral-300 dark:bg-neutral-600 rounded mb-3"></div>
+                    <div className="h-4 bg-neutral-300 dark:bg-neutral-600 rounded mb-2"></div>
+                    <div className="h-4 bg-neutral-300 dark:bg-neutral-600 rounded w-3/4"></div>
                   </div>
                 </div>
               ))}
@@ -155,12 +149,12 @@ export default function HomePage() {
           )}
 
           {!loading && roomTypes.length === 0 && (
-            <div className="text-center py-12">
-              <Bed className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">
+            <div className="text-center py-16">
+              <Bed className="h-16 w-16 text-neutral-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold dark-text-secondary mb-2">
                 {t('rooms.noRooms', 'ไม่พบข้อมูลห้องพัก')}
               </h3>
-              <p className="text-gray-500 dark:text-gray-500">
+              <p className="dark-text-muted">
                 {t('rooms.tryAgain', 'กรุณาลองใหม่อีกครั้งในภายหลัง')}
               </p>
             </div>
@@ -170,26 +164,30 @@ export default function HomePage() {
 
       {/* Hotel Information Section */}
       {hotel && (
-        <section className="section-padding bg-white dark:bg-gray-800">
+        <section className="section-padding dark-bg-secondary">
           <div className="max-w-7xl mx-auto container-padding">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
               <div>
-                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-6">
+                <h2 className="text-3xl md:text-4xl font-bold dark-text mb-8">
                   {t('hotel.about', 'เกี่ยวกับโรงแรม')}
                 </h2>
-                <p className="text-lg text-gray-600 dark:text-gray-400 mb-6">
+                <p className="text-lg dark-text-secondary mb-8 leading-relaxed">
                   {hotel.description}
                 </p>
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div className="flex items-center">
-                    <Star className="h-5 w-5 text-yellow-400 mr-2" />
-                    <span className="text-gray-700 dark:text-gray-300">
+                    <div className="flex items-center justify-center w-10 h-10 bg-warning-100 rounded-lg mr-4">
+                      <Star className="h-5 w-5 text-warning-600" />
+                    </div>
+                    <span className="dark-text font-medium">
                       {t('hotel.rating', 'คะแนนรีวิว')} {hotel.rating}/5.0
                     </span>
                   </div>
                   <div className="flex items-center">
-                    <Bed className="h-5 w-5 text-sky-600 mr-2" />
-                    <span className="text-gray-700 dark:text-gray-300">
+                    <div className="flex items-center justify-center w-10 h-10 bg-secondary-100 rounded-lg mr-4">
+                      <Bed className="h-5 w-5 text-secondary-600" />
+                    </div>
+                    <span className="dark-text font-medium">
                       {roomTypes.length} {t('hotel.roomTypes', 'ประเภทห้องพัก')}
                     </span>
                   </div>
@@ -197,14 +195,14 @@ export default function HomePage() {
                 
                 {/* Hotel Amenities */}
                 {hotel.amenities && hotel.amenities.length > 0 && (
-                  <div className="mt-6">
-                    <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">
+                  <div className="mt-8">
+                    <h3 className="text-xl font-semibold mb-6 dark-text">
                       {t('hotel.amenities', 'สิ่งอำนวยความสะดวก')}
                     </h3>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {hotel.amenities.map((amenity, index) => (
-                        <div key={index} className="flex items-center text-gray-600 dark:text-gray-400">
-                          <div className="w-2 h-2 bg-sky-600 rounded-full mr-3"></div>
+                        <div key={index} className="flex items-center dark-text-secondary">
+                          <div className="w-2 h-2 bg-primary-500 rounded-full mr-3"></div>
                           {amenity}
                         </div>
                       ))}
@@ -215,12 +213,13 @@ export default function HomePage() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {hotel.images && hotel.images.slice(0, 4).map((image, index) => (
-                  <div key={index} className="relative h-48 rounded-lg overflow-hidden">
+                  <div key={index} className="relative h-52 rounded-xl overflow-hidden group">
                     <img 
                       src={image} 
                       alt={`${hotel.name} ${index + 1}`}
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </div>
                 ))}
               </div>
@@ -230,50 +229,50 @@ export default function HomePage() {
       )}
 
       {/* Features Section */}
-      <section className="section-padding bg-gradient-to-b from-blue-50 to-white dark:bg-gray-800">
+      <section className="section-padding dark-bg">
         <div className="max-w-7xl mx-auto container-padding">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold dark-text mb-6">
               {t('features.title', 'ทำไมต้องเลือกเรา?')}
             </h2>
-            <p className="text-xl text-gray-600 dark:text-gray-400">
+            <p className="text-xl dark-text-secondary max-w-2xl mx-auto">
               {t('features.subtitle', 'เราให้บริการที่ดีที่สุด พร้อมความสะดวกและปลอดภัย')}
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 dark:bg-primary-900 rounded-full mb-6">
-                <Bed className="h-8 w-8 text-blue-600 dark:text-primary-400" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+            <div className="text-center group">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-secondary-500 to-secondary-600 rounded-2xl mb-8 group-hover:shadow-lg transition-all duration-300">
+                <Bed className="h-10 w-10 text-white" />
               </div>
-              <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">
+              <h3 className="text-xl font-semibold mb-4 dark-text">
                 {t('features.quality', 'ห้องพักคุณภาพ')}
               </h3>
-              <p className="text-gray-600 dark:text-gray-400">
+              <p className="dark-text-secondary leading-relaxed">
                 {t('features.qualityDesc', 'ห้องพักที่ผ่านการคัดสรรแล้ว พร้อมสิ่งอำนวยความสะดวกครบครัน')}
               </p>
             </div>
 
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 dark:bg-primary-900 rounded-full mb-6">
-                <Shield className="h-8 w-8 text-emerald-600 dark:text-primary-400" />
+            <div className="text-center group">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-success-500 to-success-600 rounded-2xl mb-8 group-hover:shadow-lg transition-all duration-300">
+                <Shield className="h-10 w-10 text-white" />
               </div>
-              <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">
+              <h3 className="text-xl font-semibold mb-4 dark-text">
                 {t('features.secure', 'จองง่าย ปลอดภัย')}
               </h3>
-              <p className="text-gray-600 dark:text-gray-400">
+              <p className="dark-text-secondary leading-relaxed">
                 {t('features.secureDesc', 'ระบบจองที่ปลอดภัย รองรับการชำระเงินหลายช่องทาง')}
               </p>
             </div>
 
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-amber-100 dark:bg-primary-900 rounded-full mb-6">
-                <Clock className="h-8 w-8 text-amber-600 dark:text-primary-400" />
+            <div className="text-center group">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-warning-500 to-warning-600 rounded-2xl mb-8 group-hover:shadow-lg transition-all duration-300">
+                <Clock className="h-10 w-10 text-white" />
               </div>
-              <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">
+              <h3 className="text-xl font-semibold mb-4 dark-text">
                 {t('features.flexible', 'ยกเลิกได้ฟรี')}
               </h3>
-              <p className="text-gray-600 dark:text-gray-400">
+              <p className="dark-text-secondary leading-relaxed">
                 {t('features.flexibleDesc', 'ยกเลิกการจองได้ฟรีก่อน 24 ชั่วโมงของวันเข้าพัก')}
               </p>
             </div>
@@ -282,26 +281,26 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="section-padding bg-gradient-to-r from-sky-500 to-blue-600 dark:bg-primary-700 text-white">
+      <section className="section-padding bg-gradient-to-br from-primary-600 via-primary-700 to-secondary-600 text-white">
         <div className="max-w-4xl mx-auto container-padding text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6">
+          <h2 className="text-3xl md:text-4xl font-bold mb-8 leading-tight">
             {t('cta.title', 'พร้อมจองห้องพักแล้วใช่ไหม?')}
           </h2>
-          <p className="text-xl mb-8 text-blue-100">
+          <p className="text-xl mb-12 text-blue-100 leading-relaxed">
             {t('cta.subtitle', 'สมัครสมาชิกวันนี้ รับส่วนลดพิเศษสำหรับการจองครั้งแรก')}
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-6 justify-center">
             <a 
               href="/register" 
-              className="bg-white text-sky-600 font-semibold py-3 px-8 rounded-lg 
-                       hover:bg-gray-100 dark:hover:bg-gray-200 transition-colors"
+              className="bg-white text-primary-600 font-semibold py-4 px-8 rounded-xl 
+                       hover:bg-neutral-50 transition-all duration-200 shadow-lg hover:shadow-xl"
             >
               {t('cta.register', 'สมัครสมาชิกฟรี')}
             </a>
             <a 
               href="#rooms" 
-              className="bg-transparent border-2 border-white text-white font-semibold py-3 px-8 rounded-lg 
-                       hover:bg-white hover:text-sky-600 transition-colors"
+              className="bg-transparent border-2 border-white text-white font-semibold py-4 px-8 rounded-xl 
+                       hover:bg-white hover:text-primary-600 transition-all duration-200"
             >
               {t('cta.browse', 'ดูห้องพัก')}
             </a>

@@ -290,451 +290,347 @@ export default function UsersManagement() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen dark-bg py-8">
       <div className="max-w-7xl mx-auto container-padding">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-12 animate-slideUp">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">จัดการสมาชิก</h1>
-              <p className="text-gray-600">
-                {isReadOnly(user) ? 'ดูข้อมูลสมาชิกของระบบ' : 'เพิ่ม แก้ไข และจัดการสมาชิกของระบบ'}
+              <h1 className="text-4xl font-bold dark-text mb-3 tracking-tight">จัดการผู้ใช้งาน</h1>
+              <p className="text-lg dark-text-secondary">
+                {isReadOnly(user) ? 'ดูข้อมูลผู้ใช้งานในระบบ' : 'เพิ่ม แก้ไข และจัดการผู้ใช้งานในระบบ'}
               </p>
             </div>
             {canCreate(user) && (
               <button
                 onClick={() => handleOpenModal('add')}
-                className="btn-primary flex items-center space-x-2"
+                className="btn-primary flex items-center space-x-2 shadow-lg hover-lift"
               >
                 <Plus className="h-5 w-5" />
-                <span>เพิ่มสมาชิกใหม่</span>
+                <span>เพิ่มผู้ใช้งาน</span>
               </button>
             )}
           </div>
         </div>
 
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="card-elevated p-6 bg-gradient-to-br from-primary-500 to-primary-600 text-white animate-slideUp">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium opacity-90">ผู้ใช้งานทั้งหมด</h3>
+                <p className="text-3xl font-bold mt-1">{pagination.total}</p>
+              </div>
+              <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                <Users className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+
+          <div className="card-elevated p-6 bg-gradient-to-br from-accent-500 to-accent-600 text-white animate-slideUp stagger-1">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium opacity-90">ผู้ดูแลระบบ</h3>
+                <p className="text-3xl font-bold mt-1">{users.filter(u => u.role === 'admin').length}</p>
+              </div>
+              <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                <Crown className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+
+          <div className="card-elevated p-6 bg-gradient-to-br from-secondary-500 to-secondary-600 text-white animate-slideUp stagger-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium opacity-90">พนักงาน</h3>
+                <p className="text-3xl font-bold mt-1">{users.filter(u => u.role === 'staff').length}</p>
+              </div>
+              <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                <Shield className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+
+          <div className="card-elevated p-6 bg-gradient-to-br from-success-500 to-success-600 text-white animate-slideUp stagger-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium opacity-90">ลูกค้า</h3>
+                <p className="text-3xl font-bold mt-1">{users.filter(u => u.role === 'user').length}</p>
+              </div>
+              <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                <User className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0">
-            <div className="flex-1">
+        <div className="card-elevated p-8 mb-8 animate-slideUp">
+          <h2 className="text-xl font-semibold dark-text mb-6 flex items-center">
+            <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center mr-3">
+              <Filter className="h-4 w-4 text-white" />
+            </div>
+            ค้นหาและกรองข้อมูล
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Search */}
+            <div>
+              <label className="block text-sm font-medium dark-text-secondary mb-2">
+                ค้นหา
+              </label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
                 <input
                   type="text"
                   name="search"
-                  placeholder="🔍 ค้นหาด้วยชื่อ, นามสกุล หรืออีเมล..."
+                  placeholder="ชื่อ, อีเมล, เบอร์โทร..."
                   value={filters.search}
                   onChange={handleFilterChange}
-                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="pl-10 input-field"
                 />
-                {filters.search && (
-                  <button
-                    onClick={() => handleFilterChange({ target: { name: 'search', value: '' } })}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+            
+            {/* Role Filter */}
+            <div>
+              <label className="block text-sm font-medium dark-text-secondary mb-2">
+                ระดับการเข้าถึง
+              </label>
               <select
                 name="role"
                 value={filters.role}
                 onChange={handleFilterChange}
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="input-field"
               >
-                <option value="">ทุกสิทธิ์</option>
-                <option value="user">ผู้ใช้งาน</option>
-                <option value="admin">ผู้ดูแลระบบ</option>
+                <option value="">ทั้งหมด</option>
+                {userRoles.map(role => (
+                  <option key={role.value} value={role.value}>{role.label}</option>
+                ))}
               </select>
             </div>
           </div>
           
-          {/* Search Results Info */}
-          {(filters.search || filters.role) && (
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800">
-                🔍 ผลการค้นหา: พบ <span className="font-semibold">{pagination.total}</span> รายการ
-                {filters.search && (
-                  <span> สำหรับ "<span className="font-semibold">{filters.search}</span>"</span>
-                )}
-                {filters.role && (
-                  <span> ในกลุ่ม "<span className="font-semibold">
-                    {filters.role === 'admin' ? 'ผู้ดูแลระบบ' : filters.role === 'user' ? 'ผู้ใช้งาน' : filters.role}
-                  </span>"</span>
-                )}
-              </p>
-            </div>
-          )}
+          <div className="mt-4 flex justify-between items-center">
+            <span className="text-sm dark-text-muted">
+              แสดงผล {users.length} จาก {pagination.total} ผู้ใช้งาน
+            </span>
+            <button
+              onClick={() => setFilters({ search: '', role: '' })}
+              className="btn-secondary text-sm"
+            >
+              ล้างตัวกรอง
+            </button>
+          </div>
         </div>
 
-        {/* Users Table */}
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+        {/* Users Grid */}
+        <div className="animate-slideUp stagger-2">
           {loading ? (
-            <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-              <p className="mt-2 text-gray-600">กำลังโหลดข้อมูล...</p>
+            <div className="text-center py-16">
+              <div className="w-16 h-16 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="dark-text-secondary">กำลังโหลดข้อมูล...</p>
             </div>
           ) : users.length === 0 ? (
-            <div className="p-8 text-center">
-              <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">ไม่พบข้อมูลสมาชิก</p>
+            <div className="text-center py-16">
+              <Users className="h-16 w-16 text-neutral-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold dark-text-secondary mb-2">ไม่พบข้อมูลผู้ใช้งาน</h3>
+              <p className="dark-text-muted mb-6">
+                {filters.search || filters.role 
+                  ? 'ลองปรับเปลี่ยนเงื่อนไขการค้นหา' 
+                  : 'เริ่มต้นด้วยการเพิ่มผู้ใช้งานคนแรก'
+                }
+              </p>
+              {canCreate(user) && (
+                <button
+                  onClick={() => handleOpenModal('add')}
+                  className="btn-primary"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  เพิ่มผู้ใช้งาน
+                </button>
+              )}
             </div>
           ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        สมาชิก
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        ติดต่อ
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        สิทธิ์
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        วันที่สมัคร
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        การจัดการ
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {users.map((userData) => {
-                      const RoleIcon = getRoleIcon(userData.role);
-                      return (
-                        <tr key={userData.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="flex-shrink-0 h-10 w-10">
-                                <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
-                                  <User className="h-5 w-5 text-primary-600" />
-                                </div>
-                              </div>
-                              <div className="ml-4">
-                                <div className="text-sm font-medium text-gray-900">
-                                  {userData.fullName}
-                                </div>
-                                <div className="text-sm text-gray-500">
-                                  ID: {userData.id}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900 flex items-center">
-                              <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                              {userData.email}
-                            </div>
-                            {userData.phone && (
-                              <div className="text-sm text-gray-500 flex items-center mt-1">
-                                <Phone className="h-4 w-4 mr-2 text-gray-400" />
-                                {userData.phone}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(userData.role)}`}>
-                              <RoleIcon className="h-3 w-3 mr-1" />
-                              {userRoles.find(r => r.value === userData.role)?.label}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <div className="flex items-center">
-                              <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                              {new Date(userData.createdAt).toLocaleDateString('th-TH')}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div className="flex justify-end space-x-2">
-                              <button
-                                onClick={() => handleOpenModal('view', userData)}
-                                className="text-blue-600 hover:text-blue-900 p-1"
-                                title="ดูรายละเอียด"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </button>
-                              {canEdit(user) && (
-                                <button
-                                  onClick={() => handleOpenModal('edit', userData)}
-                                  className="text-green-600 hover:text-green-900 p-1"
-                                  title="แก้ไข"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </button>
-                              )}
-                              {canEdit(user) && (
-                                <button
-                                  onClick={() => handleToggleRole(userData.id, userData.role, userData.fullName)}
-                                  className="text-purple-600 hover:text-purple-900 p-1"
-                                  title="เปลี่ยนสิทธิ์"
-                                >
-                                  {userData.role === 'admin' ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-                                </button>
-                              )}
-                              {canDelete(user) && (
-                                <button
-                                  onClick={() => handleDelete(userData.id, userData.fullName)}
-                                  className="text-red-600 hover:text-red-900 p-1"
-                                  title="ลบ"
-                                  disabled={userData.id === user.id}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {users.map((userData, index) => {
+                const RoleIcon = getRoleIcon(userData.role);
+                const roleConfig = userRoles.find(r => r.value === userData.role);
+                
+                return (
+                  <div 
+                    key={userData.id} 
+                    className={`card-elevated group hover-lift transition-all duration-300 animate-slideUp`}
+                    style={{ animationDelay: `${index * 100}ms` }}
+                  >
+                    {/* User Header */}
+                    <div className="p-6 border-b dark-border">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center">
+                            <User className="h-6 w-6 text-white" />
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold dark-text group-hover:text-primary-600 transition-colors">
+                              {userData.fullName}
+                            </h3>
+                            <p className="text-sm dark-text-muted">ID: {userData.id}</p>
+                          </div>
+                        </div>
+                        
+                        {/* Role Badge */}
+                        <div className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center space-x-1 ${
+                          userData.role === 'admin' 
+                            ? 'bg-gradient-to-r from-accent-500 to-accent-600 text-white'
+                            : userData.role === 'staff'
+                            ? 'bg-gradient-to-r from-secondary-500 to-secondary-600 text-white'
+                            : 'status-info'
+                        }`}>
+                          <RoleIcon className="h-3 w-3" />
+                          <span>{roleConfig?.label}</span>
+                        </div>
+                      </div>
+                    </div>
 
-              {/* Pagination */}
-              {pagination.totalPages > 1 && (
-                <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                  <div className="flex-1 flex justify-between sm:hidden">
-                    <button
-                      onClick={() => setPagination(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
-                      disabled={pagination.page === 1}
-                      className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      ก่อนหน้า
-                    </button>
-                    <button
-                      onClick={() => setPagination(prev => ({ ...prev, page: Math.min(prev.totalPages, prev.page + 1) }))}
-                      disabled={pagination.page === pagination.totalPages}
-                      className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      ถัดไป
-                    </button>
-                  </div>
-                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm text-gray-700">
-                        แสดง <span className="font-medium">{((pagination.page - 1) * pagination.limit) + 1}</span> ถึง{' '}
-                        <span className="font-medium">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> จาก{' '}
-                        <span className="font-medium">{pagination.total}</span> รายการ
-                      </p>
-                    </div>
-                    <div>
-                      <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                    {/* User Details */}
+                    <div className="p-6 space-y-4">
+                      {/* Contact Info */}
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
+                            <Mail className="h-4 w-4 text-primary-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm dark-text-muted">อีเมล</p>
+                            <p className="text-sm dark-text font-medium truncate">{userData.email}</p>
+                          </div>
+                        </div>
+
+                        {userData.phone && (
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-success-100 rounded-lg flex items-center justify-center">
+                              <Phone className="h-4 w-4 text-success-600" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm dark-text-muted">เบอร์โทร</p>
+                              <p className="text-sm dark-text font-medium">{userData.phone}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-neutral-100 rounded-lg flex items-center justify-center">
+                            <Calendar className="h-4 w-4 text-neutral-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm dark-text-muted">วันที่สมัคร</p>
+                            <p className="text-sm dark-text font-medium">
+                              {new Date(userData.createdAt).toLocaleDateString('th-TH', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric'
+                              })}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex justify-between items-center pt-4 border-t dark-border">
                         <button
-                          onClick={() => setPagination(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
-                          disabled={pagination.page === 1}
-                          className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                          onClick={() => handleOpenModal('view', userData)}
+                          className="btn-ghost text-sm flex items-center"
                         >
-                          ก่อนหน้า
+                          <Eye className="h-4 w-4 mr-1" />
+                          ดูรายละเอียด
                         </button>
-                        {[...Array(Math.min(5, pagination.totalPages))].map((_, index) => {
-                          const pageNumber = index + Math.max(1, pagination.page - 2);
-                          if (pageNumber > pagination.totalPages) return null;
-                          return (
+                        
+                        <div className="flex space-x-2">
+                          {canEdit(user) && (
                             <button
-                              key={pageNumber}
-                              onClick={() => setPagination(prev => ({ ...prev, page: pageNumber }))}
-                              className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                                pageNumber === pagination.page
-                                  ? 'z-10 bg-primary-50 border-primary-500 text-primary-600'
-                                  : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                              }`}
+                              onClick={() => handleOpenModal('edit', userData)}
+                              className="p-2 text-warning-600 hover:bg-warning-50 rounded-lg transition-colors"
+                              title="แก้ไข"
                             >
-                              {pageNumber}
+                              <Edit className="h-4 w-4" />
                             </button>
-                          );
-                        })}
-                        <button
-                          onClick={() => setPagination(prev => ({ ...prev, page: Math.min(prev.totalPages, prev.page + 1) }))}
-                          disabled={pagination.page === pagination.totalPages}
-                          className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                        >
-                          ถัดไป
-                        </button>
-                      </nav>
+                          )}
+                          {userData.role !== 'admin' && canEdit(user) && (
+                            <button
+                              onClick={() => handleToggleRole(userData.id, userData.role, userData.fullName)}
+                              className="p-2 text-secondary-600 hover:bg-secondary-50 rounded-lg transition-colors"
+                              title="เปลี่ยนสิทธิ์"
+                            >
+                              <UserCheck className="h-4 w-4" />
+                            </button>
+                          )}
+                          {canDelete(user) && userData.id !== user?.id && (
+                            <button
+                              onClick={() => handleDelete(userData.id, userData.fullName)}
+                              className="p-2 text-error-600 hover:bg-error-50 rounded-lg transition-colors"
+                              title="ลบ"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </>
+                );
+              })}
+            </div>
           )}
         </div>
 
-        {/* Modal */}
-        {showModal && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900">
-                  {modalType === 'add' && 'เพิ่มสมาชิกใหม่'}
-                  {modalType === 'edit' && 'แก้ไขข้อมูลสมาชิก'}
-                  {modalType === 'view' && 'รายละเอียดสมาชิก'}
-                </h3>
+        {/* Pagination */}
+        {pagination.totalPages > 1 && (
+          <div className="card-elevated p-6 mt-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm dark-text-muted">
+                  แสดงผล <span className="font-medium">{((pagination.page - 1) * pagination.limit) + 1}</span> ถึง{' '}
+                  <span className="font-medium">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> จาก{' '}
+                  <span className="font-medium">{pagination.total}</span> รายการ
+                </p>
+              </div>
+              <div className="flex items-center space-x-2">
                 <button
-                  onClick={handleCloseModal}
-                  className="text-gray-400 hover:text-gray-600"
+                  onClick={() => setPagination(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+                  disabled={pagination.page === 1}
+                  className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <X className="h-6 w-6" />
+                  ก่อนหน้า
+                </button>
+                
+                <div className="flex items-center space-x-1">
+                  {[...Array(Math.min(5, pagination.totalPages))].map((_, index) => {
+                    const pageNumber = index + Math.max(1, pagination.page - 2);
+                    if (pageNumber > pagination.totalPages) return null;
+                    return (
+                      <button
+                        key={pageNumber}
+                        onClick={() => setPagination(prev => ({ ...prev, page: pageNumber }))}
+                        className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                          pageNumber === pagination.page
+                            ? 'bg-primary-600 text-white'
+                            : 'hover:bg-neutral-100 dark-text'
+                        }`}
+                      >
+                        {pageNumber}
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                <button
+                  onClick={() => setPagination(prev => ({ ...prev, page: Math.min(prev.totalPages, prev.page + 1) }))}
+                  disabled={pagination.page === pagination.totalPages}
+                  className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  ถัดไป
                 </button>
               </div>
-
-              {modalType === 'view' ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">อีเมล</label>
-                      <p className="text-sm text-gray-900">{selectedUser?.email}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อ-นามสกุล</label>
-                      <p className="text-sm text-gray-900">{selectedUser?.fullName}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">เบอร์โทรศัพท์</label>
-                      <p className="text-sm text-gray-900">{selectedUser?.phone || 'ไม่ระบุ'}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">สิทธิ์</label>
-                      <p className="text-sm text-gray-900">
-                        {userRoles.find(r => r.value === selectedUser?.role)?.label}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">วันที่สมัคร</label>
-                      <p className="text-sm text-gray-900">
-                        {selectedUser?.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString('th-TH') : '-'}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">แก้ไขล่าสุด</label>
-                      <p className="text-sm text-gray-900">
-                        {selectedUser?.updatedAt ? new Date(selectedUser.updatedAt).toLocaleDateString('th-TH') : '-'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <form onSubmit={handleSubmit}>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                        อีเมล *
-                      </label>
-                      <input
-                        type="email"
-                        id="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                        รหัสผ่าน {modalType === 'add' ? '*' : '(เว้นว่างหากไม่ต้องการเปลี่ยน)'}
-                      </label>
-                      <input
-                        type="password"
-                        id="password"
-                        name="password"
-                        value={formData.password}
-                        onChange={handleInputChange}
-                        required={modalType === 'add'}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
-                        ชื่อ *
-                      </label>
-                      <input
-                        type="text"
-                        id="firstName"
-                        name="firstName"
-                        value={formData.firstName}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
-                        นามสกุล *
-                      </label>
-                      <input
-                        type="text"
-                        id="lastName"
-                        name="lastName"
-                        value={formData.lastName}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                        เบอร์โทรศัพท์
-                      </label>
-                      <input
-                        type="tel"
-                        id="phone"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleInputChange}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
-                        สิทธิ์ *
-                      </label>
-                      <select
-                        id="role"
-                        name="role"
-                        value={formData.role}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      >
-                        {userRoles.map(role => (
-                          <option key={role.value} value={role.value}>
-                            {role.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Form Actions */}
-                  <div className="flex justify-end space-x-3 pt-4 border-t">
-                    <button
-                      type="button"
-                      onClick={handleCloseModal}
-                      className="btn-secondary"
-                    >
-                      ยกเลิก
-                    </button>
-                    <button
-                      type="submit"
-                      className="btn-primary flex items-center space-x-2"
-                    >
-                      <Save className="h-4 w-4" />
-                      <span>{modalType === 'add' ? 'เพิ่มสมาชิก' : 'บันทึกการแก้ไข'}</span>
-                    </button>
-                  </div>
-                </form>
-              )}
             </div>
           </div>
         )}
