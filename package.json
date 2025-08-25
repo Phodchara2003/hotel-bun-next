@@ -18,6 +18,8 @@
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^7.0.5",
     "prisma": "^6.13.0",
-    "zod": "^4.0.14"
+    "sinclair": "^0.2.0",
+    "typebox": "^0.0.1",
+    "zod": "^4.1.1"
   }
 }

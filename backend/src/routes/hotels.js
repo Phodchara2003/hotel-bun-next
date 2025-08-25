@@ -161,8 +161,10 @@ export const hotelRoutes = new Elysia({ prefix: '/hotels' })
       };
     } catch (error) {
       console.error('Get hotel details error:', error);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
       set.status = 500;
-      return { error: 'Internal server error' };
+      return { error: 'Internal server error', details: error.message };
     }
   })
 
