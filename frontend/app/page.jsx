@@ -28,6 +28,15 @@ export default function HomePage() {
     fetchHotelAndRooms();
   }, []);
 
+  // Redirect admin/staff users to dashboard
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && user && ['admin', 'staff'].includes(user.role)) {
+      // Show a brief message before redirecting
+      toast.success(`ยินดีต้อนรับ ${user.role === 'admin' ? 'ผู้ดูแลระบบ' : 'พนักงาน'} ${user.first_name || user.name || ''}`);
+      router.push('/admin/dashboard');
+    }
+  }, [authLoading, isAuthenticated, user, router]);
+
   const fetchHotelAndRooms = async () => {
     try {
       // Get hotel details (assuming hotel ID = 1 since we have only one hotel)

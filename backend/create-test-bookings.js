@@ -1,6 +1,6 @@
 // Create test bookings for frontend testing
 const createTestBookings = async () => {
-  const baseURL = 'http://localhost:3002/api/bookings';
+  const baseURL = 'http://localhost:3001/api/bookings';
   
   const testBookings = [
     {
@@ -57,9 +57,9 @@ const createTestBookings = async () => {
   }
   
   // Check total bookings
-  const getAllResponse = await fetch(`${baseURL}/admin/debug/all`, {
+  const getAllResponse = await fetch(`${baseURL}/admin/all`, {
     headers: {
-      'Authorization': 'Bearer fake-token',
+      'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiZW1haWwiOiJhZG1pbkByb3lhbGdhcmRlbi5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NTYxMTM4MTQsImV4cCI6MTc1NjcxODYxNH0.pG0fEFjUcUOv0tszlZ9qqxf_UNoyJaiWPC0LLXEgTKQ',
       'Content-Type': 'application/json'
     }
   });

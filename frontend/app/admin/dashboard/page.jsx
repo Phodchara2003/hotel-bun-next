@@ -27,7 +27,8 @@ import {
   Receipt,
   Search,
   Filter,
-  Trash2
+  Trash2,
+  Bed
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -603,7 +604,79 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* Quick Actions */}
+        <div className={`mb-12 transform transition-all duration-700 delay-300 ease-out ${
+          isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
+        }`}>
+          <h2 className="text-2xl font-semibold dark-text mb-6 flex items-center">
+            <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center mr-3">
+              <Hotel className="h-4 w-4 text-white" />
+            </div>
+            การจัดการด่วน
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <a 
+              href="/admin/rooms" 
+              className="card-elevated p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 group"
+            >
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
+                  <Bed className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-4">
+                  <h3 className="font-semibold dark-text">จัดการห้องพัก</h3>
+                  <p className="text-sm dark-text-secondary">ดูและแก้ไขห้องพัก</p>
+                </div>
+              </div>
+            </a>
 
+            <a 
+              href="/admin/users" 
+              className="card-elevated p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 group"
+            >
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
+                  <Users className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-4">
+                  <h3 className="font-semibold dark-text">จัดการผู้ใช้</h3>
+                  <p className="text-sm dark-text-secondary">ดูและแก้ไขผู้ใช้</p>
+                </div>
+              </div>
+            </a>
+
+            <a 
+              href="/admin/reports" 
+              className="card-elevated p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 group"
+            >
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
+                  <FileText className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-4">
+                  <h3 className="font-semibold dark-text">รายงาน</h3>
+                  <p className="text-sm dark-text-secondary">ดูรายงานสถิติ</p>
+                </div>
+              </div>
+            </a>
+
+            <a 
+              href="/admin/payment-settings" 
+              className="card-elevated p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 group"
+            >
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
+                  <CreditCard className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-4">
+                  <h3 className="font-semibold dark-text">ตั้งค่าการชำระเงิน</h3>
+                  <p className="text-sm dark-text-secondary">จัดการช่องทางชำระเงิน</p>
+                </div>
+              </div>
+            </a>
+          </div>
+        </div>
 
         {/* Filters */}
         <div className={`card-elevated p-8 mb-12 transform transition-all duration-700 delay-300 ease-out hover:shadow-xl ${
