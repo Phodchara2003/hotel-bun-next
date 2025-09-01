@@ -22,6 +22,7 @@
     "file-type": "^21.0.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
+    "node-fetch": "^3.3.2",
     "nodemailer": "^7.0.5",
     "pg": "^8.16.3",
     "pg-types": "^4.0.2",

@@ -260,22 +260,154 @@ export default function RegisterPage() {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+                    className="input-field pl-10"
+                    placeholder="ชื่อ"
+                  />
+                  <User className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                </div>
+              </div>
 
-        {/* Terms Notice */}
-        <div className="relative">
-          <div className="absolute inset-0 bg-gray-500/10 backdrop-blur-xl rounded-xl border border-gray-200/30"></div>
-          <div className="relative p-4 text-center">
-            <p className="text-xs text-gray-600">
-              การสมัครสมาชิกถือว่าคุณยอมรับ{' '}
-              <Link href="/terms" className="text-emerald-600 hover:text-cyan-600 font-medium underline">
-                เงื่อนไขการใช้งาน
-              </Link>{' '}
-              และ{' '}
-              <Link href="/privacy" className="text-emerald-600 hover:text-cyan-600 font-medium underline">
-                นโยบายความเป็นส่วนตัว
+              <div>
+                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
+                  นามสกุล
+                </label>
+                <input
+                  id="lastName"
+                  name="lastName"
+                  type="text"
+                  required
+                  value={formData.lastName}
+                  onChange={handleInputChange}
+                  className="input-field"
+                  placeholder="นามสกุล"
+                />
+              </div>
+            </div>
+
+            {/* Email Field */}
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                อีเมล
+              </label>
+              <div className="relative">
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className="input-field pl-10"
+                  placeholder="your@example.com"
+                />
+                <Mail className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+              </div>
+            </div>
+
+            {/* Phone Field */}
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                เบอร์โทรศัพท์ (ไม่จำเป็น)
+              </label>
+              <div className="relative">
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  className="input-field pl-10"
+                  placeholder="08x-xxx-xxxx"
+                />
+                <Phone className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+              </div>
+            </div>
+
+            {/* Password Fields */}
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                รหัสผ่าน
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  required
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  className="input-field pl-10 pr-10"
+                  placeholder="••••••••"
+                />
+                <Lock className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                ยืนยันรหัสผ่าน
+              </label>
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                required
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                className="input-field"
+                placeholder="••••••••"
+              />
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full btn-primary flex items-center justify-center py-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+            >
+              {loading ? (
+                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                'สมัครสมาชิก'
+              )}
+            </button>
+          </form>
+
+          {/* Footer Links */}
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600">
+              มีบัญชีอยู่แล้ว?{' '}
+              <Link href="/login" className="text-primary-600 hover:text-primary-500 font-medium">
+                เข้าสู่ระบบ
               </Link>
             </p>
           </div>
+        </div>
+
+        {/* Terms */}
+        <div className="text-center">
+          <p className="text-xs text-gray-500">
+            การสมัครสมาชิกแสดงว่าคุณยอมรับ{' '}
+            <a href="#" className="text-primary-600 hover:text-primary-500">
+              ข้อกำหนดการใช้งาน
+            </a>{' '}
+            และ{' '}
+            <a href="#" className="text-primary-600 hover:text-primary-500">
+              นโยบายความเป็นส่วนตัว
+            </a>
+          </p>
         </div>
       </div>
     </div>

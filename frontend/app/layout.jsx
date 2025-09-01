@@ -4,7 +4,7 @@ import { AuthProvider } from '../contexts/AuthContext'
 import { NotificationProvider } from '../contexts/NotificationContext'
 import { LanguageProvider } from '../contexts/LanguageContext'
 import { ThemeProvider } from '../contexts/ThemeContext'
-import Header from '../components/Header'
+import LayoutWrapper from '../components/LayoutWrapper'
 import GlobalLanguageThemeHandler from '../components/GlobalLanguageThemeHandler'
 import { Toaster } from 'react-hot-toast'
 
@@ -46,12 +46,9 @@ export default function RootLayout({ children }) {
             <GlobalLanguageThemeHandler />
             <AuthProvider>
               <NotificationProvider>
-                <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
-                  <Header />
-                  <main>
-                    {children}
-                  </main>
-                </div>
+                <LayoutWrapper>
+                  {children}
+                </LayoutWrapper>
                 <Toaster 
                   position="top-right"
                   toastOptions={{

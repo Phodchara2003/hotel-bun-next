@@ -1,5 +1,5 @@
 // QR Code Generator for PromptPay (Backend Version)
-const QRCode = require('qrcode');
+import QRCode from 'qrcode';
 
 /**
  * สร้าง PromptPay QR Code

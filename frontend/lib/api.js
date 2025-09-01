@@ -7,6 +7,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 // Create axios instance
 const api = axios.create({
   baseURL: `${API_BASE_URL}/api`,
+  timeout: 10000, // 10 second timeout
   headers: {
     'Content-Type': 'application/json',
   },
@@ -91,8 +92,15 @@ export const hotelAPI = {
 // Bookings API
 export const bookingAPI = {
   createBooking: async (bookingData) => {
-    const response = await api.post('/bookings', bookingData);
-    return response.data;
+    console.log('🔄 bookingAPI.createBooking called with:', bookingData);
+    try {
+      const response = await api.post('/bookings', bookingData);
+      console.log('✅ bookingAPI.createBooking success:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ bookingAPI.createBooking error:', error);
+      throw error;
+    }
   },
   
   getBookings: async (params = {}) => {

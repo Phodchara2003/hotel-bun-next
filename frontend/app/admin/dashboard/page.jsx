@@ -8,6 +8,7 @@ import { bookingAPI } from '../../../lib/api';
 import { isStaffOrAdmin, canEdit, canDelete, canCreate, isReadOnly, canManageBookings, canApproveBookings } from '../../../lib/roles';
 import Cookies from 'js-cookie';
 import ConfirmModal from '../../../components/ConfirmModal';
+import Link from 'next/link';
 import { 
   Calendar, 
   Users, 
@@ -28,7 +29,9 @@ import {
   Search,
   Filter,
   Trash2,
-  Bed
+  Bed,
+  Package,
+  MessageCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -615,8 +618,8 @@ export default function AdminDashboard() {
             การจัดการด่วน
           </h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <a 
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
+            <Link 
               href="/admin/rooms" 
               className="card-elevated p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 group"
             >
@@ -629,9 +632,9 @@ export default function AdminDashboard() {
                   <p className="text-sm dark-text-secondary">ดูและแก้ไขห้องพัก</p>
                 </div>
               </div>
-            </a>
+            </Link>
 
-            <a 
+            <Link 
               href="/admin/users" 
               className="card-elevated p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 group"
             >
@@ -644,9 +647,39 @@ export default function AdminDashboard() {
                   <p className="text-sm dark-text-secondary">ดูและแก้ไขผู้ใช้</p>
                 </div>
               </div>
-            </a>
+            </Link>
 
-            <a 
+            <Link 
+              href="/admin/inventory" 
+              className="card-elevated p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 group"
+            >
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
+                  <Package className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-4">
+                  <h3 className="font-semibold dark-text">จัดการคลังสินค้า</h3>
+                  <p className="text-sm dark-text-secondary">ตรวจสอบสต็อก</p>
+                </div>
+              </div>
+            </Link>
+
+            <Link 
+              href="/admin/communication" 
+              className="card-elevated p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 group"
+            >
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-pink-600 rounded-xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
+                  <MessageCircle className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-4">
+                  <h3 className="font-semibold dark-text">สื่อสารกับแขก</h3>
+                  <p className="text-sm dark-text-secondary">แชทและตอบคำถาม</p>
+                </div>
+              </div>
+            </Link>
+
+            <Link 
               href="/admin/reports" 
               className="card-elevated p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 group"
             >
@@ -659,9 +692,9 @@ export default function AdminDashboard() {
                   <p className="text-sm dark-text-secondary">ดูรายงานสถิติ</p>
                 </div>
               </div>
-            </a>
+            </Link>
 
-            <a 
+            <Link 
               href="/admin/payment-settings" 
               className="card-elevated p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 group"
             >
@@ -674,7 +707,7 @@ export default function AdminDashboard() {
                   <p className="text-sm dark-text-secondary">จัดการช่องทางชำระเงิน</p>
                 </div>
               </div>
-            </a>
+            </Link>
           </div>
         </div>
 

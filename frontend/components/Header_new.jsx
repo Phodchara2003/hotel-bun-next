@@ -2,13 +2,20 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 
 const Header = () => {
   const { user, logout, isAuthenticated } = useAuth();
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+
+  const handleLogout = () => {
+    logout();
+    // ไม่ redirect ให้อยู่หน้าเดิม
+  };
 
   return (
     <header className="dark-card shadow-lg sticky top-0 z-50 border-b">
@@ -125,7 +132,7 @@ const Header = () => {
                       </>
                     )}
                     <button 
-                      onClick={logout}
+                      onClick={handleLogout}
                       className="flex items-center w-full px-4 py-2 dark-text hover:bg-error-50 hover:text-error-600 rounded-lg mx-2 transition-colors"
                     >
                       <span className="text-sm mr-2">🚪</span>

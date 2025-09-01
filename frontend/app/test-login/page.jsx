@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function TestLoginPage() {
   const { user, login, logout, isAuthenticated, loading } = useAuth();
+  const router = useRouter();
   const [credentials, setCredentials] = useState({
     email: 'demo@example.com',
     password: 'password123'
@@ -13,6 +15,11 @@ export default function TestLoginPage() {
   const handleLogin = async () => {
     const result = await login(credentials);
     console.log('Login result:', result);
+  }
+
+  const handleLogout = () => {
+    logout();
+    // ไม่ redirect ให้อยู่หน้าเดิม
   };
 
   if (loading) {
@@ -29,7 +36,7 @@ export default function TestLoginPage() {
           <p className="text-green-700">ยินดีต้อนรับ {user?.first_name} {user?.last_name}</p>
           <p className="text-sm text-green-600">อีเมล: {user?.email}</p>
           <button 
-            onClick={logout}
+            onClick={handleLogout}
             className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
           >
             ออกจากระบบ

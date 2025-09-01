@@ -22,8 +22,7 @@ export default function ProfilePage() {
   const [loading, setSaving] = useState(false);
   const [notifications, setNotifications] = useState({
     emailNotifications: true,
-    bookingUpdates: true,
-    promotions: false
+    bookingUpdates: true
   });
   const [formData, setFormData] = useState({
     firstName: '',
@@ -423,15 +422,6 @@ export default function ProfilePage() {
                       type="checkbox" 
                       checked={notifications.bookingUpdates}
                       onChange={(e) => handleNotificationChange('bookingUpdates', e.target.checked)}
-                      className="form-checkbox text-primary-600 focus:ring-primary-500" 
-                    />
-                  </label>
-                  <label className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700">โปรโมชั่น</span>
-                    <input 
-                      type="checkbox" 
-                      checked={notifications.promotions}
-                      onChange={(e) => handleNotificationChange('promotions', e.target.checked)}
                       className="form-checkbox text-primary-600 focus:ring-primary-500" 
                     />
                   </label>

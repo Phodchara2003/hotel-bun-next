@@ -4,9 +4,11 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Users, Maximize, Bed, Wifi, Car, Coffee, Bath, Camera } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import ImageCarousel from './ImageCarousel';
 
 const RoomCard = ({ roomType, hotelId }) => {
+  const { isAuthenticated } = useAuth();
   const [showCarousel, setShowCarousel] = useState(false);
 
   const getAmenityIcon = (amenity) => {
@@ -194,12 +196,31 @@ const RoomCard = ({ roomType, hotelId }) => {
             <div className="text-sm dark-text-muted">ต่อคืน (รวมภาษี)</div>
           </div>
           
-          <Link 
-            href={`/rooms/${roomType.id}/book?hotelId=${hotelId}`}
-            className="btn-primary shadow-lg"
-          >
-            จองเลย
-          </Link>
+          {isAuthenticated ? (
+            <Link 
+              href={`/rooms/${roomType.id}/book?hotelId=${hotelId}`}
+              className="btn-primary shadow-lg"
+              onClick={() => {
+                console.log('Booking link clicked:', {
+                  roomId: roomType.id,
+                  hotelId: hotelId,
+                  href: `/rooms/${roomType.id}/book?hotelId=${hotelId}`
+                });
+              }}
+            >
+              จองเลย
+            </Link>
+          ) : (
+            <Link 
+              href="/login"
+              className="btn-primary shadow-lg"
+              onClick={() => {
+                console.log('Login link clicked');
+              }}
+            >
+              เข้าสู่ระบบ
+            </Link>
+          )}
         </div>
 
         {/* View All Images Button */}

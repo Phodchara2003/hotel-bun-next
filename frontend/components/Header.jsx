@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Bell } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
@@ -17,7 +18,13 @@ const Header = () => {
   const { language } = useLanguage();
   const { theme } = useTheme();
   const { t } = useTranslation(language);
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    // ไม่ redirect ให้อยู่หน้าเดิม
+  };
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -228,7 +235,7 @@ const Header = () => {
                       </>
                     )}
                     <button 
-                      onClick={logout}
+                      onClick={handleLogout}
                       className="flex items-center w-full px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border-t border-gray-100 dark:border-gray-600"
                     >
                       <span className="text-sm mr-2">🚪</span>
@@ -317,7 +324,7 @@ const Header = () => {
                   </Link>
                   <button 
                     onClick={() => {
-                      logout();
+                      handleLogout();
                       setIsMenuOpen(false);
                     }}
                     className="block w-full text-left text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400"

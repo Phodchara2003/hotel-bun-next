@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { useLanguage } from '../contexts/LanguageContext';
-import { hotelAPI } from '../lib/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { hotelAPI } from '../../lib/api';
 import { 
   Search, 
   Filter, 
@@ -21,12 +21,12 @@ import {
   Grid,
   List
 } from 'lucide-react';
-import RoomCard from '../components/RoomCard';
-import DatePickerComponent from '../components/DatePicker';
+import RoomCard from '../../components/RoomCard';
+import DatePickerComponent from '../../components/DatePicker';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
-export default function HomePage() {
+export default function RoomsPage() {
   const { isAuthenticated, user } = useAuth();
   const { language } = useLanguage();
   const [hotel, setHotel] = useState(null);
@@ -56,35 +56,11 @@ export default function HomePage() {
 
   const fetchHotelAndRooms = async () => {
     try {
-      console.log('Fetching hotel data from API...');
-      
-      // Check cache first
-      const cacheKey = 'hotel_data_1';
-      const cached = sessionStorage.getItem(cacheKey);
-      if (cached) {
-        const cachedData = JSON.parse(cached);
-        console.log('Using cached hotel data');
-        setHotel(cachedData);
-        setRoomTypes(cachedData.roomTypes || []);
-        setLoading(false);
-        return;
-      }
-      
       const hotelResponse = await hotelAPI.getHotelById(1);
-      console.log('Hotel response received:', hotelResponse);
-      console.log('Room types in response:', hotelResponse.roomTypes);
-      
-      // Cache the data
-      sessionStorage.setItem(cacheKey, JSON.stringify(hotelResponse));
-      
       setHotel(hotelResponse);
       setRoomTypes(hotelResponse.roomTypes || []);
-      console.log('Hotel and room types set successfully');
     } catch (error) {
       console.error('Error fetching hotel data:', error);
-      console.error('Error response:', error.response);
-      console.error('Error status:', error.response?.status);
-      console.error('Error data:', error.response?.data);
       toast.error('ไม่สามารถโหลดข้อมูลห้องพักได้');
     } finally {
       setLoading(false);
@@ -173,7 +149,6 @@ export default function HomePage() {
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
           <p className="mt-4 text-slate-700 text-lg font-medium">กำลังโหลดข้อมูลห้องพัก...</p>
-          <p className="text-slate-500 text-sm mt-2">กรุณารอสักครู่</p>
         </div>
       </div>
     );
@@ -429,13 +404,13 @@ export default function HomePage() {
 
                       <div className="flex space-x-3">
                         <Link 
-                          href={`/rooms/${room.id}/book?hotelId=${hotel.id}`}
+                          href={`/rooms/${room.id}/book`}
                           className="flex-1 btn-primary text-center"
                         >
                           จองเลย
                         </Link>
                         <Link 
-                          href={`/rooms/${room.id}?hotelId=${hotel.id}`}
+                          href={`/rooms/${room.id}`}
                           className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                         >
                           ดูรายละเอียด
