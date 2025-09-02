@@ -124,7 +124,10 @@ a {
 .btn-secondary {
   @apply bg-secondary-50 hover:bg-secondary-100 focus:bg-secondary-100 active:bg-secondary-200
          text-secondary-700 font-semibold py-3 px-6 rounded-lg border border-secondary-200
+         dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:focus:bg-neutral-600 dark:active:bg-neutral-500
+         dark:text-neutral-200 dark:border-neutral-600
          focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:ring-offset-2 
+         dark:focus:ring-neutral-400 dark:ring-offset-neutral-900
          transition-all duration-200;
 }
 
@@ -166,10 +169,42 @@ a {
 
 /* Form input styles */
 .input-field {
-  @apply w-full px-4 py-3 border border-neutral-300 bg-white text-neutral-900 rounded-lg
-         placeholder-neutral-500 
-         focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
+  @apply w-full px-4 py-3 border-2 border-neutral-300 bg-white text-neutral-900 rounded-lg
+         placeholder-neutral-500 font-medium
+         dark:bg-neutral-800 dark:border-neutral-600 dark:text-white dark:placeholder-neutral-400
+         focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500
+         dark:focus:ring-primary-400 dark:focus:border-primary-400
+         hover:border-neutral-400 dark:hover:border-neutral-500
          transition-all duration-200;
+}
+
+/* Date input specific styles */
+.input-field[type="date"] {
+  color-scheme: light dark;
+}
+
+.input-field[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.5) sepia(1) saturate(5) hue-rotate(200deg);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.input-field[type="date"]::-webkit-calendar-picker-indicator:hover {
+  filter: invert(0.3) sepia(1) saturate(5) hue-rotate(200deg);
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+  .input-field[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.8) sepia(1) saturate(5) hue-rotate(200deg);
+  }
+  
+  .input-field[type="date"]::-webkit-calendar-picker-indicator:hover {
+    filter: invert(1) sepia(1) saturate(5) hue-rotate(200deg);
+    background-color: rgba(59, 130, 246, 0.2);
+  }
 }
 
 /* Form validation states */
@@ -186,7 +221,8 @@ a {
 /* Card variants */
 .card-elevated {
   @apply bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden
-         hover:shadow-lg hover:border-neutral-300 
+         dark:bg-neutral-800 dark:border-neutral-700
+         hover:shadow-lg hover:border-neutral-300 dark:hover:border-neutral-600
          transition-all duration-300;
 }
 

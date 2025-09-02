@@ -712,12 +712,12 @@ export default function AdminDashboard() {
         </div>
 
         {/* Filters */}
-        <div className={`card-elevated p-8 mb-12 transform transition-all duration-700 delay-300 ease-out hover:shadow-xl ${
+        <div className={`bg-white dark:bg-neutral-800 rounded-xl shadow-lg border-2 border-neutral-200 dark:border-neutral-700 p-8 mb-12 transform transition-all duration-700 delay-300 ease-out hover:shadow-xl ${
           isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
         }`}>
-          <h2 className="text-xl font-semibold dark-text mb-6 flex items-center">
-            <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center mr-3">
-              <Filter className="h-4 w-4 text-white" />
+          <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-8 flex items-center">
+            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center mr-4 shadow-lg">
+              <Filter className="h-5 w-5 text-white" />
             </div>
             ค้นหาและกรองข้อมูล
           </h2>
@@ -725,30 +725,30 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Search */}
             <div>
-              <label className="block text-sm font-medium dark-text-secondary mb-2">
+              <label className="block text-sm font-semibold text-neutral-800 dark:text-neutral-200 mb-3">
                 ค้นหา
               </label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-primary-500 dark:text-primary-400 pointer-events-none" />
                 <input
                   type="text"
                   placeholder="รหัสจอง, อีเมล, ชื่อผู้เข้าพัก..."
                   value={filters.search}
                   onChange={(e) => handleFilterChange('search', e.target.value)}
-                  className="pl-10 input-field"
+                  className="pl-16 input-field text-sm"
                 />
               </div>
             </div>
             
             {/* Status Filter */}
             <div>
-              <label className="block text-sm font-medium dark-text-secondary mb-2">
+              <label className="block text-sm font-semibold text-neutral-800 dark:text-neutral-200 mb-3">
                 สถานะ
               </label>
               <select
                 value={filters.status}
                 onChange={(e) => handleFilterChange('status', e.target.value)}
-                className="input-field"
+                className="input-field text-sm"
               >
                 <option value="">ทั้งหมด</option>
                 <option value="pending">รอการยืนยัน</option>
@@ -760,38 +760,38 @@ export default function AdminDashboard() {
             
             {/* Date From */}
             <div>
-              <label className="block text-sm font-medium dark-text-secondary mb-2">
+              <label className="block text-sm font-semibold text-neutral-800 dark:text-neutral-200 mb-3">
                 วันเข้าพักจาก
               </label>
               <input
                 type="date"
                 value={filters.dateFrom}
                 onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
-                className="input-field"
+                className="input-field text-sm"
               />
             </div>
             
             {/* Date To */}
             <div>
-              <label className="block text-sm font-medium dark-text-secondary mb-2">
+              <label className="block text-sm font-semibold text-neutral-800 dark:text-neutral-200 mb-3">
                 วันเข้าพักถึง
               </label>
               <input
                 type="date"
                 value={filters.dateTo}
                 onChange={(e) => handleFilterChange('dateTo', e.target.value)}
-                className="input-field"
+                className="input-field text-sm"
               />
             </div>
           </div>
           
-          <div className="mt-6 flex justify-between items-center">
-            <span className="text-sm dark-text-secondary">
-              แสดงผล <span className="font-semibold dark-text">{filteredBookings.length}</span> จาก <span className="font-semibold dark-text">{bookings.length}</span> รายการ
+          <div className="mt-8 flex justify-between items-center">
+            <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              แสดงผล <span className="font-bold text-primary-600 dark:text-primary-400">{filteredBookings.length}</span> จาก <span className="font-bold text-neutral-900 dark:text-white">{bookings.length}</span> รายการ
             </span>
             <button
               onClick={clearFilters}
-              className="btn-secondary text-sm"
+              className="px-6 py-2 bg-primary-100 hover:bg-primary-200 dark:bg-primary-900 dark:hover:bg-primary-800 text-primary-700 dark:text-primary-300 font-semibold rounded-lg border border-primary-300 dark:border-primary-600 transition-all duration-200"
             >
               ล้างตัวกรอง
             </button>
