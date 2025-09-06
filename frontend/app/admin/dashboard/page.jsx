@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 import { dashboardAPI, usersAPI } from '../../../lib/api';
 import { isStaffOrAdmin, canEdit, canDelete, canCreate, isReadOnly } from '../../../lib/roles';
 import Cookies from 'js-cookie';
@@ -35,12 +36,16 @@ import {
   Star,
   Mail,
   Phone,
-  MapPin
+  MapPin,
+  QrCode,
+  Upload,
+  Smartphone
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function AdminDashboard() {
   const { user, isAuthenticated } = useAuth();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState({
     stats: {
@@ -117,18 +122,18 @@ export default function AdminDashboard() {
       description: 'จัดการข้อมูลโรงแรมและห้องพัก'
     },
     { 
-      id: 'payments', 
-      label: 'การเงิน', 
-      icon: CreditCard, 
-      color: 'bg-red-500',
-      description: 'ตรวจสอบการชำระเงินและรายได้'
-    },
-    { 
       id: 'reviews', 
       label: 'รีวิว', 
       icon: Star, 
       color: 'bg-yellow-500',
       description: 'จัดการรีวิวและคะแนน'
+    },
+    { 
+      id: 'payment-settings', 
+      label: 'ตั้งค่าการชำระเงิน', 
+      icon: CreditCard, 
+      color: 'bg-green-600',
+      description: 'จัดการช่องทางการชำระเงิน'
     },
     { 
       id: 'reports', 
@@ -596,20 +601,16 @@ export default function AdminDashboard() {
           />
         )}
 
-        {activeTab === 'payments' && (
-          <PaymentsTab 
-            data={dashboardData}
-            stats={dashboardData.stats}
-            user={user}
-          />
-        )}
-
         {activeTab === 'reviews' && (
           <ReviewsTab 
             reviews={dashboardData.recentReviews}
             stats={dashboardData.stats}
             user={user}
           />
+        )}
+
+        {activeTab === 'payment-settings' && (
+          <PaymentSettingsTab user={user} />
         )}
         
         {activeTab === 'reports' && (
@@ -1544,114 +1545,6 @@ function BookingsTab({ bookings, stats, user }) {
   );
 }
 
-// Payments Tab Component  
-function PaymentsTab({ data, stats, user }) {
-  return (
-    <div className="space-y-6">
-      {/* Revenue Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <DollarSign className="h-8 w-8 text-green-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">รายได้รวม</p>
-              <p className="text-2xl font-bold text-gray-900">฿{stats.totalRevenue?.toLocaleString() || '0'}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <TrendingUp className="h-8 w-8 text-blue-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">รายได้เดือนนี้</p>
-              <p className="text-2xl font-bold text-gray-900">฿{stats.monthlyRevenue?.toLocaleString() || '0'}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <Activity className="h-8 w-8 text-purple-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">การเติบโต</p>
-              <p className="text-2xl font-bold text-gray-900">+{stats.revenueGrowth || 0}%</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Payment Methods */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">วิธีการชำระเงิน</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="border rounded-lg p-4 text-center">
-            <CreditCard className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-            <p className="text-sm font-medium">บัตรเครดิต</p>
-            <p className="text-2xl font-bold text-gray-900">65%</p>
-          </div>
-          <div className="border rounded-lg p-4 text-center">
-            <DollarSign className="h-8 w-8 text-green-600 mx-auto mb-2" />
-            <p className="text-sm font-medium">เงินสด</p>
-            <p className="text-2xl font-bold text-gray-900">25%</p>
-          </div>
-          <div className="border rounded-lg p-4 text-center">
-            <Phone className="h-8 w-8 text-purple-600 mx-auto mb-2" />
-            <p className="text-sm font-medium">โมบายแบงค์กิ้ง</p>
-            <p className="text-2xl font-bold text-gray-900">10%</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Transactions */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">ธุรกรรมล่าสุด</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">วันที่</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">รหัสจอง</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ลูกค้า</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">จำนวน</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">วิธีชำระ</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">สถานะ</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {/* Placeholder data */}
-              {[1,2,3,4,5].map(i => (
-                <tr key={i}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date().toLocaleDateString('th-TH')}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    #BK{1000 + i}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ลูกค้า {i}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ฿{(1500 * i).toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    บัตรเครดิต
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                      สำเร็จ
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // Reviews Tab Component
 function ReviewsTab({ reviews, stats, user }) {
   return (
@@ -1946,6 +1839,101 @@ function UserModal({ isOpen, onClose, user = null, onSave, title }) {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// Payment Settings Tab Component  
+function PaymentSettingsTab({ user }) {
+  const router = useRouter();
+
+  const handleGoToPaymentSettings = () => {
+    router.push('/admin/payment-settings');
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-white p-6 rounded-lg shadow">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">การตั้งค่าการชำระเงิน</h3>
+            <p className="text-gray-600">จัดการช่องทางการชำระเงินและการตั้งค่าต่างๆ</p>
+          </div>
+          <button
+            onClick={handleGoToPaymentSettings}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Settings className="h-4 w-4 mr-2" />
+            ไปยังหน้าตั้งค่า
+          </button>
+        </div>
+      </div>
+
+      {/* Payment Methods Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center mb-4">
+            <CreditCard className="h-8 w-8 text-blue-600 mr-3" />
+            <h4 className="text-lg font-medium text-gray-900">โอนเงินผ่านธนาคาร</h4>
+          </div>
+          <div className="space-y-2 text-sm text-gray-600">
+            <p><span className="font-medium">สถานะ:</span> <span className="text-green-600">เปิดใช้งาน</span></p>
+            <p><span className="font-medium">ธนาคาร:</span> ธนาคารกสิกรไทย</p>
+            <p><span className="font-medium">เลขบัญชี:</span> 123-4-56789-0</p>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center mb-4">
+            <QrCode className="h-8 w-8 text-green-600 mr-3" />
+            <h4 className="text-lg font-medium text-gray-900">พร้อมเพย์ (PromptPay)</h4>
+          </div>
+          <div className="space-y-2 text-sm text-gray-600">
+            <p><span className="font-medium">สถานะ:</span> <span className="text-green-600">เปิดใช้งาน</span></p>
+            <p><span className="font-medium">หมายเลข:</span> 081-234-5678</p>
+            <p><span className="font-medium">QR Code:</span> <span className="text-blue-600">พร้อมใช้งาน</span></p>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">การดำเนินการด่วน</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button
+            onClick={handleGoToPaymentSettings}
+            className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <Settings className="h-8 w-8 text-blue-600 mb-2" />
+            <span className="text-sm font-medium text-gray-900">ตั้งค่าทั่วไป</span>
+          </button>
+          
+          <button
+            onClick={handleGoToPaymentSettings}
+            className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <Upload className="h-8 w-8 text-green-600 mb-2" />
+            <span className="text-sm font-medium text-gray-900">อัปโหลด QR</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Instructions */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <div className="flex items-start">
+          <AlertCircle className="h-5 w-5 text-blue-600 mr-3 mt-0.5" />
+          <div>
+            <h4 className="text-blue-900 font-medium mb-2">คำแนะนำการใช้งาน</h4>
+            <ul className="text-blue-800 text-sm space-y-1">
+              <li>• โอนเงินผ่านธนาคารและพร้อมเพย์สามารถใช้งานได้ทันที</li>
+              <li>• อัปโหลด QR Code ใหม่เมื่อมีการเปลี่ยนแปลงข้อมูล</li>
+              <li>• ตรวจสอบการตั้งค่าอย่างสม่ำเสมอเพื่อให้มั่นใจว่าระบบทำงานปกติ</li>
+              <li>• สามารถเปิด/ปิดการใช้งานช่องทางการชำระเงินได้ตามต้องการ</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   );

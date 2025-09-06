@@ -17,7 +17,7 @@ if (!fs.existsSync(qrUploadsDir)) {
   console.log('📁 Created QR uploads directory');
 }
 
-export const paymentSettingsRoutes = new Elysia({ prefix: '/payment-settings' })
+export const paymentSettingsRoutes = new Elysia({ prefix: '/admin' })
   
   // Add support for file uploads
   .use((app) => {

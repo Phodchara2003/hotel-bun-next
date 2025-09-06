@@ -1,356 +1,415 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { useAuth } from '../../../contexts/AuthContext';
-import { useLanguage } from '../../../contexts/LanguageContext';
-import { useTranslation } from '../../../translations';
+
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { isAdmin } from '../../../lib/roles';
+import { useAuth } from '../../../contexts/AuthContext';
+import Cookies from 'js-cookie';
+import { 
+  CreditCard, 
+  Smartphone, 
+  Upload, 
+  Save, 
+  Eye, 
+  EyeOff,
+  AlertCircle,
+  CheckCircle,
+  Settings,
+  QrCode,
+  DollarSign
+} from 'lucide-react';
 
-export default function PaymentSettings() {
-  const { user, token, isAuthenticated } = useAuth();
-  const { language } = useLanguage();
-  const { t } = useTranslation(language);
+export default function PaymentSettingsPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('bank-transfer');
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState({ type: '', content: '' });
+  const [showQRPreview, setShowQRPreview] = useState(false);
 
-  // ตรวจสอบสิทธิ์ admin
+  // Payment settings state
+  const [settings, setSettings] = useState({
+    bankTransfer: {
+      enabled: true,
+      bankName: 'ธนาคารกสิกรไทย',
+      accountName: 'โรงแรมตัวอย่าง จำกัด',
+      accountNumber: '123-4-56789-0',
+      branchName: 'สาขาสยามพารากอน'
+    },
+    promptPay: {
+      enabled: true,
+      phoneNumber: '081-234-5678',
+      qrCodeUrl: '/qr-codes/promptpay-qr.png'
+    }
+  });
+
+  // Check authentication
   useEffect(() => {
-    if (!isAuthenticated || !isAdmin(user)) {
-      router.push('/login');
+    console.log('🔐 Payment Settings Auth Check:', { 
+      authLoading, 
+      isAuthenticated, 
+      user: user ? { id: user.id, role: user.role, email: user.email } : null 
+    });
+    
+    if (authLoading) return; // รอให้ AuthContext โหลดเสร็จก่อน
+    
+    if (!isAuthenticated || !user) {
+      console.log('❌ Not authenticated, redirecting to login');
+      router.push('/admin/login');
       return;
     }
-  }, [isAuthenticated, user, router]);
 
-  if (!isAuthenticated || !isAdmin(user)) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-md text-center">
-          <h2 className="text-2xl font-bold text-red-600 mb-4">
-            {language === 'en' ? 'Access Denied' : 'ไม่อนุญาตให้เข้าถึง'}
-          </h2>
-          <p className="text-gray-600">
-            {language === 'en' 
-              ? 'You need admin privileges to access this page.' 
-              : 'คุณต้องมีสิทธิ์แอดมินเพื่อเข้าถึงหน้านี้'
-            }
-          </p>
-        </div>
-      </div>
-    );
-  }
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      console.log('❌ Insufficient permissions, redirecting to dashboard');
+      router.push('/admin/dashboard');
+      return;
+    }
 
-  return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-8">
-          {language === 'en' ? 'Payment Settings Management' : 'จัดการการตั้งค่าการชำระเงิน'}
-        </h1>
+    console.log('✅ Authentication passed, loading payment settings');
+    loadPaymentSettings();
+  }, [authLoading, isAuthenticated, user, router]);
 
-        {/* Tabs */}
-        <div className="bg-white rounded-lg shadow-lg mb-6">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8 px-6">
-              <button
-                onClick={() => setActiveTab('bank-transfer')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'bank-transfer'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                💳 {language === 'en' ? 'Bank Transfer Payment' : 'การชำระเงินผ่านธนาคาร'}
-              </button>
-            </nav>
-          </div>
-
-          <div className="p-6">
-            {activeTab === 'bank-transfer' && <BankTransferSettings />}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Simple Bank Transfer Settings Component
-function BankTransferSettings() {
-  const { language } = useLanguage();
-  const { t } = useTranslation(language);
-  const [settings, setSettings] = useState({
-    bankName: '',
-    accountNumber: '',
-    accountName: '',
-    bankImageUrl: ''
-  });
-  const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    fetchSettings();
-  }, []);
-
-  const fetchSettings = async () => {
+  const loadPaymentSettings = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/admin/payment-settings');
+      const token = Cookies.get('auth_token');
+      if (!token) {
+        console.log('❌ No auth token found');
+        setLoading(false);
+        return;
+      }
+
+      console.log('🔄 Loading payment settings with token:', token.substring(0, 20) + '...');
+      
+      const response = await fetch('/api/admin/payment-settings', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('📡 API Response status:', response.status);
+
       if (response.ok) {
         const data = await response.json();
-        const bankInfo = data.settings?.bankInfo || {};
-        setSettings({
-          bankName: bankInfo.bankName || '',
-          accountNumber: bankInfo.accountNumber || '',
-          accountName: bankInfo.accountName || '',
-          bankImageUrl: bankInfo.bankImageUrl || ''
-        });
-      }
-    } catch (err) {
-      console.error('Error fetching settings:', err);
-    }
-  };
-
-  const handleImageUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    // Check file size (5MB limit)
-    if (file.size > 5 * 1024 * 1024) {
-      setError(language === 'en' ? 'File size must be less than 5MB' : 'ขนาดไฟล์ต้องไม่เกิน 5MB');
-      return;
-    }
-
-    try {
-      setUploading(true);
-      
-      // Convert file to base64
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const base64 = e.target.result;
-          
-          const response = await fetch('http://localhost:3001/api/upload-bank-image', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              image: base64,
-              filename: file.name
-            }),
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            setSettings(prev => ({ ...prev, bankImageUrl: data.url }));
-            setMessage(language === 'en' ? 'Bank QR Code uploaded successfully!' : 'อัปโหลด QR Code ธนาคารสำเร็จ!');
-            setError('');
-          } else {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Upload failed');
-          }
-        } catch (err) {
-          console.error('Upload error:', err);
-          setError(language === 'en' ? 'Failed to upload bank QR code' : 'ไม่สามารถอัปโหลด QR Code ธนาคารได้');
-        } finally {
-          setUploading(false);
+        console.log('✅ Payment settings loaded:', data);
+        if (data.settings) {
+          setSettings(prev => ({ ...prev, ...data.settings }));
         }
-      };
-      
-      reader.onerror = () => {
-        setError(language === 'en' ? 'Failed to read file' : 'ไม่สามารถอ่านไฟล์ได้');
-        setUploading(false);
-      };
-      
-      reader.readAsDataURL(file);
-    } catch (err) {
-      console.error('Upload error:', err);
-      setError(language === 'en' ? 'Failed to upload bank QR code' : 'ไม่สามารถอัปโหลด QR Code ธนาคารได้');
-      setUploading(false);
+      } else {
+        console.log('⚠️ API failed, using default settings');
+        // ใช้ค่าเริ่มต้นถ้า API fail
+      }
+    } catch (error) {
+      console.error('❌ Error loading payment settings:', error);
+      // ใช้ค่าเริ่มต้นถ้ามีข้อผิดพลาด
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleSave = async () => {
+  const handleSaveSettings = async () => {
+    setSaving(true);
+    setMessage({ type: '', content: '' });
+
     try {
-      setSaving(true);
-      const bankSettings = {
-        bankInfo: {
-          bankName: settings.bankName,
-          accountNumber: settings.accountNumber,
-          accountName: settings.accountName,
-          bankImageUrl: settings.bankImageUrl
-        },
-        instructions: 'กรุณาโอนเงินเข้าบัญชีตามรายละเอียดข้างต้น และส่งสลิปการโอนเงินเพื่อยืนยันการชำระเงิน'
-      };
-      
-      const response = await fetch('http://localhost:3001/api/admin/payment-settings', {
+      const token = Cookies.get('auth_token');
+      const response = await fetch('/api/admin/payment-settings', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ settings: bankSettings }),
+        body: JSON.stringify({ settings })
       });
 
       if (response.ok) {
-        setMessage(language === 'en' ? 'Bank settings saved successfully!' : 'บันทึกข้อมูลธนาคารสำเร็จ!');
-        setError('');
+        setMessage({ 
+          type: 'success', 
+          content: 'บันทึกการตั้งค่าการชำระเงินเรียบร้อยแล้ว' 
+        });
       } else {
-        throw new Error('Save failed');
+        throw new Error('Failed to save settings');
       }
-    } catch (err) {
-      console.error('Save error:', err);
-      setError(language === 'en' ? 'Failed to save settings' : 'ไม่สามารถบันทึกการตั้งค่าได้');
+    } catch (error) {
+      console.error('Error saving payment settings:', error);
+      setMessage({ 
+        type: 'error', 
+        content: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล' 
+      });
     } finally {
       setSaving(false);
     }
   };
 
-  return (
-    <div className="space-y-6">
-      {message && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
-          {message}
-        </div>
-      )}
+  const handleFileUpload = async (event, type) => {
+    const file = event.target.files[0];
+    if (!file) return;
 
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          {error}
-        </div>
-      )}
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', type);
 
-      {/* Bank QR Code Upload */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          {language === 'en' ? 'Bank QR Code Image (Optional)' : 'รูป QR Code ธนาคาร (ไม่บังคับ)'}
-        </label>
-        <p className="text-xs text-gray-500 mb-3">
-          {language === 'en' 
-            ? 'Upload a QR code image that customers can scan to make payments easily. If no QR code is uploaded, customers will use bank account details below.' 
-            : 'อัปโหลดรูป QR Code ที่ลูกค้าสามารถสแกนเพื่อชำระเงินได้สะดวก หากไม่อัปโหลด QR Code ลูกค้าจะใช้ข้อมูลบัญชีธนาคารด้านล่าง'
+    try {
+      const token = Cookies.get('auth_token');
+      const response = await fetch('/api/admin/upload-qr', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSettings(prev => ({
+          ...prev,
+          promptPay: {
+            ...prev.promptPay,
+            qrCodeUrl: data.url
           }
-        </p>
-        {settings.bankImageUrl && (
-          <div className="mb-4">
-            <img 
-              src={`http://localhost:3001${settings.bankImageUrl}`} 
-              alt="Bank QR Code" 
-              className="w-64 h-64 object-contain border rounded-lg"
-            />
+        }));
+        setMessage({ 
+          type: 'success', 
+          content: 'อัปโหลด QR Code เรียบร้อยแล้ว' 
+        });
+      }
+    } catch (error) {
+      console.error('Error uploading QR code:', error);
+      setMessage({ 
+        type: 'error', 
+        content: 'เกิดข้อผิดพลาดในการอัปโหลดไฟล์' 
+      });
+    }
+  };
+
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !user) {
+    return null; // จะ redirect ไปหน้า login
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">การตั้งค่าการชำระเงิน</h1>
+              <p className="mt-2 text-gray-600">จัดการช่องทางการชำระเงินสำหรับลูกค้า</p>
+            </div>
+            <button
+              onClick={handleSaveSettings}
+              disabled={saving}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {saving ? 'กำลังบันทึก...' : 'บันทึกการตั้งค่า'}
+            </button>
+          </div>
+        </div>
+
+        {/* Message Alert */}
+        {message.content && (
+          <div className={`mb-6 p-4 rounded-md ${
+            message.type === 'success' 
+              ? 'bg-green-50 border border-green-200' 
+              : 'bg-red-50 border border-red-200'
+          }`}>
+            <div className="flex">
+              <div className="flex-shrink-0">
+                {message.type === 'success' ? (
+                  <CheckCircle className="h-5 w-5 text-green-400" />
+                ) : (
+                  <AlertCircle className="h-5 w-5 text-red-400" />
+                )}
+              </div>
+              <div className="ml-3">
+                <p className={`text-sm ${
+                  message.type === 'success' ? 'text-green-800' : 'text-red-800'
+                }`}>
+                  {message.content}
+                </p>
+              </div>
+            </div>
           </div>
         )}
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleImageUpload}
-          disabled={uploading}
-          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-        />
-        {uploading && <p className="text-sm text-gray-500 mt-2">กำลังอัปโหลดรูป...</p>}
-        <p className="text-xs text-gray-500 mt-1">
-          {language === 'en' ? 'Supported formats: JPG, PNG, GIF. Max size: 5MB' : 'รองรับไฟล์: JPG, PNG, GIF ขนาดไม่เกิน 5MB'}
-        </p>
-      </div>
 
-      {/* Bank Details */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="md:col-span-2">
-          <p className="text-sm text-gray-600 mb-4">
-            {language === 'en' 
-              ? 'Bank account details below will be shown to customers as an alternative payment method (required even if QR code is uploaded).'
-              : 'ข้อมูลบัญชีธนาคารด้านล่างจะแสดงให้ลูกค้าเป็นทางเลือกในการชำระเงิน (จำเป็นต้องกรอกแม้ว่าจะอัปโหลด QR Code แล้ว)'
-            }
-          </p>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            {language === 'en' ? 'Bank Name' : 'ชื่อธนาคาร'}
-          </label>
-          <input
-            type="text"
-            value={settings.bankName}
-            onChange={(e) => setSettings(prev => ({ ...prev, bankName: e.target.value }))}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            placeholder={language === 'en' ? 'e.g., Kasikorn Bank' : 'เช่น ธนาคารกสิกรไทย'}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            {language === 'en' ? 'Account Number' : 'เลขที่บัญชี'}
-          </label>
-          <input
-            type="text"
-            value={settings.accountNumber}
-            onChange={(e) => setSettings(prev => ({ ...prev, accountNumber: e.target.value }))}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            placeholder="xxx-x-xxxxx-x"
-          />
-        </div>
-
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            {language === 'en' ? 'Account Name' : 'ชื่อบัญชี'}
-          </label>
-          <input
-            type="text"
-            value={settings.accountName}
-            onChange={(e) => setSettings(prev => ({ ...prev, accountName: e.target.value }))}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            placeholder={language === 'en' ? 'Account holder name' : 'ชื่อเจ้าของบัญชี'}
-          />
-        </div>
-      </div>
-
-      {/* Preview */}
-      <div className="bg-gray-50 rounded-lg p-4">
-        <h3 className="font-semibold text-gray-900 mb-3">
-          {language === 'en' ? 'Payment Page Preview' : 'ตัวอย่างหน้าการชำระเงิน'}
-        </h3>
-        <div className="space-y-4 bg-white rounded p-4 border">
-          {settings.bankImageUrl && (
-            <div className="text-center">
-              <h4 className="font-medium text-gray-900 mb-2">สแกน QR Code เพื่อชำระเงิน</h4>
-              <img 
-                src={`http://localhost:3001${settings.bankImageUrl}`} 
-                alt="QR Code Preview" 
-                className="w-32 h-32 object-contain mx-auto border rounded"
-              />
-              <p className="text-xs text-gray-500 mt-1">ลูกค้าจะเห็น QR Code นี้</p>
+        <div className="space-y-6">
+          {/* Bank Transfer Settings */}
+          <div className="bg-white shadow rounded-lg">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <CreditCard className="h-6 w-6 text-blue-600 mr-3" />
+                  <h3 className="text-lg font-medium text-gray-900">โอนเงินผ่านธนาคาร</h3>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.bankTransfer.enabled}
+                    onChange={(e) => setSettings(prev => ({
+                      ...prev,
+                      bankTransfer: { ...prev.bankTransfer, enabled: e.target.checked }
+                    }))}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
             </div>
-          )}
-          <div>
-            <h4 className="font-medium text-gray-900 mb-2">
-              {settings.bankImageUrl ? 'หรือโอนเงินตามข้อมูลด้านล่าง' : 'ข้อมูลบัญชีธนาคาร'}
-            </h4>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-gray-600">{language === 'en' ? 'Bank:' : 'ธนาคาร:'}</span>
-                <span className="font-semibold">{settings.bankName || '-'}</span>
+            <div className="px-6 py-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">ชื่อธนาคาร</label>
+                  <input
+                    type="text"
+                    value={settings.bankTransfer.bankName}
+                    onChange={(e) => setSettings(prev => ({
+                      ...prev,
+                      bankTransfer: { ...prev.bankTransfer, bankName: e.target.value }
+                    }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={!settings.bankTransfer.enabled}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">ชื่อบัญชี</label>
+                  <input
+                    type="text"
+                    value={settings.bankTransfer.accountName}
+                    onChange={(e) => setSettings(prev => ({
+                      ...prev,
+                      bankTransfer: { ...prev.bankTransfer, accountName: e.target.value }
+                    }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={!settings.bankTransfer.enabled}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">เลขที่บัญชี</label>
+                  <input
+                    type="text"
+                    value={settings.bankTransfer.accountNumber}
+                    onChange={(e) => setSettings(prev => ({
+                      ...prev,
+                      bankTransfer: { ...prev.bankTransfer, accountNumber: e.target.value }
+                    }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={!settings.bankTransfer.enabled}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">สาขา</label>
+                  <input
+                    type="text"
+                    value={settings.bankTransfer.branchName}
+                    onChange={(e) => setSettings(prev => ({
+                      ...prev,
+                      bankTransfer: { ...prev.bankTransfer, branchName: e.target.value }
+                    }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={!settings.bankTransfer.enabled}
+                  />
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">{language === 'en' ? 'Account Number:' : 'เลขที่บัญชี:'}</span>
-                <span className="font-semibold">{settings.accountNumber || '-'}</span>
+            </div>
+          </div>
+
+          {/* PromptPay Settings */}
+          <div className="bg-white shadow rounded-lg">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <QrCode className="h-6 w-6 text-green-600 mr-3" />
+                  <h3 className="text-lg font-medium text-gray-900">พร้อมเพย์ (PromptPay)</h3>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.promptPay.enabled}
+                    onChange={(e) => setSettings(prev => ({
+                      ...prev,
+                      promptPay: { ...prev.promptPay, enabled: e.target.checked }
+                    }))}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">{language === 'en' ? 'Account Name:' : 'ชื่อบัญชี:'}</span>
-                <span className="font-semibold">{settings.accountName || '-'}</span>
+            </div>
+            <div className="px-6 py-4">
+              <div className="grid grid-cols-1 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">หมายเลขโทรศัพท์</label>
+                  <input
+                    type="tel"
+                    value={settings.promptPay.phoneNumber}
+                    onChange={(e) => setSettings(prev => ({
+                      ...prev,
+                      promptPay: { ...prev.promptPay, phoneNumber: e.target.value }
+                    }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={!settings.promptPay.enabled}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">QR Code</label>
+                  <div className="flex items-center space-x-4">
+                    <label className="cursor-pointer inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                      <Upload className="h-4 w-4 mr-2" />
+                      อัปโหลด QR Code
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileUpload(e, 'promptpay')}
+                        className="hidden"
+                        disabled={!settings.promptPay.enabled}
+                      />
+                    </label>
+                    {settings.promptPay.qrCodeUrl && (
+                      <>
+                        <button
+                          onClick={() => setShowQRPreview(!showQRPreview)}
+                          className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                        >
+                          {showQRPreview ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+                          {showQRPreview ? 'ซ่อน' : 'ดู'} QR Code
+                        </button>
+                        {showQRPreview && (
+                          <div className="mt-4">
+                            <img 
+                              src={settings.promptPay.qrCodeUrl} 
+                              alt="PromptPay QR Code" 
+                              className="w-48 h-48 object-contain border border-gray-300 rounded-lg"
+                            />
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="flex justify-end">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
-        >
-          {saving 
-            ? (language === 'en' ? 'Saving...' : 'กำลังบันทึก...') 
-            : (language === 'en' ? 'Save Bank Settings' : 'บันทึกข้อมูลธนาคาร')
-          }
-        </button>
+        {/* Save Button */}
+        <div className="mt-8 flex justify-end">
+          <button
+            onClick={handleSaveSettings}
+            disabled={saving}
+            className="inline-flex items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+          >
+            <Save className="h-5 w-5 mr-2" />
+            {saving ? 'กำลังบันทึก...' : 'บันทึกการตั้งค่าทั้งหมด'}
+          </button>
+        </div>
       </div>
     </div>
   );

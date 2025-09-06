@@ -239,13 +239,6 @@ export const bookingAPI = {
     return response.data;
   },
 
-  uploadPaymentReceipt: async (bookingId, receiptUrl) => {
-    const response = await api.post(`/bookings/${bookingId}/payment-receipt`, {
-      receiptUrl
-    });
-    return response.data;
-  },
-
   // Delete booking (Admin only)
   deleteBooking: async (id) => {
     try {
@@ -613,33 +606,6 @@ export const userAPI = {
   // Get user statistics (Admin)
   getStats: async () => {
     const response = await api.get('/admin/users/stats');
-    return response.data;
-  }
-};
-
-// Payment Management API (Admin)
-export const paymentAPI = {
-  // Get all payments (Admin)
-  getAll: async (params = {}) => {
-    const response = await api.get('/admin/payments', { params });
-    return response.data;
-  },
-
-  // Get payment by ID (Admin)
-  getPaymentById: async (id) => {
-    const response = await api.get(`/admin/payments/${id}`);
-    return response.data;
-  },
-
-  // Update payment status (Admin)
-  updatePaymentStatus: async (id, status) => {
-    const response = await api.put(`/admin/payments/${id}/status`, { status });
-    return response.data;
-  },
-
-  // Get payment statistics (Admin)
-  getPaymentStats: async (params = {}) => {
-    const response = await api.get('/admin/payments/stats', { params });
     return response.data;
   }
 };
