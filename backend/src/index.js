@@ -7,8 +7,10 @@ import { hotelRoutes } from './routes/hotels.js';
 import { bookingRoutes } from './routes/bookings.js';
 import { notificationRoutes } from './routes/notifications.js';
 import { reviewRoutes } from './routes/reviews.js';
-import { adminRoomsRoutes } from './routes/admin-rooms-final.js';
+import { adminRoomsRoutes, roomTypesRoutes } from './routes/admin-rooms-final.js';
 import { adminUsersRoutes } from './routes/admin-users.js';
+import { adminDashboardRoutes } from './routes/admin-dashboard.js';
+import { adminPaymentsRoutes } from './routes/admin-payments.js';
 import { paymentSettingsRoutes } from './routes/payment-settings-real.js';
 import { bankPaymentRoutes } from './routes/bank-payment.js';
 import { simplePaymentRoutes, userPaymentRoutes } from './routes/simple-payment-settings.js';
@@ -73,6 +75,16 @@ const app = new Elysia()
     }
   }))
   
+  // Global request logging middleware
+  .onRequest(({ request, set }) => {
+    console.log(`\n=== INCOMING REQUEST ===`);
+    console.log(`Method: ${request.method}`);
+    console.log(`URL: ${request.url}`);
+    console.log(`Path: ${new URL(request.url).pathname}`);
+    console.log(`Headers:`, Object.fromEntries(request.headers.entries()));
+    console.log(`========================`);
+  })
+  
   // Health check endpoint
   .get('/health', () => ({ 
     status: 'OK', 
@@ -118,16 +130,36 @@ const app = new Elysia()
   // API routes
   .group('/api', (app) => 
     app
+      // Health check endpoint
+      .get('/health', () => ({ 
+        status: 'OK', 
+        timestamp: new Date().toISOString(),
+        version: '1.0.0' 
+      }))
+      
       .use(authRoutes)
       .use(hotelRoutes)
       .use(bookingRoutes)
       .use(notificationRoutes)
       .use(reviewRoutes)
+      
+      // Rooms API at top level
+      .group('/rooms', (roomsApp) => roomsApp.use(adminRoomsRoutes))
+      
       .group('/admin/rooms', (adminRoomsApp) => adminRoomsApp.use(adminRoomsRoutes))
+      .group('/admin/room-types', (roomTypesApp) => roomTypesApp.use(roomTypesRoutes))
+      .group('/admin/dashboard', (adminDashboardApp) => adminDashboardApp.use(adminDashboardRoutes))
+      .use(adminPaymentsRoutes)
+      .group('/admin', (adminBookingsApp) => adminBookingsApp.use(bookingRoutes))
+      .group('/admin/users', (adminUsersApp) => {
+        console.log('🔧 Loading Admin Users Routes...');
+        adminUsersApp.use(adminUsersRoutes);
+        console.log('✅ Admin Users Routes loaded');
+        return adminUsersApp;
+      })
       .group('/admin/permissions', (permissionsApp) => permissionsApp.use(permissionRoutes))
       .group('/checkin', (checkinApp) => checkinApp.use(checkinRoutes))
       .group('/housekeeping', (housekeepingApp) => housekeepingApp.use(housekeepingRoutes))
-      .use(adminUsersRoutes)
       .use(paymentSettingsRoutes)
       .use(bankPaymentRoutes)
       .use(roomStatusRoutes)
@@ -173,9 +205,13 @@ const app = new Elysia()
     }
   })
   
-  .listen(process.env.PORT || 3001);
+  .listen({
+    hostname: '0.0.0.0',
+    port: 3002
+  });
 
-console.log(`🚀 Hotel Booking API is running at ${app.server?.hostname}:${app.server?.port}`);
-console.log(`📚 API Documentation available at http://localhost:${process.env.PORT || 3001}/swagger`);
+console.log(`🚀 Hotel Booking API is running at 0.0.0.0:3002`);
+console.log(`📚 API Documentation available at http://localhost:3002/swagger`);
+console.log(`Started development server: http://localhost:3002`);
 
 export default app;

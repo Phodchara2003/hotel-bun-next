@@ -134,6 +134,28 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     }
   })
 
+  .get('/me', async ({ headers, set }) => {
+    try {
+      // Authenticate user
+      const user = await authMiddleware({ headers, set });
+      if (user.error) return user;
+      
+      return {
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          role: user.role
+        }
+      };
+    } catch (error) {
+      console.error('Get user profile error:', error);
+      set.status = 401;
+      return { error: 'Invalid token' };
+    }
+  })
+
   .put('/profile', async ({ headers, body, set }) => {
     try {
       // Authenticate user

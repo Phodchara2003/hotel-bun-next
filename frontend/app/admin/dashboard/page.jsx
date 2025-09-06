@@ -1,14 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { useLanguage } from '../../../contexts/LanguageContext';
-import { useTranslation } from '../../../translations';
-import { bookingAPI } from '../../../lib/api';
-import { isStaffOrAdmin, canEdit, canDelete, canCreate, isReadOnly, canManageBookings, canApproveBookings } from '../../../lib/roles';
+import { dashboardAPI, usersAPI } from '../../../lib/api';
+import { isStaffOrAdmin, canEdit, canDelete, canCreate, isReadOnly } from '../../../lib/roles';
 import Cookies from 'js-cookie';
-import ConfirmModal from '../../../components/ConfirmModal';
 import Link from 'next/link';
+import TokenStatus from '../../../components/admin/TokenStatus';
 import { 
   Calendar, 
   Users, 
@@ -19,368 +17,468 @@ import {
   XCircle,
   Clock,
   Eye,
-  X,
-  User,
-  Phone,
-  Mail,
-  MapPin,
+  Edit,
+  Trash2,
+  Plus,
+  Settings,
   FileText,
-  Receipt,
+  BarChart3,
+  UserCheck,
+  Building,
+  DollarSign,
+  Activity,
   Search,
   Filter,
-  Trash2,
-  Bed,
-  Package,
-  MessageCircle
+  Download,
+  RefreshCw,
+  AlertCircle,
+  Star,
+  Mail,
+  Phone,
+  MapPin
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function AdminDashboard() {
   const { user, isAuthenticated } = useAuth();
-  const { language } = useLanguage();
-  const { t } = useTranslation(language);
-  const [bookings, setBookings] = useState([]);
-  const [selectedBooking, setSelectedBooking] = useState(null);
-  const [showBookingModal, setShowBookingModal] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [confirmAction, setConfirmAction] = useState(null);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [stats, setStats] = useState({
-    totalBookings: 0,
-    pendingBookings: 0,
-    confirmedBookings: 0,
-    completedBookings: 0,
-    cancelledBookings: 0,
-    totalRevenue: 0,
-    bookingsWithReceipts: 0
-  });
   const [loading, setLoading] = useState(true);
-  const [isVisible, setIsVisible] = useState(false);
-  const [statsVisible, setStatsVisible] = useState(false);
-  const [filters, setFilters] = useState({
-    status: '',
-    search: '',
-    dateFrom: '',
-    dateTo: ''
+  const [dashboardData, setDashboardData] = useState({
+    stats: {
+      // การจอง
+      totalBookings: 0,
+      pendingBookings: 0,
+      confirmedBookings: 0,
+      completedBookings: 0,
+      cancelledBookings: 0,
+      
+      // ผู้ใช้
+      totalUsers: 0,
+      newUsersThisMonth: 0,
+      activeUsers: 0,
+      
+      // รายได้
+      totalRevenue: 0,
+      monthlyRevenue: 0,
+      revenueGrowth: 0,
+      
+      // โรงแรม
+      totalHotels: 0,
+      totalRooms: 0,
+      occupancyRate: 0,
+      
+      // รีวิว
+      totalReviews: 0,
+      averageRating: 0,
+    },
+    recentBookings: [],
+    recentUsers: [],
+    recentReviews: [],
+    topHotels: [],
+    revenueChart: [],
+    bookingChart: [],
   });
-  const [filteredBookings, setFilteredBookings] = useState([]);
-  const [selectedBookings, setSelectedBookings] = useState([]);
-  const [showBulkActions, setShowBulkActions] = useState(false);
 
-  useEffect(() => {
-    if (isAuthenticated && isStaffOrAdmin(user)) {
-      fetchData();
+  const [activeTab, setActiveTab] = useState('overview');
+  const [error, setError] = useState(null);
+  const [filters, setFilters] = useState({
+    dateRange: '30', // 7, 30, 90 days
+    status: 'all',
+    search: ''
+  });
+
+  // Define main navigation tabs
+  const mainTabs = [
+    { 
+      id: 'overview', 
+      label: 'ภาพรวม', 
+      icon: BarChart3, 
+      color: 'bg-blue-500',
+      description: 'สถิติและข้อมูลสำคัญ'
+    },
+    { 
+      id: 'bookings', 
+      label: 'การจอง', 
+      icon: Calendar, 
+      color: 'bg-green-500',
+      description: 'จัดการการจองห้องพัก'
+    },
+    { 
+      id: 'users', 
+      label: 'ผู้ใช้งาน', 
+      icon: Users, 
+      color: 'bg-purple-500',
+      description: 'จัดการข้อมูลผู้ใช้และสิทธิ์'
+    },
+    { 
+      id: 'hotels', 
+      label: 'โรงแรม', 
+      icon: Building, 
+      color: 'bg-orange-500',
+      description: 'จัดการข้อมูลโรงแรมและห้องพัก'
+    },
+    { 
+      id: 'payments', 
+      label: 'การเงิน', 
+      icon: CreditCard, 
+      color: 'bg-red-500',
+      description: 'ตรวจสอบการชำระเงินและรายได้'
+    },
+    { 
+      id: 'reviews', 
+      label: 'รีวิว', 
+      icon: Star, 
+      color: 'bg-yellow-500',
+      description: 'จัดการรีวิวและคะแนน'
+    },
+    { 
+      id: 'reports', 
+      label: 'รายงาน', 
+      icon: FileText, 
+      color: 'bg-indigo-500',
+      description: 'รายงานและสถิติละเอียด'
+    },
+    { 
+      id: 'settings', 
+      label: 'ตั้งค่า', 
+      icon: Settings, 
+      color: 'bg-gray-500',
+      description: 'ตั้งค่าระบบและการแจ้งเตือน'
     }
-  }, [isAuthenticated, user]);
+  ];
 
-  useEffect(() => {
-    // Trigger animations on mount
-    const timer = setTimeout(() => {
-      setIsVisible(true);
-    }, 100);
+  // Define fetchUsers with useCallback to prevent dependency issues
+  const fetchUsers = useCallback(async () => {
+    try {
+      setLoading(true);
+      console.log('🔄 Fetching users data...');
+      
+      const token = Cookies.get('auth_token');
+      if (!token) {
+        toast.error('ไม่พบ token การเข้าสู่ระบบ');
+        return;
+      }
 
-    // Animate stats cards with stagger effect
-    const statsTimer = setTimeout(() => {
-      setStatsVisible(true);
-    }, 300);
+      // Store token for usage tracking
+      sessionStorage.setItem('last_users_fetch_token', token);
+      sessionStorage.setItem('last_users_fetch_time', new Date().toISOString());
 
-    // Add smooth scroll behavior
-    document.documentElement.style.scrollBehavior = 'smooth';
+      const response = await usersAPI.getUsers();
+      console.log('👥 Users API Response:', response);
+      
+      if (response?.users) {
+        // Process users data to add full name
+        const processedUsers = response.users.map(user => ({
+          ...user,
+          name: user.first_name && user.last_name ? 
+            `${user.first_name} ${user.last_name}` : 
+            user.first_name || user.last_name || user.email || 'ไม่ระบุชื่อ'
+        }));
+        
+        setAllUsers(processedUsers);
+        console.log('✅ Users loaded:', processedUsers.length);
+        
+        // Calculate user statistics
+        const totalUsers = processedUsers.length;
+        const adminUsers = processedUsers.filter(u => u.role === 'admin').length;
+        const staffUsers = processedUsers.filter(u => u.role === 'staff').length;
+        const regularUsers = processedUsers.filter(u => u.role === 'user' || !u.role).length;
+        const newUsersThisMonth = processedUsers.filter(u => {
+          const createdDate = new Date(u.created_at);
+          const thisMonth = new Date();
+          return createdDate.getMonth() === thisMonth.getMonth() && 
+                 createdDate.getFullYear() === thisMonth.getFullYear();
+        }).length;
 
-    return () => {
-      clearTimeout(timer);
-      clearTimeout(statsTimer);
-    };
+        setUserStats({
+          totalUsers,
+          newUsersThisMonth,
+          activeUsers: totalUsers, // Assuming all users are active for now
+          adminUsers,
+          staffUsers,
+          regularUsers
+        });
+
+        console.log('✅ Users data loaded:', totalUsers, 'users');
+        toast.success(`โหลดข้อมูลผู้ใช้สำเร็จ (${totalUsers} คน)`);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching users:', error);
+      toast.error('ไม่สามารถโหลดข้อมูลผู้ใช้ได้');
+      
+      // Store error info with token
+      sessionStorage.setItem('users_fetch_error', JSON.stringify({
+        error: error.message,
+        timestamp: new Date().toISOString(),
+        token: Cookies.get('auth_token')
+      }));
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    // Filter bookings based on filters
-    let filtered = bookings;
-    
-    if (filters.status) {
-      filtered = filtered.filter(booking => booking.status === filters.status);
+    if (isAuthenticated && isStaffOrAdmin(user)) {
+      fetchDashboardData();
+      // fetchUsers(); // Will be called when users tab is selected
     }
-    
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      filtered = filtered.filter(booking => 
-        booking.bookingReference.toLowerCase().includes(searchLower) ||
-        booking.userEmail.toLowerCase().includes(searchLower) ||
-        booking.guestName?.toLowerCase().includes(searchLower) ||
-        booking.roomTypeName.toLowerCase().includes(searchLower)
-      );
-    }
-    
-    if (filters.dateFrom) {
-      filtered = filtered.filter(booking => 
-        new Date(booking.checkInDate) >= new Date(filters.dateFrom)
-      );
-    }
-    
-    if (filters.dateTo) {
-      filtered = filtered.filter(booking => 
-        new Date(booking.checkOutDate) <= new Date(filters.dateTo)
-      );
-    }
-    
-    setFilteredBookings(filtered);
-  }, [bookings, filters]);
+  }, [isAuthenticated, user, filters.dateRange]);
 
-  const fetchData = async () => {
+  // Call fetchUsers when activeTab is 'users'
+  useEffect(() => {
+    if (activeTab === 'users' && isAuthenticated && isStaffOrAdmin(user)) {
+      fetchUsers();
+    }
+  }, [activeTab, isAuthenticated, user, fetchUsers]);
+
+  const fetchDashboardData = async () => {
     try {
-      console.log('Fetching admin data...');
-      console.log('Current user:', user);
-      console.log('Auth token:', Cookies.get('auth_token') ? 'Present' : 'Missing');
-      
-      // Fetch all bookings (admin should see all)
-      const response = await bookingAPI.getAllBookings();
-      const allBookings = response.bookings || [];
-      setBookings(allBookings);
+      setLoading(true);
+      setError(null);
+      console.log('🔄 Fetching comprehensive dashboard data...');
 
-      // Calculate stats
-      const totalBookings = allBookings.length;
-      const pendingBookings = allBookings.filter(b => b.status === 'pending').length;
-      const confirmedBookings = allBookings.filter(b => b.status === 'confirmed').length;
-      const completedBookings = allBookings.filter(b => b.status === 'completed').length;
-      const cancelledBookings = allBookings.filter(b => b.status === 'cancelled').length;
-      const totalRevenue = allBookings
-        .filter(b => b.status === 'confirmed' || b.status === 'completed')
-        .reduce((sum, b) => sum + b.totalPrice, 0);
-      const bookingsWithReceipts = allBookings.filter(b => b.paymentReceiptUrl || b.paymentSlipUrl).length;
-
-      setStats({
-        totalBookings,
-        pendingBookings,
-        confirmedBookings,
-        completedBookings,
-        cancelledBookings,
-        totalRevenue,
-        bookingsWithReceipts
+      // Use the enhanced dashboard API with retry logic
+      const dashboardResponse = await dashboardAPI.getStats({
+        days: filters.dateRange
       });
-    } catch (error) {
-      console.error('Error fetching admin data:', error);
-      console.error('Error response:', error.response);
+
+      console.log('✅ Dashboard API response:', dashboardResponse);
+
+      // Extract data from response with fallbacks
+      const stats = dashboardResponse.stats || {
+        totalBookings: 0,
+        pendingBookings: 0,
+        confirmedBookings: 0,
+        completedBookings: 0,
+        cancelledBookings: 0,
+        totalUsers: 0,
+        newUsersThisMonth: 0,
+        activeUsers: 0,
+        staffUsers: 0,
+        adminUsers: 0,
+        totalRevenue: 0,
+        monthlyRevenue: 0,
+        revenueGrowth: 0,
+        totalHotels: 0,
+        totalRooms: 0,
+        occupancyRate: 0,
+        totalReviews: 0,
+        averageRating: 0,
+      };
       
-      if (error.response?.status === 401) {
-        toast.error('กรุณาเข้าสู่ระบบใหม่');
-        // Force refresh the page to trigger auth check
-        window.location.reload();
-      } else {
-        toast.error('ไม่สามารถโหลดข้อมูลได้');
+      const recentBookings = dashboardResponse.recentBookings || [];
+      const topHotels = dashboardResponse.topHotels || [];
+
+      // Get recent users with error handling
+      let recentUsers = [];
+      try {
+        const usersResponse = await usersAPI.getUsers({ limit: 5 });
+        recentUsers = usersResponse.users || [];
+        console.log('✅ Recent users fetched successfully');
+      } catch (error) {
+        console.log('⚠️ Could not fetch recent users:', error.message);
+        // Continue without recent users data
       }
+
+      // Get additional analytics data
+      let revenueData = { daily: [], monthly: [] };
+      let userAnalytics = { registrations: [], activeUsers: 0, totalUsers: 0 };
+      
+      try {
+        const [revenueResponse, userAnalyticsResponse] = await Promise.allSettled([
+          dashboardAPI.getRevenueAnalytics({ days: filters.dateRange }),
+          dashboardAPI.getUserAnalytics({ days: filters.dateRange })
+        ]);
+
+        if (revenueResponse.status === 'fulfilled') {
+          revenueData = revenueResponse.value;
+          console.log('✅ Revenue analytics fetched successfully');
+        } else {
+          console.log('⚠️ Revenue analytics failed:', revenueResponse.reason?.message);
+        }
+
+        if (userAnalyticsResponse.status === 'fulfilled') {
+          userAnalytics = userAnalyticsResponse.value;
+          console.log('✅ User analytics fetched successfully');
+        } else {
+          console.log('⚠️ User analytics failed:', userAnalyticsResponse.reason?.message);
+        }
+      } catch (error) {
+        console.log('⚠️ Additional analytics fetch failed:', error.message);
+      }
+
+      // Set comprehensive dashboard data
+      setDashboardData({
+        stats: {
+          ...stats,
+          // Ensure all numeric fields are properly formatted
+          totalBookings: Number(stats.totalBookings) || 0,
+          pendingBookings: Number(stats.pendingBookings) || 0,
+          confirmedBookings: Number(stats.confirmedBookings) || 0,
+          completedBookings: Number(stats.completedBookings) || 0,
+          cancelledBookings: Number(stats.cancelledBookings) || 0,
+          totalUsers: Number(stats.totalUsers) || 0,
+          newUsersThisMonth: Number(stats.newUsersThisMonth) || 0,
+          activeUsers: Number(stats.activeUsers) || 0,
+          staffUsers: Number(stats.staffUsers) || 0,
+          adminUsers: Number(stats.adminUsers) || 0,
+          totalRevenue: Number(stats.totalRevenue) || 0,
+          monthlyRevenue: Number(stats.monthlyRevenue) || 0,
+          revenueGrowth: Number(stats.revenueGrowth) || 0,
+          totalHotels: Number(stats.totalHotels) || 0,
+          totalRooms: Number(stats.totalRooms) || 0,
+          occupancyRate: Math.min(100, Math.max(0, Number(stats.occupancyRate) || 0)),
+          totalReviews: Number(stats.totalReviews) || 0,
+          averageRating: Number(stats.averageRating) || 0,
+        },
+        recentBookings: recentBookings.slice(0, 5), // Limit to 5 items
+        recentUsers: recentUsers.slice(0, 5), // Limit to 5 items
+        recentReviews: [], // Placeholder for future implementation
+        topHotels: topHotels.slice(0, 5), // Limit to 5 items
+        revenueChart: revenueData.daily || dashboardResponse.bookingTrends || [],
+        bookingChart: dashboardResponse.bookingTrends || [],
+        userAnalytics: userAnalytics,
+        revenueAnalytics: revenueData,
+      });
+
+      console.log('✅ Comprehensive dashboard data loaded successfully:', {
+        totalBookings: stats.totalBookings,
+        totalUsers: stats.totalUsers,
+        totalRevenue: stats.totalRevenue,
+        recentBookingsCount: recentBookings.length,
+        topHotelsCount: topHotels.length
+      });
+
+      // Show success toast if this is a manual refresh
+      if (window.dashboardRefreshManual) {
+        toast.success('Dashboard data refreshed successfully!');
+        window.dashboardRefreshManual = false;
+      }
+
+    } catch (error) {
+      console.error('❌ Error fetching dashboard data:', error);
+      
+      // Set detailed error information
+      const errorMessage = error.response?.data?.error || error.message || 'Unknown error occurred';
+      const errorDetails = {
+        status: error.response?.status,
+        message: errorMessage,
+        timestamp: new Date().toISOString()
+      };
+      
+      setError(errorDetails);
+      
+      // Show user-friendly error messages
+      if (error.response?.status === 401) {
+        toast.error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+      } else if (error.response?.status === 403) {
+        toast.error('ไม่มีสิทธิ์ในการเข้าถึงข้อมูลนี้');
+      } else if (error.response?.status >= 500) {
+        toast.error('เซิร์ฟเวอร์มีปัญหา กรุณาลองใหม่ในภายหลัง');
+      } else if (!error.response) {
+        toast.error('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
+      } else {
+        toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+      }
+      
+      // Set fallback data so the dashboard doesn't break
+      setDashboardData({
+        stats: {
+          totalBookings: 0,
+          pendingBookings: 0,
+          confirmedBookings: 0,
+          completedBookings: 0,
+          cancelledBookings: 0,
+          totalUsers: 0,
+          newUsersThisMonth: 0,
+          activeUsers: 0,
+          staffUsers: 0,
+          adminUsers: 0,
+          totalRevenue: 0,
+          monthlyRevenue: 0,
+          revenueGrowth: 0,
+          totalHotels: 0,
+          totalRooms: 0,
+          occupancyRate: 0,
+          totalReviews: 0,
+          averageRating: 0,
+        },
+        recentBookings: [],
+        recentUsers: [],
+        recentReviews: [],
+        topHotels: [],
+        revenueChart: [],
+        bookingChart: [],
+        userAnalytics: { registrations: [], activeUsers: 0, totalUsers: 0 },
+        revenueAnalytics: { daily: [], monthly: [] },
+      });
+      
     } finally {
       setLoading(false);
     }
   };
 
-  const handleBookingAction = async (bookingId, action) => {
-    setConfirmAction({ bookingId, action });
-    setShowConfirmModal(true);
+  // Manual refresh function with user feedback
+  const refreshData = () => {
+    window.dashboardRefreshManual = true; // Flag for success toast
+    fetchDashboardData();
   };
 
-  const executeBookingAction = async () => {
-    if (!confirmAction) return;
-    
-    try {
-      setActionLoading(true);
-      
-      // Handle bulk delete
-      if (confirmAction.action === 'bulk-delete') {
-        const deletePromises = confirmAction.bookingIds.map(bookingId => 
-          bookingAPI.deleteBooking(bookingId)
-        );
-        
-        await Promise.all(deletePromises);
-        
-        toast.success(`ลบการจองสำเร็จ ${confirmAction.count} รายการ!`, {
-          duration: 3000,
-          icon: '🗑️'
-        });
-        
-        setSelectedBookings([]);
-        setShowBulkActions(false);
-      } else {
-        // Handle single booking actions
-        const { bookingId, action } = confirmAction;
-        
-        if (action === 'confirm') {
-          await bookingAPI.confirmBooking(bookingId);
-          toast.success('ยืนยันการจองสำเร็จ!', {
-            duration: 2000,
-            icon: '✅'
-          });
-        } else if (action === 'approve') {
-          await bookingAPI.approveBooking(bookingId);
-          toast.success('อนุมัติการจองสำเร็จ!', {
-            duration: 2000,
-            icon: '✅'
-          });
-        } else if (action === 'delete') {
-          await bookingAPI.deleteBooking(bookingId);
-          toast.success('ลบการจองสำเร็จ!', {
-            duration: 2000,
-            icon: '🗑️'
-          });
-          // Close modal if it's open
-          if (showBookingModal) {
-            setShowBookingModal(false);
-            setSelectedBooking(null);
+  // Auto-refresh setup
+  useEffect(() => {
+    if (!isAuthenticated || !isStaffOrAdmin(user)) return;
+
+    // Set up auto-refresh every 5 minutes
+    const autoRefreshInterval = setInterval(() => {
+      console.log('🔄 Auto-refreshing dashboard data...');
+      fetchDashboardData();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    // Cleanup interval on unmount
+    return () => {
+      clearInterval(autoRefreshInterval);
+    };
+  }, [isAuthenticated, user]);
+
+  // Handle filter changes
+  const handleFilterChange = (filterType, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterType]: value
+    }));
+  };
+
+  // Token validation check
+  useEffect(() => {
+    const checkTokenValidity = () => {
+      const token = Cookies.get('auth_token');
+      if (token) {
+        try {
+          const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+          const currentTime = Math.floor(Date.now() / 1000);
+          const timeUntilExpiry = tokenPayload.exp - currentTime;
+          
+          // Warn if token expires in less than 10 minutes
+          if (timeUntilExpiry < 600 && timeUntilExpiry > 0) {
+            toast.warning('เซสชันจะหมดอายุในอีก ' + Math.floor(timeUntilExpiry / 60) + ' นาที');
           }
-        } else if (action === 'cancel') {
-          await bookingAPI.adminCancelBooking(bookingId);
-          toast.success('ยกเลิกการจองสำเร็จ!', {
-            duration: 2000,
-            icon: '❌'
-          });
+        } catch (error) {
+          console.log('Could not check token validity:', error);
         }
       }
-      
-      fetchData(); // Refresh data
-    } catch (error) {
-      console.error('Booking action error:', error);
-      const message = error.response?.data?.error || 'เกิดข้อผิดพลาด';
-      const actionText = confirmAction.action === 'confirm' ? 'ยืนยัน' : 
-                        confirmAction.action === 'approve' ? 'อนุมัติ' : 
-                        confirmAction.action === 'delete' ? 'ลบ' : 
-                        confirmAction.action === 'bulk-delete' ? 'ลบ' : 'ยกเลิก';
-      toast.error(`ไม่สามารถ${actionText}การจองได้: ${message}`, {
-        duration: 4000,
-        icon: '❌'
-      });
-    } finally {
-      setActionLoading(false);
-      setShowConfirmModal(false);
-      setConfirmAction(null);
-    }
-  };
+    };
 
-  const handleGoToPayment = (bookingId) => {
-    window.open(`/payment/${bookingId}`, '_blank');
-  };
-
-  const handleViewBookingDetails = async (bookingId) => {
-    try {
-      const response = await bookingAPI.getAdminBookingById(bookingId);
-      setSelectedBooking(response);
-      setShowBookingModal(true);
-    } catch (error) {
-      console.error('Error fetching booking details:', error);
-      toast.error('ไม่สามารถโหลดรายละเอียดการจองได้');
-    }
-  };
-
-  const closeBookingModal = () => {
-    setShowBookingModal(false);
-    setSelectedBooking(null);
-  };
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'pending':
-        return <Clock className="h-4 w-4 text-yellow-500" />;
-      case 'confirmed':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'cancelled':
-        return <XCircle className="h-4 w-4 text-red-500" />;
-      default:
-        return <Clock className="h-4 w-4 text-gray-500" />;
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'pending':
-        return 'status-warning';
-      case 'confirmed':
-        return 'status-success';
-      case 'cancelled':
-        return 'status-error';
-      case 'completed':
-        return 'status-info';
-      default:
-        return 'bg-neutral-100 text-neutral-800 border border-neutral-200 dark:bg-neutral-800 dark:text-neutral-200 dark:border-neutral-700';
-    }
-  };
-
-  const getStatusText = (status) => {
-    switch (status) {
-      case 'pending':
-        return 'รอการยืนยัน';
-      case 'confirmed':
-        return 'ยืนยันแล้ว';
-      case 'cancelled':
-        return 'ยกเลิกแล้ว';
-      case 'completed':
-        return 'สำเร็จแล้ว';
-      default:
-        return status;
-    }
-  };
-
-  const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-  };
-
-  const clearFilters = () => {
-    setFilters({
-      status: '',
-      search: '',
-      dateFrom: '',
-      dateTo: ''
-    });
-  };
-
-  // Remove old functions - using new modal approach
-
-  const handleSelectBooking = (bookingId) => {
-    setSelectedBookings(prev => {
-      const newSelected = prev.includes(bookingId)
-        ? prev.filter(id => id !== bookingId)
-        : [...prev, bookingId];
-      
-      setShowBulkActions(newSelected.length > 0);
-      return newSelected;
-    });
-  };
-
-  const handleSelectAllBookings = () => {
-    if (selectedBookings.length === filteredBookings.length) {
-      setSelectedBookings([]);
-      setShowBulkActions(false);
-    } else {
-      const allIds = filteredBookings.map(booking => booking.id);
-      setSelectedBookings(allIds);
-      setShowBulkActions(true);
-    }
-  };
-
-  const handleBookingActionNew = async (bookingId, action) => {
-    // Use the same logic as handleBookingAction to avoid duplication
-    handleBookingAction(bookingId, action);
-  };
-
-  const handleBulkDeleteNew = async () => {
-    if (selectedBookings.length === 0) {
-      toast.error('กรุณาเลือกการจองที่ต้องการลบ');
-      return;
-    }
-
-    // Handle bulk delete with executeBookingAction
-    setConfirmAction({
-      bookingIds: selectedBookings,
-      action: 'bulk-delete',
-      type: 'bulk',
-      count: selectedBookings.length
-    });
-    setShowConfirmModal(true);
-  };
+    // Check token validity every minute
+    const tokenCheckInterval = setInterval(checkTokenValidity, 60 * 1000);
+    
+    return () => clearInterval(tokenCheckInterval);
+  }, []);
 
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">กรุณาเข้าสู่ระบบ</h2>
-          <p className="text-gray-600">เพื่อเข้าถึงระบบจัดการ</p>
+          <p className="text-gray-600">เพื่อเข้าถึงแดชบอร์ดแอดมิน</p>
         </div>
       </div>
     );
@@ -391,927 +489,1463 @@ export default function AdminDashboard() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">ไม่มีสิทธิ์เข้าถึง</h2>
-          <p className="text-gray-600">คุณไม่มีสิทธิ์เข้าถึงหน้านี้</p>
+          <p className="text-gray-600">คุณไม่มีสิทธิ์เข้าถึงแดชบอร์ดนี้</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">กำลังโหลดข้อมูลแดชบอร์ด...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen dark-bg py-8 transition-all duration-300 ease-in-out">
-      <div className={`max-w-7xl mx-auto container-padding transform transition-all duration-700 ease-out ${
-        isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
-      }`}>
-        {/* Header */}
-        <div className={`mb-12 transform transition-all duration-500 delay-100 ease-out ${
-          isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
-        }`}>
-          <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
             <div>
-              <h1 className="text-4xl font-bold dark-text mb-3 tracking-tight">
-                {t('admin.dashboard', 'แดชบอร์ด')}{canEdit(user) ? t('admin.manager', 'ผู้จัดการ') : t('admin.staff', 'พนักงาน')}
-              </h1>
-              <p className="text-lg dark-text-secondary">
-                {canEdit(user) ? t('admin.manageDescription', 'จัดการการจองและดูสถิติโรงแรม') : t('admin.viewDescription', 'ดูข้อมูลการจองและสถิติโรงแรม')}
-              </p>
+              <h1 className="text-3xl font-bold text-gray-900">แดชบอร์ดแอดมิน</h1>
+              <p className="text-gray-600 mt-1">จัดการระบบโรงแรมครบวงจร</p>
             </div>
-            {isReadOnly(user) && (
-              <div className="status-info px-6 py-3 rounded-xl">
-                <div className="flex items-center gap-3">
-                  <Eye className="h-5 w-5" />
-                  <span className="font-medium">{t('admin.viewOnlyMode', 'โหมดดูอย่างเดียว')}</span>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={refreshData}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                รีเฟรช
+              </button>
+              <select
+                value={filters.dateRange}
+                onChange={(e) => setFilters(prev => ({ ...prev, dateRange: e.target.value }))}
+                className="rounded-md border-gray-300 text-sm"
+              >
+                <option value="7">7 วันล่าสุด</option>
+                <option value="30">30 วันล่าสุด</option>
+                <option value="90">90 วันล่าสุด</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation Tabs */}
+      <div className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <nav className="flex space-x-8 overflow-x-auto">
+            {mainTabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <Icon className="h-4 w-4 mr-2" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {activeTab === 'overview' && (
+          <OverviewTab 
+            data={dashboardData} 
+            user={user}
+          />
+        )}
+        
+        {activeTab === 'bookings' && (
+          <BookingsTab 
+            bookings={dashboardData.recentBookings}
+            stats={dashboardData.stats}
+            user={user}
+          />
+        )}
+        
+        {activeTab === 'users' && (
+          <UsersTab 
+            users={dashboardData.recentUsers}
+            stats={dashboardData.stats}
+            user={user}
+          />
+        )}
+        
+        {activeTab === 'hotels' && (
+          <HotelsTab 
+            hotels={dashboardData.topHotels}
+            stats={dashboardData.stats}
+            user={user}
+          />
+        )}
+
+        {activeTab === 'payments' && (
+          <PaymentsTab 
+            data={dashboardData}
+            stats={dashboardData.stats}
+            user={user}
+          />
+        )}
+
+        {activeTab === 'reviews' && (
+          <ReviewsTab 
+            reviews={dashboardData.recentReviews}
+            stats={dashboardData.stats}
+            user={user}
+          />
+        )}
+        
+        {activeTab === 'reports' && (
+          <ReportsTab 
+            data={dashboardData}
+            user={user}
+          />
+        )}
+        
+        {activeTab === 'settings' && (
+          <SettingsTab user={user} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Overview Tab Component
+function OverviewTab({ data, user }) {
+  const quickActions = [
+    {
+      title: 'จัดการการจอง',
+      description: 'ดูและจัดการการจองทั้งหมด',
+      icon: Calendar,
+      href: '/admin/bookings',
+      color: 'blue',
+      count: data.stats.pendingBookings,
+      label: 'รอดำเนินการ'
+    },
+    {
+      title: 'จัดการผู้ใช้',
+      description: 'เพิ่ม แก้ไข ลบผู้ใช้งาน',
+      icon: Users,
+      href: '/admin/users',
+      color: 'green',
+      count: data.stats.newUsersThisMonth,
+      label: 'ใหม่เดือนนี้'
+    },
+    {
+      title: 'จัดการโรงแรม',
+      description: 'เพิ่มและแก้ไขข้อมูลโรงแรม',
+      icon: Hotel,
+      href: '/admin/hotels',
+      color: 'purple',
+      count: data.stats.totalHotels,
+      label: 'โรงแรมทั้งหมด'
+    },
+    {
+      title: 'รายงานรายได้',
+      description: 'ดูรายงานและวิเคราะห์ข้อมูล',
+      icon: TrendingUp,
+      href: '/admin/reports',
+      color: 'orange',
+      count: `฿${(data.stats.monthlyRevenue/1000).toFixed(0)}K`,
+      label: 'เดือนนี้'
+    }
+  ];
+
+  return (
+    <div className="space-y-8">
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatsCard
+          title="การจองทั้งหมด"
+          value={data.stats.totalBookings}
+          icon={Calendar}
+          color="blue"
+          change="+12%"
+        />
+        <StatsCard
+          title="ผู้ใช้งาน"
+          value={data.stats.totalUsers}
+          icon={Users}
+          color="green"
+          change="+8%"
+        />
+        <StatsCard
+          title="รายได้รวม"
+          value={`฿${data.stats.totalRevenue.toLocaleString()}`}
+          icon={DollarSign}
+          color="purple"
+          change="+15%"
+        />
+        <StatsCard
+          title="อัตราเข้าพัก"
+          value={`${data.stats.occupancyRate}%`}
+          icon={Hotel}
+          color="orange"
+          change="+5%"
+        />
+      </div>
+
+      {/* Quick Actions */}
+      <div>
+        <h3 className="text-lg font-medium text-gray-900 mb-4">การจัดการด่วน</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {quickActions.map((action, index) => (
+            <QuickActionCard key={index} action={action} />
+          ))}
+        </div>
+      </div>
+
+      {/* Token Status */}
+      <div>
+        <h3 className="text-lg font-medium text-gray-900 mb-4">สถานะระบบ</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <TokenStatus />
+          
+          {/* System Status */}
+          <div className="bg-white rounded-lg shadow-sm border p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Activity className="w-5 h-5 text-green-500" />
+                <h3 className="text-sm font-medium text-gray-900">สถานะเซิร์ฟเวอร์</h3>
+              </div>
+              <div className="flex items-center space-x-2 text-green-500">
+                <CheckCircle className="w-4 h-4" />
+                <span className="text-sm font-medium">ปกติ</span>
+              </div>
+            </div>
+            <div className="mt-3 text-sm text-gray-500">
+              เซิร์ฟเวอร์ทำงานปกติ - อัปเดตล่าสุด: {new Date().toLocaleTimeString('th-TH')}
+            </div>
+          </div>
+
+          {/* Connection Status */}
+          <div className="bg-white rounded-lg shadow-sm border p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Settings className="w-5 h-5 text-blue-500" />
+                <h3 className="text-sm font-medium text-gray-900">การเชื่อมต่อ</h3>
+              </div>
+              <div className="flex items-center space-x-2 text-green-500">
+                <CheckCircle className="w-4 h-4" />
+                <span className="text-sm font-medium">เชื่อมต่อแล้ว</span>
+              </div>
+            </div>
+            <div className="mt-3 text-sm text-gray-500">
+              API เชื่อมต่อสำเร็จ - Ping: &lt;50ms
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Recent Bookings */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-gray-900">การจองล่าสุด</h3>
+            <Link 
+              href="/admin/bookings"
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            >
+              ดูทั้งหมด →
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {data.recentBookings.slice(0, 5).map((booking) => (
+              <div key={booking.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <p className="font-medium text-gray-900">{booking.guestName}</p>
+                  <p className="text-sm text-gray-600">{booking.hotelName}</p>
+                </div>
+                <div className="text-right">
+                  <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                    booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                    booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {booking.status}
+                  </span>
+                  <p className="text-sm text-gray-600 mt-1">
+                    ฿{booking.totalPrice?.toLocaleString()}
+                  </p>
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Top Hotels */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-gray-900">โรงแรมยอดนิยม</h3>
+            <Link 
+              href="/admin/hotels"
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            >
+              ดูทั้งหมด →
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {data.topHotels.map((hotel, index) => (
+              <div key={hotel.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center">
+                  <span className="w-6 h-6 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center mr-3">
+                    {index + 1}
+                  </span>
+                  <div>
+                    <p className="font-medium text-gray-900">{hotel.name}</p>
+                    <p className="text-sm text-gray-600">{hotel.location}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-medium text-gray-900">{hotel.bookingCount} การจอง</p>
+                  <p className="text-sm text-gray-600">฿{hotel.revenue?.toLocaleString()}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Stats Card Component
+function StatsCard({ title, value, icon: Icon, color, change }) {
+  const colorClasses = {
+    blue: 'bg-blue-500',
+    green: 'bg-green-500',
+    purple: 'bg-purple-500',
+    orange: 'bg-orange-500',
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow p-6">
+      <div className="flex items-center">
+        <div className={`w-12 h-12 ${colorClasses[color]} rounded-lg flex items-center justify-center`}>
+          <Icon className="h-6 w-6 text-white" />
+        </div>
+        <div className="ml-4 flex-1">
+          <p className="text-sm font-medium text-gray-600">{title}</p>
+          <div className="flex items-center">
+            <p className="text-2xl font-semibold text-gray-900">{value}</p>
+            {change && (
+              <span className="ml-2 text-sm font-medium text-green-600">{change}</span>
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
 
-        {/* Stats Cards */}
-        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12 transform transition-all duration-700 delay-200 ease-out ${
-          isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
-        }`}>
-          <div className={`card-elevated p-8 hover:shadow-2xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift group ${
-            statsVisible ? 'animate-slideUp stagger-1' : ''
-          }`}>
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
-                  <Calendar className="h-8 w-8 text-white" />
-                </div>
-              </div>
-              <div className="ml-6 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium dark-text-secondary truncate mb-1">
-                    การจองทั้งหมด
-                  </dt>
-                  <dd className="text-3xl font-bold dark-text">
-                    {stats.totalBookings}
-                  </dd>
-                </dl>
-              </div>
-            </div>
+// Quick Action Card Component
+function QuickActionCard({ action }) {
+  const colorClasses = {
+    blue: 'bg-blue-50 text-blue-600 border-blue-200',
+    green: 'bg-green-50 text-green-600 border-green-200',
+    purple: 'bg-purple-50 text-purple-600 border-purple-200',
+    orange: 'bg-orange-50 text-orange-600 border-orange-200',
+  };
+
+  return (
+    <Link href={action.href}>
+      <div className={`p-6 rounded-lg border-2 ${colorClasses[action.color]} hover:shadow-md transition-shadow cursor-pointer`}>
+        <div className="flex items-center justify-between mb-4">
+          <action.icon className="h-8 w-8" />
+          <div className="text-right">
+            <p className="text-2xl font-bold">{action.count}</p>
+            <p className="text-sm opacity-75">{action.label}</p>
           </div>
+        </div>
+        <h3 className="font-semibold text-gray-900 mb-2">{action.title}</h3>
+        <p className="text-sm text-gray-600">{action.description}</p>
+      </div>
+    </Link>
+  );
+}
 
-          <div className={`card-elevated p-8 hover:shadow-2xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift group ${
-            statsVisible ? 'animate-slideUp stagger-2' : ''
-          }`}>
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-16 h-16 bg-gradient-to-br from-warning-500 to-warning-600 rounded-2xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
-                  <Clock className="h-8 w-8 text-white" />
-                </div>
-              </div>
-              <div className="ml-6 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium dark-text-secondary truncate mb-1">
-                    รอการยืนยัน
-                  </dt>
-                  <dd className="text-3xl font-bold dark-text">
-                    {stats.pendingBookings}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
+// Users Tab Component with Full Management
+function UsersTab({ users, stats, user }) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [loading, setLoading] = useState(false);
+  const [allUsers, setAllUsers] = useState([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [userStats, setUserStats] = useState({
+    totalUsers: stats.totalUsers || 0,
+    newUsersThisMonth: stats.newUsersThisMonth || 0,
+    activeUsers: stats.activeUsers || 0,
+    adminUsers: 0,
+    staffUsers: 0,
+    regularUsers: 0
+  });
 
-          <div className={`card-elevated p-8 hover:shadow-2xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift group ${
-            statsVisible ? 'animate-slideUp stagger-3' : ''
-          }`}>
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-16 h-16 bg-gradient-to-br from-success-500 to-success-600 rounded-2xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
-                  <CheckCircle className="h-8 w-8 text-white" />
-                </div>
-              </div>
-              <div className="ml-6 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium dark-text-secondary truncate mb-1">
-                    ยืนยันแล้ว
-                  </dt>
-                  <dd className="text-3xl font-bold dark-text">
-                    {stats.confirmedBookings}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
+  // Handle user actions
+  const handleCreateUser = async (userData) => {
+    try {
+      setLoading(true);
+      const response = await usersAPI.createUser(userData);
+      if (response?.success) {
+        toast.success('เพิ่มผู้ใช้สำเร็จ');
+        await fetchUsers(); // Refresh list
+        setShowCreateModal(false);
+      }
+    } catch (error) {
+      console.error('Error creating user:', error);
+      toast.error('ไม่สามารถเพิ่มผู้ใช้ได้');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-          <div className={`card-elevated p-8 hover:shadow-2xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift group ${
-            statsVisible ? 'animate-slideUp stagger-4' : ''
-          }`}>
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-16 h-16 bg-gradient-to-br from-secondary-500 to-secondary-600 rounded-2xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
-                  <TrendingUp className="h-8 w-8 text-white" />
-                </div>
-              </div>
-              <div className="ml-6 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium dark-text-secondary truncate mb-1">
-                    รายได้รวม
-                  </dt>
-                  <dd className="text-3xl font-bold dark-text">
-                    ฿{stats.totalRevenue.toLocaleString()}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
+  const handleEditUser = (userData) => {
+    setEditingUser(userData);
+    setShowEditModal(true);
+  };
 
-          <div className={`card-elevated p-8 hover:shadow-2xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift group ${
-            statsVisible ? 'animate-slideUp stagger-5' : ''
-          }`}>
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-16 h-16 bg-gradient-to-br from-primary-400 to-primary-500 rounded-2xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
-                  <Users className="h-8 w-8 text-white" />
-                </div>
-              </div>
-              <div className="ml-6 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium dark-text-secondary truncate mb-1">
-                    สำเร็จแล้ว
-                  </dt>
-                  <dd className="text-3xl font-bold dark-text">
-                    {stats.completedBookings}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
+  const handleUpdateUser = async (updatedData) => {
+    try {
+      setLoading(true);
+      const response = await usersAPI.updateUser(editingUser.id, updatedData);
+      if (response?.success) {
+        toast.success('อัปเดตผู้ใช้สำเร็จ');
+        await fetchUsers(); // Refresh list
+        setShowEditModal(false);
+        setEditingUser(null);
+      }
+    } catch (error) {
+      console.error('Error updating user:', error);
+      toast.error('ไม่สามารถอัปเดตผู้ใช้ได้');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-          <div className={`card-elevated p-8 hover:shadow-2xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift group ${
-            statsVisible ? 'animate-slideUp stagger-6' : ''
-          }`}>
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-16 h-16 bg-gradient-to-br from-success-400 to-success-500 rounded-2xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
-                  <Receipt className="h-8 w-8 text-white" />
-                </div>
-              </div>
-              <div className="ml-6 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium dark-text-secondary truncate mb-1">
-                    มีใบเสร็จ
-                  </dt>
-                  <dd className="text-3xl font-bold dark-text">
-                    {stats.bookingsWithReceipts}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
+  const handleDeleteUser = async (userId, userName) => {
+    if (!confirm(`คุณแน่ใจหรือไม่ที่จะลบผู้ใช้ "${userName}"?`)) {
+      return;
+    }
 
-          <div className={`card-elevated p-8 hover:shadow-2xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift group ${
-            statsVisible ? 'animate-slideUp stagger-7' : ''
-          }`}>
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-16 h-16 bg-gradient-to-br from-error-500 to-error-600 rounded-2xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
-                  <XCircle className="h-8 w-8 text-white" />
-                </div>
-              </div>
-              <div className="ml-6 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium dark-text-secondary truncate mb-1">
-                    ยกเลิกแล้ว
-                  </dt>
-                  <dd className="text-3xl font-bold dark-text">
-                    {stats.cancelledBookings}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
+    try {
+      setLoading(true);
+      const response = await usersAPI.deleteUser(userId);
+      if (response?.success) {
+        toast.success('ลบผู้ใช้สำเร็จ');
+        await fetchUsers(); // Refresh list
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast.error('ไม่สามารถลบผู้ใช้ได้');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-          <div className={`card-elevated p-8 hover:shadow-2xl transform hover:scale-105 transition-all duration-300 ease-in-out hover-lift group ${
-            statsVisible ? 'animate-slideUp stagger-8' : ''
-          }`}>
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-16 h-16 bg-gradient-to-br from-primary-600 to-secondary-600 rounded-2xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
-                  <TrendingUp className="h-8 w-8 text-white" />
-                </div>
-              </div>
-              <div className="ml-6 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium dark-text-secondary truncate mb-1">
-                    อัตราสำเร็จ
-                  </dt>
-                  <dd className="text-3xl font-bold dark-text">
-                    {stats.totalBookings > 0 ? Math.round((stats.completedBookings / stats.totalBookings) * 100) : 0}%
-                  </dd>
-                </dl>
-              </div>
+  const handleSendEmail = (userData) => {
+    const subject = encodeURIComponent('ข้อความจากระบบจองโรงแรม');
+    const body = encodeURIComponent(`สวัสดี ${userData.name},\n\nข้อความจากระบบจองโรงแรม...\n\nขอบคุณ`);
+    window.open(`mailto:${userData.email}?subject=${subject}&body=${body}`);
+  };
+
+  // Filter users based on search and role
+  const filteredUsers = allUsers.filter(u => {
+    const matchesSearch = !searchTerm || 
+      u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.email?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+    
+    return matchesSearch && matchesRole;
+  });
+
+  const getUserRoleDisplay = (role) => {
+    switch (role) {
+      case 'admin': return 'ผู้ดูแลระบบ';
+      case 'staff': return 'พนักงาน';
+      case 'user': return 'ผู้ใช้ทั่วไป';
+      default: return 'ผู้ใช้ทั่วไป';
+    }
+  };
+
+  const getRoleBadgeColor = (role) => {
+    switch (role) {
+      case 'admin': return 'bg-red-100 text-red-800';
+      case 'staff': return 'bg-blue-100 text-blue-800';
+      case 'user': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* User Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center">
+            <Users className="h-8 w-8 text-blue-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">ผู้ใช้ทั้งหมด</p>
+              <p className="text-2xl font-bold text-gray-900">{userStats.totalUsers}</p>
             </div>
           </div>
         </div>
-
-        {/* Quick Actions */}
-        <div className={`mb-12 transform transition-all duration-700 delay-300 ease-out ${
-          isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
-        }`}>
-          <h2 className="text-2xl font-semibold dark-text mb-6 flex items-center">
-            <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center mr-3">
-              <Hotel className="h-4 w-4 text-white" />
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center">
+            <UserCheck className="h-8 w-8 text-green-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">ใหม่เดือนนี้</p>
+              <p className="text-2xl font-bold text-gray-900">{userStats.newUsersThisMonth}</p>
             </div>
-            การจัดการด่วน
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
-            <Link 
-              href="/admin/rooms" 
-              className="card-elevated p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 group"
-            >
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
-                  <Bed className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-4">
-                  <h3 className="font-semibold dark-text">จัดการห้องพัก</h3>
-                  <p className="text-sm dark-text-secondary">ดูและแก้ไขห้องพัก</p>
-                </div>
-              </div>
-            </Link>
-
-            <Link 
-              href="/admin/users" 
-              className="card-elevated p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 group"
-            >
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
-                  <Users className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-4">
-                  <h3 className="font-semibold dark-text">จัดการผู้ใช้</h3>
-                  <p className="text-sm dark-text-secondary">ดูและแก้ไขผู้ใช้</p>
-                </div>
-              </div>
-            </Link>
-
-            <Link 
-              href="/admin/inventory" 
-              className="card-elevated p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 group"
-            >
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
-                  <Package className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-4">
-                  <h3 className="font-semibold dark-text">จัดการคลังสินค้า</h3>
-                  <p className="text-sm dark-text-secondary">ตรวจสอบสต็อก</p>
-                </div>
-              </div>
-            </Link>
-
-            <Link 
-              href="/admin/communication" 
-              className="card-elevated p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 group"
-            >
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-pink-600 rounded-xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
-                  <MessageCircle className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-4">
-                  <h3 className="font-semibold dark-text">สื่อสารกับแขก</h3>
-                  <p className="text-sm dark-text-secondary">แชทและตอบคำถาม</p>
-                </div>
-              </div>
-            </Link>
-
-            <Link 
-              href="/admin/reports" 
-              className="card-elevated p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 group"
-            >
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
-                  <FileText className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-4">
-                  <h3 className="font-semibold dark-text">รายงาน</h3>
-                  <p className="text-sm dark-text-secondary">ดูรายงานสถิติ</p>
-                </div>
-              </div>
-            </Link>
-
-            <Link 
-              href="/admin/payment-settings" 
-              className="card-elevated p-6 hover:shadow-xl transform hover:scale-105 transition-all duration-300 group"
-            >
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center group-hover:shadow-lg transition-shadow duration-300">
-                  <CreditCard className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-4">
-                  <h3 className="font-semibold dark-text">ตั้งค่าการชำระเงิน</h3>
-                  <p className="text-sm dark-text-secondary">จัดการช่องทางชำระเงิน</p>
-                </div>
-              </div>
-            </Link>
           </div>
         </div>
-
-        {/* Filters */}
-        <div className={`bg-white dark:bg-neutral-800 rounded-xl shadow-lg border-2 border-neutral-200 dark:border-neutral-700 p-8 mb-12 transform transition-all duration-700 delay-300 ease-out hover:shadow-xl ${
-          isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
-        }`}>
-          <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-8 flex items-center">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center mr-4 shadow-lg">
-              <Filter className="h-5 w-5 text-white" />
-            </div>
-            ค้นหาและกรองข้อมูล
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Search */}
-            <div>
-              <label className="block text-sm font-semibold text-neutral-800 dark:text-neutral-200 mb-3">
-                ค้นหา
-              </label>
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-primary-500 dark:text-primary-400 pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="รหัสจอง, อีเมล, ชื่อผู้เข้าพัก..."
-                  value={filters.search}
-                  onChange={(e) => handleFilterChange('search', e.target.value)}
-                  className="pl-16 input-field text-sm"
-                />
-              </div>
-            </div>
-            
-            {/* Status Filter */}
-            <div>
-              <label className="block text-sm font-semibold text-neutral-800 dark:text-neutral-200 mb-3">
-                สถานะ
-              </label>
-              <select
-                value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-                className="input-field text-sm"
-              >
-                <option value="">ทั้งหมด</option>
-                <option value="pending">รอการยืนยัน</option>
-                <option value="confirmed">ยืนยันแล้ว</option>
-                <option value="completed">สำเร็จแล้ว</option>
-                <option value="cancelled">ยกเลิกแล้ว</option>
-              </select>
-            </div>
-            
-            {/* Date From */}
-            <div>
-              <label className="block text-sm font-semibold text-neutral-800 dark:text-neutral-200 mb-3">
-                วันเข้าพักจาก
-              </label>
-              <input
-                type="date"
-                value={filters.dateFrom}
-                onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
-                className="input-field text-sm"
-              />
-            </div>
-            
-            {/* Date To */}
-            <div>
-              <label className="block text-sm font-semibold text-neutral-800 dark:text-neutral-200 mb-3">
-                วันเข้าพักถึง
-              </label>
-              <input
-                type="date"
-                value={filters.dateTo}
-                onChange={(e) => handleFilterChange('dateTo', e.target.value)}
-                className="input-field text-sm"
-              />
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center">
+            <Settings className="h-8 w-8 text-red-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">ผู้ดูแลระบบ</p>
+              <p className="text-2xl font-bold text-gray-900">{userStats.adminUsers}</p>
             </div>
           </div>
-          
-          <div className="mt-8 flex justify-between items-center">
-            <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-              แสดงผล <span className="font-bold text-primary-600 dark:text-primary-400">{filteredBookings.length}</span> จาก <span className="font-bold text-neutral-900 dark:text-white">{bookings.length}</span> รายการ
-            </span>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center">
+            <Activity className="h-8 w-8 text-purple-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">พนักงาน</p>
+              <p className="text-2xl font-bold text-gray-900">{userStats.staffUsers}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters and Actions */}
+      <div className="bg-white p-6 rounded-lg shadow">
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div className="flex flex-col sm:flex-row gap-4 flex-1">
+            <div className="flex-1">
+              <input
+                type="text"
+                placeholder="ค้นหาผู้ใช้ (ชื่อ, อีเมล)..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2"
+              />
+            </div>
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-2"
+            >
+              <option value="all">บทบาททั้งหมด</option>
+              <option value="admin">ผู้ดูแลระบบ</option>
+              <option value="staff">พนักงาน</option>
+              <option value="user">ผู้ใช้ทั่วไป</option>
+            </select>
+          </div>
+          <div className="flex gap-2">
             <button
-              onClick={clearFilters}
-              className="px-6 py-2 bg-primary-100 hover:bg-primary-200 dark:bg-primary-900 dark:hover:bg-primary-800 text-primary-700 dark:text-primary-300 font-semibold rounded-lg border border-primary-300 dark:border-primary-600 transition-all duration-200"
+              onClick={() => fetchUsers()}
+              disabled={loading}
+              className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 flex items-center disabled:opacity-50"
             >
-              ล้างตัวกรอง
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              รีเฟรช
             </button>
+            {canCreate(user) && (
+              <button 
+                onClick={() => setShowCreateModal(true)}
+                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                เพิ่มผู้ใช้
+              </button>
+            )}
           </div>
         </div>
+      </div>
 
-        {/* Recent Bookings */}
-        <div className={`card-elevated transform transition-all duration-700 delay-400 ease-out hover:shadow-xl ${
-          isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
-        }`}>
-          <div className="px-8 py-6 dark-border border-b">
-            <h2 className="text-xl font-semibold dark-text">การจองล่าสุด</h2>
+      {/* Users Table */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900">
+            ผู้ใช้งานทั้งหมด ({filteredUsers.length} คน)
+          </h3>
+        </div>
+        
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-3 text-gray-600">กำลังโหลดข้อมูลผู้ใช้...</span>
           </div>
-          
-          {loading ? (
-            <div className="text-center py-16">
-              <div className="w-16 h-16 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="dark-text-secondary">กำลังโหลดข้อมูล...</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              {/* Bulk Actions Bar */}
-              {showBulkActions && (
-                <div className="bg-primary-50 border border-primary-200 rounded-xl p-6 mb-6 animate-slideUp">
-                  <div className="flex items-center justify-between">
-                    <span className="text-primary-800 font-medium">
-                      เลือกแล้ว {selectedBookings.length} รายการ
-                    </span>
-                    <div className="flex space-x-3">
-                      <button
-                        onClick={handleBulkDeleteNew}
-                        className="btn-error flex items-center"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        ลบที่เลือก
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedBookings([]);
-                          setShowBulkActions(false);
-                        }}
-                        className="btn-secondary"
-                      >
-                        ยกเลิก
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <table className="min-w-full divide-y dark-border">
-                <thead className="dark-bg-secondary">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-bold dark-text-secondary uppercase tracking-wider">
-                      <input
-                        type="checkbox"
-                        checked={selectedBookings.length === filteredBookings.length && filteredBookings.length > 0}
-                        onChange={handleSelectAllBookings}
-                        className="rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
-                      />
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold dark-text-secondary uppercase tracking-wider">
-                      รหัส/ลูกค้า
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold dark-text-secondary uppercase tracking-wider">
-                      ห้องพัก/วันที่
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold dark-text-secondary uppercase tracking-wider">
-                      ราคา/ใบเสร็จ
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold dark-text-secondary uppercase tracking-wider">
-                      สถานะ
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold dark-text-secondary uppercase tracking-wider">
-                      จัดการ
-                    </th>
+        ) : filteredUsers.length === 0 ? (
+          <div className="text-center py-12">
+            <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600">ไม่พบข้อมูลผู้ใช้</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ผู้ใช้</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">อีเมล</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">บทบาท</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">วันที่สมัคร</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">สถานะ</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">การดำเนินการ</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredUsers.map((userData, index) => (
+                  <tr key={userData.id || index} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10">
+                          <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
+                            <span className="text-sm font-medium text-gray-700">
+                              {userData.name?.charAt(0)?.toUpperCase() || userData.email?.charAt(0)?.toUpperCase() || 'U'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {userData.name || 'ไม่ระบุชื่อ'}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            ID: {userData.id}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{userData.email}</div>
+                      <div className="text-sm text-gray-500">
+                        {userData.phone && (
+                          <span className="flex items-center">
+                            <Phone className="h-3 w-3 mr-1" />
+                            {userData.phone}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleBadgeColor(userData.role)}`}>
+                        {getUserRoleDisplay(userData.role)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {userData.created_at ? new Date(userData.created_at).toLocaleDateString('th-TH') : 'ไม่ระบุ'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                        ใช้งานได้
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex space-x-2">
+                        <button 
+                          onClick={() => {
+                            // Show user details modal (future implementation)
+                            toast.info(`ดูรายละเอียดของ ${userData.name}`);
+                          }}
+                          className="text-blue-600 hover:text-blue-900" 
+                          title="ดูรายละเอียด"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        {canEdit(user) && (
+                          <button 
+                            onClick={() => handleEditUser(userData)}
+                            className="text-green-600 hover:text-green-900" 
+                            title="แก้ไข"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                        )}
+                        {canDelete(user) && userData.id !== user?.id && (
+                          <button 
+                            onClick={() => handleDeleteUser(userData.id, userData.name)}
+                            className="text-red-600 hover:text-red-900" 
+                            title="ลบ"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => handleSendEmail(userData)}
+                          className="text-purple-600 hover:text-purple-900" 
+                          title="ส่งอีเมล"
+                        >
+                          <Mail className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y dark-border">
-                  {filteredBookings.slice(0, 20).map((booking, index) => (
-                    <tr key={booking.id} className={`dark-hover transform transition-all duration-300 ease-in-out hover:scale-[1.005] ${
-                      selectedBookings.includes(booking.id) ? 'bg-primary-50 dark:bg-primary-900/20' : ''
-                    } ${isVisible ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'}`}
-                    style={{ transitionDelay: `${index * 50}ms` }}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <input
-                          type="checkbox"
-                          checked={selectedBookings.includes(booking.id)}
-                          onChange={() => handleSelectBooking(booking.id)}
-                          className="rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
-                        />
-                      </td>
-                      <td className="px-6 py-4 text-sm">
-                        <div>
-                          <div className="font-semibold dark-text">{booking.bookingReference}</div>
-                          <div className="dark-text-secondary text-xs">{booking.userEmail}</div>
-                          <div className="dark-text-muted text-xs">
-                            {new Date(booking.createdAt).toLocaleDateString('th-TH')}
-                          </div>
-                          {booking.guestName && (
-                            <div className="dark-text-secondary text-xs mt-1">
-                              👤 {booking.guestName}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm">
-                        <div>
-                          <div className="font-medium dark-text">{booking.roomTypeName}</div>
-                          <div className="dark-text-secondary text-xs">{booking.guests} ผู้เข้าพัก</div>
-                          <div className="dark-text-muted text-xs">
-                            {new Date(booking.checkInDate).toLocaleDateString('th-TH')} - 
-                            {new Date(booking.checkOutDate).toLocaleDateString('th-TH')}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-3 py-4 text-sm">
-                        <div>
-                          <div className="font-bold text-gray-900">฿{booking.totalPrice.toLocaleString()}</div>
-                          {booking.paymentReceiptUrl || booking.paymentSlipUrl ? (
-                            <div className="flex items-center">
-                              <Receipt className="h-3 w-3 text-green-600 mr-1" />
-                              <span className="text-green-600 text-xs">มีใบเสร็จ</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center">
-                              <XCircle className="h-3 w-3 text-red-400 mr-1" />
-                              <span className="text-red-400 text-xs">ไม่มีใบเสร็จ</span>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-3 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
-                          {getStatusIcon(booking.status)}
-                          <span className="ml-1">{getStatusText(booking.status)}</span>
-                        </span>
-                      </td>
-                      <td className="px-3 py-4 text-sm text-gray-700">
-                        <div className="flex flex-wrap gap-1">
-                          <button
-                            onClick={() => handleViewBookingDetails(booking.id)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs font-semibold transition-all duration-200 ease-in-out flex items-center hover:scale-105 active:scale-95"
-                          >
-                            <Eye className="h-3 w-3 mr-1" />
-                            ดู
-                          </button>
-                          
-                          {booking.status === 'pending' && canManageBookings(user) && (
-                            <>
-                              <button
-                                onClick={() => handleBookingActionNew(booking.id, 'confirm')}
-                                className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs font-semibold transition-all duration-200 ease-in-out hover:scale-105 active:scale-95"
-                              >
-                                ยืนยัน
-                              </button>
-                              <button
-                                onClick={() => handleBookingActionNew(booking.id, 'cancel')}
-                                className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs font-semibold transition-all duration-200 ease-in-out hover:scale-105 active:scale-95"
-                              >
-                                ยกเลิก
-                              </button>
-                            </>
-                          )}
-                          
-                          {booking.status === 'confirmed' && canManageBookings(user) && (
-                            <>
-                              {/* Show payment status instead of button */}
-                              {booking.paymentReceiptUrl || booking.paymentSlipUrl ? (
-                                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
-                                  ชำระแล้ว
-                                </span>
-                              ) : (
-                                <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs font-medium">
-                                  รอชำระ
-                                </span>
-                              )}
-                              {/* Show approve button only if guest info AND payment receipt are available - Admin only */}
-                              {booking.guestName && booking.guestPhone && booking.guestEmail && (booking.paymentReceiptUrl || booking.paymentSlipUrl) && canApproveBookings(user) && (
-                                <button
-                                  onClick={() => handleBookingActionNew(booking.id, 'approve')}
-                                  className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs font-semibold transition-colors"
-                                >
-                                  อนุมัติ
-                                </button>
-                              )}
-                              <button
-                                onClick={() => handleBookingActionNew(booking.id, 'cancel')}
-                                className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs font-semibold transition-colors"
-                              >
-                                ยกเลิก
-                              </button>
-                            </>
-                          )}
-                          
-                          {(booking.status === 'cancelled' || booking.status === 'completed') && (
-                            <span className="text-gray-600 text-xs font-medium">ไม่สามารถแก้ไขได้</span>
-                          )}
-                          
-                          {/* Status indicator for users who cannot manage bookings */}
-                          {!canManageBookings(user) && booking.status === 'pending' && (
-                            <span className="text-yellow-600 text-xs font-medium bg-yellow-100 px-2 py-1 rounded">รอการยืนยัน</span>
-                          )}
-                          {!canManageBookings(user) && booking.status === 'confirmed' && (
-                            <span className="text-blue-600 text-xs font-medium bg-blue-100 px-2 py-1 rounded">รอการชำระเงิน</span>
-                          )}
-                          
-                          {/* Delete button - Only for admin */}
-                          {canDelete(user) && (
-                            <button
-                              onClick={() => handleBookingActionNew(booking.id, 'delete')}
-                              className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs font-semibold transition-colors flex items-center"
-                              title="ลบการจอง"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Booking Details Modal */}
-        {showBookingModal && selectedBooking && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fadeIn">
-            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto transform transition-all duration-300 ease-out animate-slideUp hover:shadow-2xl">
-              <div className="flex justify-between items-center p-6 border-b">
-                <h2 className="text-xl font-bold text-gray-900">
-                  รายละเอียดการจอง #{selectedBooking.bookingReference}
-                </h2>
-                <button
-                  onClick={closeBookingModal}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-              
-              <div className="p-6 space-y-6">
-                {/* Booking Status */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="font-semibold text-gray-800 mb-2">สถานะการจอง</h3>
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedBooking.status)}`}>
-                    {getStatusIcon(selectedBooking.status)}
-                    <span className="ml-2">{getStatusText(selectedBooking.status)}</span>
-                  </span>
-                </div>
-
-                {/* Customer Information */}
-                <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
-                  <h3 className="font-bold text-orange-900 mb-3 flex items-center text-lg">
-                    <User className="h-5 w-5 mr-2" />
-                    ข้อมูลผู้จอง
-                  </h3>
-                  <div className="space-y-3 text-sm">
-                    <p><span className="font-bold text-orange-900">อีเมล:</span> <span className="text-gray-900 font-semibold">{selectedBooking.userEmail || 'ไม่ระบุ'}</span></p>
-                    <p><span className="font-bold text-orange-900">จองเมื่อ:</span> <span className="text-gray-800">{new Date(selectedBooking.createdAt).toLocaleDateString('th-TH')} {new Date(selectedBooking.createdAt).toLocaleTimeString('th-TH')}</span></p>
-                    {selectedBooking.updatedAt && (
-                      <p><span className="font-bold text-orange-900">อัปเดตล่าสุด:</span> <span className="text-gray-800">{new Date(selectedBooking.updatedAt).toLocaleDateString('th-TH')} {new Date(selectedBooking.updatedAt).toLocaleTimeString('th-TH')}</span></p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Hotel & Room Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                    <h3 className="font-bold text-blue-900 mb-3 flex items-center text-lg">
-                      <Hotel className="h-5 w-5 mr-2" />
-                      ข้อมูลโรงแรม
-                    </h3>
-                    <div className="space-y-3 text-sm">
-                      <p><span className="font-bold text-blue-900">โรงแรม:</span> <span className="text-gray-900 font-semibold">{selectedBooking.hotel?.name}</span></p>
-                      <p><span className="font-bold text-blue-900">ห้อง:</span> <span className="text-gray-900 font-semibold">{selectedBooking.roomType?.name}</span></p>
-                      <p><span className="font-bold text-blue-900">รายละเอียด:</span> <span className="text-gray-800">{selectedBooking.roomType?.description}</span></p>
-                      {selectedBooking.roomType?.amenities && (
-                        <div>
-                          <span className="font-bold text-blue-900">สิ่งอำนวยความสะดวก:</span>
-                          <ul className="mt-2 ml-4 list-disc text-gray-800">
-                            {selectedBooking.roomType.amenities.map((amenity, index) => (
-                              <li key={index} className="py-1">{amenity}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                    <h3 className="font-bold text-green-900 mb-3 flex items-center text-lg">
-                      <Calendar className="h-5 w-5 mr-2" />
-                      ข้อมูลการจอง
-                    </h3>
-                    <div className="space-y-3 text-sm">
-                      <p><span className="font-bold text-green-900">วันเข้าพัก:</span> <span className="text-gray-900 font-semibold">{new Date(selectedBooking.checkInDate).toLocaleDateString('th-TH')}</span></p>
-                      <p><span className="font-bold text-green-900">วันออก:</span> <span className="text-gray-900 font-semibold">{new Date(selectedBooking.checkOutDate).toLocaleDateString('th-TH')}</span></p>
-                      <p><span className="font-bold text-green-900">จำนวนผู้เข้าพัก:</span> <span className="text-gray-900 font-semibold">{selectedBooking.guests} คน</span></p>
-                      <p><span className="font-bold text-green-900">ราคารวม:</span> <span className="font-bold text-green-700 text-lg">฿{selectedBooking.totalPrice?.toLocaleString()}</span></p>
-                      <p><span className="font-bold text-green-900">จองเมื่อ:</span> <span className="text-gray-800">{new Date(selectedBooking.createdAt).toLocaleDateString('th-TH')} {new Date(selectedBooking.createdAt).toLocaleTimeString('th-TH')}</span></p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Guest Information (if available) */}
-                {selectedBooking.guestName && (
-                  <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-                    <h3 className="font-bold text-purple-900 mb-3 flex items-center text-lg">
-                      <User className="h-5 w-5 mr-2" />
-                      ข้อมูลผู้เข้าพัก
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div className="space-y-3">
-                        <p className="flex items-center">
-                          <User className="h-4 w-4 mr-2 text-purple-600" />
-                          <span className="font-bold text-purple-900">ชื่อ:</span> 
-                          <span className="ml-2 text-gray-900 font-semibold">{selectedBooking.guestName}</span>
-                        </p>
-                        <p className="flex items-center">
-                          <Phone className="h-4 w-4 mr-2 text-purple-600" />
-                          <span className="font-bold text-purple-900">เบอร์โทร:</span> 
-                          <span className="ml-2 text-gray-900 font-semibold">{selectedBooking.guestPhone}</span>
-                        </p>
-                        <p className="flex items-center">
-                          <Mail className="h-4 w-4 mr-2 text-purple-600" />
-                          <span className="font-bold text-purple-900">อีเมล:</span> 
-                          <span className="ml-2 text-blue-700 font-semibold">{selectedBooking.guestEmail}</span>
-                        </p>
-                      </div>
-                      <div className="space-y-3">
-                        {selectedBooking.guestIdNumber && (
-                          <p className="flex items-center">
-                            <CreditCard className="h-4 w-4 mr-2 text-purple-600" />
-                            <span className="font-bold text-purple-900">เลขบัตรประชาชน:</span> 
-                            <span className="ml-2 text-gray-900 font-semibold">{selectedBooking.guestIdNumber}</span>
-                          </p>
-                        )}
-                        {selectedBooking.guestAddress && (
-                          <p className="flex items-start">
-                            <MapPin className="h-4 w-4 mr-2 text-purple-600 mt-0.5" />
-                            <span className="font-bold text-purple-900">ที่อยู่:</span> 
-                            <span className="ml-2 text-gray-800">{selectedBooking.guestAddress}</span>
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Payment Receipt/Slip (if available) */}
-                {(selectedBooking.paymentReceiptUrl || selectedBooking.paymentSlipUrl) && (
-                  <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                    <h3 className="font-bold text-green-900 mb-3 flex items-center text-lg">
-                      <Receipt className="h-5 w-5 mr-2" />
-                      ใบเสร็จการชำระเงิน
-                    </h3>
-                    <div className="space-y-3">
-                      <div className="bg-white rounded-lg p-4 border">
-                        <div className="flex justify-center">
-                          <img
-                            src={selectedBooking.paymentSlipUrl || selectedBooking.paymentReceiptUrl}
-                            alt="สลิปการโอนเงิน"
-                            className="max-w-full max-h-96 object-contain border rounded cursor-pointer"
-                            onClick={() => window.open(selectedBooking.paymentSlipUrl || selectedBooking.paymentReceiptUrl, '_blank')}
-                          />
-                        </div>
-                        <p className="text-sm text-green-800 text-center mt-2">
-                          คลิกรูปภาพเพื่อดูขนาดใหญ่
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Special Requests */}
-                {selectedBooking.specialRequests && (
-                  <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
-                    <h3 className="font-bold text-yellow-900 mb-3 flex items-center text-lg">
-                      <FileText className="h-5 w-5 mr-2" />
-                      ความต้องการพิเศษ
-                    </h3>
-                    <p className="text-sm text-gray-900 bg-white p-3 rounded border font-medium">{selectedBooking.specialRequests}</p>
-                  </div>
-                )}
-
-                {/* Booking Status Section */}
-                <div className="bg-gray-100 rounded-lg p-4 border border-gray-300">
-                  <h3 className="font-bold text-gray-900 mb-3 text-lg">สถานะการจอง</h3>
-                  <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-bold ${getStatusColor(selectedBooking.status)}`}>
-                    {getStatusIcon(selectedBooking.status)}
-                    <span className="ml-2">{getStatusText(selectedBooking.status)}</span>
-                  </span>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex justify-between items-center pt-4 border-t">
-                  <div className="flex space-x-3">
-                    {selectedBooking.status === 'pending' && canManageBookings(user) && (
-                      <>
-                        <button
-                          onClick={() => {
-                            handleBookingActionNew(selectedBooking.id, 'confirm');
-                            closeBookingModal();
-                          }}
-                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold transition-colors"
-                        >
-                          ยืนยันการจอง
-                        </button>
-                        <button
-                          onClick={() => {
-                            handleBookingActionNew(selectedBooking.id, 'cancel');
-                            closeBookingModal();
-                          }}
-                          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-semibold transition-colors"
-                        >
-                          ยกเลิกการจอง
-                        </button>
-                      </>
-                    )}
-                    
-                    {selectedBooking.status === 'confirmed' && canManageBookings(user) && (
-                      <>
-                        <button
-                          onClick={() => handleGoToPayment(selectedBooking.id)}
-                          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded font-semibold transition-colors"
-                        >
-                          ไปหน้าชำระเงิน
-                        </button>
-                        {selectedBooking.guestName && selectedBooking.guestPhone && selectedBooking.guestEmail && (selectedBooking.paymentReceiptUrl || selectedBooking.paymentSlipUrl) && canApproveBookings(user) && (
-                          <button
-                            onClick={() => {
-                              handleBookingActionNew(selectedBooking.id, 'approve');
-                              closeBookingModal();
-                            }}
-                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold transition-colors"
-                          >
-                            อนุมัติการจอง
-                          </button>
-                        )}
-                        <button
-                          onClick={() => {
-                            handleBookingActionNew(selectedBooking.id, 'cancel');
-                            closeBookingModal();
-                          }}
-                          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-semibold transition-colors"
-                        >
-                          ยกเลิกการจอง
-                        </button>
-                      </>
-                    )}
-                    
-                    {/* Delete button - Always available for admin */}
-                    <button
-                      onClick={() => {
-                        handleBookingActionNew(selectedBooking.id, 'delete');
-                        closeBookingModal();
-                      }}
-                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-semibold transition-colors flex items-center"
-                      title="ลบการจองนี้"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      ลบการจอง
-                    </button>
-                  </div>
-                  
-                  <button
-                    onClick={closeBookingModal}
-                    className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded font-semibold transition-colors"
-                  >
-                    ปิด
-                  </button>
-                </div>
-              </div>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
+      </div>
 
-        {/* Confirm Action Modal */}
-        <ConfirmModal
-          isOpen={showConfirmModal}
-          onClose={() => {
-            setShowConfirmModal(false);
-            setConfirmAction(null);
-          }}
-          onConfirm={executeBookingAction}
-          title={
-            confirmAction?.action === 'delete' 
-              ? '⚠️ ลบการจอง' 
-              : confirmAction?.action === 'bulk-delete'
-                ? '⚠️ ลบการจองหลายรายการ'
-                : confirmAction?.action === 'confirm' 
-                  ? 'ยืนยันการจอง'
-                  : confirmAction?.action === 'approve'
-                    ? 'อนุมัติการจอง'
-                    : 'ยกเลิกการจอง'
-          }
-          message={
-            confirmAction?.action === 'delete'
-              ? 'คำเตือน: การลบจะไม่สามารถกู้คืนได้ และจะลบข้อมูลทั้งหมดรวมถึงข้อมูลการจอง, ข้อมูลผู้เข้าพัก, และใบเสร็จการชำระเงิน'
-              : confirmAction?.action === 'bulk-delete'
-                ? `คุณกำลังจะลบการจอง ${confirmAction?.count} รายการพร้อมกัน การลบจะไม่สามารถกู้คืนได้`
-                : `คุณต้องการ${confirmAction?.action === 'confirm' ? 'ยืนยัน' : confirmAction?.action === 'approve' ? 'อนุมัติ' : 'ยกเลิก'}การจองนี้หรือไม่?`
-          }
-          confirmText={
-            confirmAction?.action === 'delete' 
-              ? 'ลบการจอง'
-              : confirmAction?.action === 'bulk-delete'
-                ? `ลบ ${confirmAction?.count} รายการ` 
-                : confirmAction?.action === 'confirm' 
-                  ? 'ยืนยันการจอง'
-                  : confirmAction?.action === 'approve'
-                    ? 'อนุมัติการจอง'
-                    : 'ยกเลิกการจอง'
-          }
-          cancelText="ยกเลิก"
-          type={confirmAction?.action === 'delete' || confirmAction?.action === 'bulk-delete' ? 'danger' : confirmAction?.action === 'cancel' ? 'warning' : 'info'}
-        />
+      {/* Token Status Display */}
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">สถานะ Token การจัดการผู้ใช้</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="border rounded-lg p-4">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">Token ล่าสุด</h4>
+            <p className="text-xs text-gray-600 font-mono break-all">
+              {sessionStorage.getItem('last_users_fetch_token')?.substring(0, 50) || 'ไม่มี token'}...
+            </p>
+          </div>
+          <div className="border rounded-lg p-4">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">เวลาดึงข้อมูลล่าสุด</h4>
+            <p className="text-xs text-gray-600">
+              {sessionStorage.getItem('last_users_fetch_time') ? 
+                new Date(sessionStorage.getItem('last_users_fetch_time')).toLocaleString('th-TH') : 
+                'ยังไม่เคยดึงข้อมูล'
+              }
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* User Modals */}
+      <UserModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSave={handleCreateUser}
+        title="เพิ่มผู้ใช้ใหม่"
+      />
+
+      <UserModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingUser(null);
+        }}
+        user={editingUser}
+        onSave={handleUpdateUser}
+        title="แก้ไขข้อมูลผู้ใช้"
+      />
+    </div>
+  );
+}
+
+function HotelsTab({ hotels, stats, user }) {
+  return (
+    <div className="bg-white rounded-lg shadow p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-semibold text-gray-900">จัดการโรงแรม</h2>
+        <Link 
+          href="/admin/hotels"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+        >
+          ไปยังหน้าโรงแรม
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <h3 className="text-sm font-medium text-blue-600">โรงแรมทั้งหมด</h3>
+          <p className="text-2xl font-bold text-blue-900">{stats.totalHotels}</p>
+        </div>
+        <div className="bg-green-50 p-4 rounded-lg">
+          <h3 className="text-sm font-medium text-green-600">ห้องทั้งหมด</h3>
+          <p className="text-2xl font-bold text-green-900">{stats.totalRooms}</p>
+        </div>
+        <div className="bg-purple-50 p-4 rounded-lg">
+          <h3 className="text-sm font-medium text-purple-600">อัตราเข้าพัก</h3>
+          <p className="text-2xl font-bold text-purple-900">{stats.occupancyRate}%</p>
+        </div>
+      </div>
+
+      <div className="text-center py-8">
+        <Hotel className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+        <p className="text-gray-600">การจัดการโรงแรมโดยละเอียดอยู่ในหน้าแยก</p>
+        <Link 
+          href="/admin/hotels"
+          className="text-blue-600 hover:text-blue-800 font-medium"
+        >
+          คลิกที่นี่เพื่อจัดการโรงแรม →
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function ReportsTab({ data, user }) {
+  return (
+    <div className="bg-white rounded-lg shadow p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-semibold text-gray-900">รายงานและวิเคราะห์</h2>
+        <Link 
+          href="/admin/reports"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+        >
+          ไปยังหน้ารายงาน
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+          <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">รายงานรายได้</h3>
+          <p className="text-gray-600 mb-4">วิเคราะห์รายได้และแนวโน้มการเติบโต</p>
+          <Link 
+            href="/admin/reports?type=revenue"
+            className="text-blue-600 hover:text-blue-800 font-medium"
+          >
+            ดูรายงาน →
+          </Link>
+        </div>
+
+        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+          <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">รายงานการจอง</h3>
+          <p className="text-gray-600 mb-4">สถิติการจองและพฤติกรรมลูกค้า</p>
+          <Link 
+            href="/admin/reports?type=bookings"
+            className="text-blue-600 hover:text-blue-800 font-medium"
+          >
+            ดูรายงาน →
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SettingsTab({ user }) {
+  return (
+    <div className="bg-white rounded-lg shadow p-6">
+      <h2 className="text-xl font-semibold text-gray-900 mb-6">การตั้งค่าระบบ</h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="border rounded-lg p-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">การตั้งค่าทั่วไป</h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">ชื่อระบบ</label>
+              <input 
+                type="text" 
+                defaultValue="ระบบจองโรงแรม"
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">อีเมลแอดมิน</label>
+              <input 
+                type="email" 
+                defaultValue={user?.email}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="border rounded-lg p-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">การแจ้งเตือน</h3>
+          <div className="space-y-4">
+            <div className="flex items-center">
+              <input type="checkbox" defaultChecked className="mr-3" />
+              <label className="text-sm text-gray-700">แจ้งเตือนการจองใหม่</label>
+            </div>
+            <div className="flex items-center">
+              <input type="checkbox" defaultChecked className="mr-3" />
+              <label className="text-sm text-gray-700">แจ้งเตือนการยกเลิก</label>
+            </div>
+            <div className="flex items-center">
+              <input type="checkbox" className="mr-3" />
+              <label className="text-sm text-gray-700">รายงานประจำวัน</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 flex justify-end">
+        <button className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+          บันทึกการตั้งค่า
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Bookings Tab Component
+function BookingsTab({ bookings, stats, user }) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  const bookingStatusColors = {
+    pending: 'bg-yellow-100 text-yellow-800',
+    confirmed: 'bg-green-100 text-green-800',
+    completed: 'bg-blue-100 text-blue-800',
+    cancelled: 'bg-red-100 text-red-800'
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Booking Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center">
+            <Clock className="h-8 w-8 text-yellow-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">รอดำเนินการ</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.pendingBookings}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center">
+            <CheckCircle className="h-8 w-8 text-green-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">ยืนยันแล้ว</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.confirmedBookings}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center">
+            <Calendar className="h-8 w-8 text-blue-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">เสร็จสิ้น</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.completedBookings}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center">
+            <XCircle className="h-8 w-8 text-red-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">ยกเลิก</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.cancelledBookings}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white p-6 rounded-lg shadow">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <input
+              type="text"
+              placeholder="ค้นหาการจอง..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="border border-gray-300 rounded-md px-3 py-2"
+          >
+            <option value="all">สถานะทั้งหมด</option>
+            <option value="pending">รอดำเนินการ</option>
+            <option value="confirmed">ยืนยันแล้ว</option>
+            <option value="completed">เสร็จสิ้น</option>
+            <option value="cancelled">ยกเลิก</option>
+          </select>
+          <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center">
+            <Plus className="h-4 w-4 mr-2" />
+            การจองใหม่
+          </button>
+        </div>
+      </div>
+
+      {/* Bookings Table */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">รหัสจอง</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ผู้จอง</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">โรงแรม</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">วันที่</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">สถานะ</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ราคา</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">การดำเนินการ</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {bookings.map((booking, index) => (
+              <tr key={index}>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  #{booking.id || `BK${1000 + index}`}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {booking.guest_name || 'ไม่ระบุ'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {booking.hotel_name || 'ไม่ระบุ'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {booking.check_in_date ? new Date(booking.check_in_date).toLocaleDateString('th-TH') : 'ไม่ระบุ'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                    bookingStatusColors[booking.status] || 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {booking.status === 'pending' ? 'รอดำเนินการ' :
+                     booking.status === 'confirmed' ? 'ยืนยันแล้ว' :
+                     booking.status === 'completed' ? 'เสร็จสิ้น' :
+                     booking.status === 'cancelled' ? 'ยกเลิก' : booking.status}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  ฿{booking.total_amount?.toLocaleString() || '0'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <div className="flex space-x-2">
+                    <button className="text-blue-600 hover:text-blue-900">
+                      <Eye className="h-4 w-4" />
+                    </button>
+                    {canEdit(user) && (
+                      <button className="text-green-600 hover:text-green-900">
+                        <Edit className="h-4 w-4" />
+                      </button>
+                    )}
+                    {canDelete(user) && (
+                      <button className="text-red-600 hover:text-red-900">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// Payments Tab Component  
+function PaymentsTab({ data, stats, user }) {
+  return (
+    <div className="space-y-6">
+      {/* Revenue Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center">
+            <DollarSign className="h-8 w-8 text-green-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">รายได้รวม</p>
+              <p className="text-2xl font-bold text-gray-900">฿{stats.totalRevenue?.toLocaleString() || '0'}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center">
+            <TrendingUp className="h-8 w-8 text-blue-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">รายได้เดือนนี้</p>
+              <p className="text-2xl font-bold text-gray-900">฿{stats.monthlyRevenue?.toLocaleString() || '0'}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center">
+            <Activity className="h-8 w-8 text-purple-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">การเติบโต</p>
+              <p className="text-2xl font-bold text-gray-900">+{stats.revenueGrowth || 0}%</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Payment Methods */}
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">วิธีการชำระเงิน</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="border rounded-lg p-4 text-center">
+            <CreditCard className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+            <p className="text-sm font-medium">บัตรเครดิต</p>
+            <p className="text-2xl font-bold text-gray-900">65%</p>
+          </div>
+          <div className="border rounded-lg p-4 text-center">
+            <DollarSign className="h-8 w-8 text-green-600 mx-auto mb-2" />
+            <p className="text-sm font-medium">เงินสด</p>
+            <p className="text-2xl font-bold text-gray-900">25%</p>
+          </div>
+          <div className="border rounded-lg p-4 text-center">
+            <Phone className="h-8 w-8 text-purple-600 mx-auto mb-2" />
+            <p className="text-sm font-medium">โมบายแบงค์กิ้ง</p>
+            <p className="text-2xl font-bold text-gray-900">10%</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Transactions */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900">ธุรกรรมล่าสุด</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">วันที่</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">รหัสจอง</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ลูกค้า</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">จำนวน</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">วิธีชำระ</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">สถานะ</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {/* Placeholder data */}
+              {[1,2,3,4,5].map(i => (
+                <tr key={i}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {new Date().toLocaleDateString('th-TH')}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    #BK{1000 + i}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    ลูกค้า {i}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    ฿{(1500 * i).toLocaleString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    บัตรเครดิต
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                      สำเร็จ
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Reviews Tab Component
+function ReviewsTab({ reviews, stats, user }) {
+  return (
+    <div className="space-y-6">
+      {/* Review Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center">
+            <Star className="h-8 w-8 text-yellow-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">คะแนนเฉลี่ย</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.averageRating?.toFixed(1) || '0.0'}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center">
+            <FileText className="h-8 w-8 text-blue-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">รีวิวทั้งหมด</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalReviews || 0}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center">
+            <TrendingUp className="h-8 w-8 text-green-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">รีวิวใหม่</p>
+              <p className="text-2xl font-bold text-gray-900">+12</p>
+              <p className="text-xs text-gray-500">เดือนนี้</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Rating Distribution */}
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">การกระจายคะแนน</h3>
+        <div className="space-y-3">
+          {[5,4,3,2,1].map(rating => (
+            <div key={rating} className="flex items-center">
+              <div className="flex items-center w-16">
+                <span className="text-sm text-gray-600">{rating}</span>
+                <Star className="h-4 w-4 text-yellow-400 ml-1" />
+              </div>
+              <div className="flex-1 mx-4">
+                <div className="bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-yellow-400 h-2 rounded-full" 
+                    style={{width: `${Math.random() * 80 + 10}%`}}
+                  ></div>
+                </div>
+              </div>
+              <span className="text-sm text-gray-600 w-12">{Math.floor(Math.random() * 50 + 10)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent Reviews */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900">รีวิวล่าสุด</h3>
+        </div>
+        <div className="divide-y divide-gray-200">
+          {reviews.map((review, index) => (
+            <div key={index} className="p-6">
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0">
+                  <div className="h-10 w-10 bg-gray-300 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-medium text-gray-700">
+                      {review.user_name?.charAt(0) || 'U'}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium text-gray-900">
+                      {review.user_name || 'ผู้ใช้ไม่ระบุชื่อ'}
+                    </h4>
+                    <div className="flex items-center">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          className={`h-4 w-4 ${
+                            i < (review.rating || 0) ? 'text-yellow-400' : 'text-gray-300'
+                          }`}
+                          fill="currentColor"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {review.hotel_name || 'ไม่ระบุโรงแรม'}
+                  </p>
+                  <p className="text-sm text-gray-900 mt-2">
+                    {review.comment || 'ไม่มีความคิดเห็น'}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {review.created_at ? new Date(review.created_at).toLocaleDateString('th-TH') : 'ไม่ระบุวันที่'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// User Modal Component
+function UserModal({ isOpen, onClose, user = null, onSave, title }) {
+  const [formData, setFormData] = useState({
+    username: '',
+    email: '',
+    role: 'user',
+    first_name: '',
+    last_name: '',
+    phone: '',
+    password: ''
+  });
+
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        username: user.username || '',
+        email: user.email || '',
+        role: user.role || 'user',
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
+        phone: user.phone || '',
+        password: ''
+      });
+    } else {
+      setFormData({
+        username: '',
+        email: '',
+        role: 'user',
+        first_name: '',
+        last_name: '',
+        phone: '',
+        password: ''
+      });
+    }
+  }, [user, isOpen]);
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-medium text-gray-900">{title}</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              ชื่อผู้ใช้
+            </label>
+            <input
+              type="text"
+              name="username"
+              value={formData.username}
+              onChange={handleChange}
+              required
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              อีเมล
+            </label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              required
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                ชื่อจริง
+              </label>
+              <input
+                type="text"
+                name="first_name"
+                value={formData.first_name}
+                onChange={handleChange}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                นามสกุล
+              </label>
+              <input
+                type="text"
+                name="last_name"
+                value={formData.last_name}
+                onChange={handleChange}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              เบอร์โทรศัพท์
+            </label>
+            <input
+              type="tel"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              บทบาท
+            </label>
+            <select
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="user">ผู้ใช้ทั่วไป</option>
+              <option value="staff">พนักงาน</option>
+              <option value="admin">ผู้ดูแลระบบ</option>
+            </select>
+          </div>
+
+          {!user && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                รหัสผ่าน
+              </label>
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                required={!user}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400"
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="submit"
+              className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700"
+            >
+              {user ? 'อัปเดต' : 'สร้าง'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { 
   Hotel, Calendar, User, Users, Settings, BarChart3, 
   DollarSign, MessageSquare, Star, LogOut, Menu, X, 
-  ChevronDown, ChevronRight, Bed, CreditCard, Bell,
+  ChevronRight, Bed, CreditCard, Bell,
   Shield, UserCheck, FileText, Database, UserPlus
 } from 'lucide-react';
 import { useTranslation } from '../translations';
@@ -101,58 +101,29 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }) {
       key: 'bookings-management',
       label: 'จัดการการจอง',
       icon: Calendar,
-      children: [
-        {
-          key: 'all-bookings',
-          label: 'การจองทั้งหมด',
-          href: '/admin/bookings',
-          active: pathname === '/admin/bookings'
-        },
-        {
-          key: 'booking-calendar',
-          label: 'ปฏิทินการจอง',
-          href: '/admin/calendar',
-          active: pathname === '/admin/calendar'
-        }
-      ]
+      href: '/admin/bookings',
+      active: pathname === '/admin/bookings'
+    },
+    {
+      key: 'booking-calendar',
+      label: 'ปฏิทินการจอง',
+      icon: Calendar,
+      href: '/admin/calendar',
+      active: pathname === '/admin/calendar'
     },
     {
       key: 'rooms-management',
       label: 'จัดการห้องพัก',
       icon: Bed,
-      children: [
-        {
-          key: 'room-types',
-          label: 'ประเภทห้องพัก',
-          href: '/admin/room-types',
-          active: pathname === '/admin/room-types'
-        },
-        {
-          key: 'room-status',
-          label: 'สถานะห้องพัก',
-          href: '/admin/room-status',
-          active: pathname === '/admin/room-status'
-        }
-      ]
+      href: '/admin/rooms',
+      active: pathname === '/admin/rooms'
     },
     {
       key: 'users-management',
       label: 'จัดการผู้ใช้',
       icon: Users,
-      children: [
-        {
-          key: 'customers',
-          label: 'ลูกค้า',
-          href: '/admin/users/customers',
-          active: pathname === '/admin/users/customers'
-        },
-        {
-          key: 'staff',
-          label: 'พนักงาน',
-          href: '/admin/users/staff',
-          active: pathname === '/admin/users/staff'
-        }
-      ]
+      href: '/admin/user-management',
+      active: pathname === '/admin/user-management'
     },
     {
       key: 'payments',
@@ -165,45 +136,15 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }) {
       key: 'reports',
       label: 'รายงาน',
       icon: FileText,
-      children: [
-        {
-          key: 'revenue-report',
-          label: 'รายงานรายได้',
-          href: '/admin/reports/revenue',
-          active: pathname === '/admin/reports/revenue'
-        },
-        {
-          key: 'booking-report',
-          label: 'รายงานการจอง',
-          href: '/admin/reports/bookings',
-          active: pathname === '/admin/reports/bookings'
-        }
-      ]
+      href: '/admin/reports',
+      active: pathname === '/admin/reports'
     },
     {
       key: 'settings',
       label: 'การตั้งค่า',
       icon: Settings,
-      children: [
-        {
-          key: 'hotel-settings',
-          label: 'ตั้งค่าโรงแรม',
-          href: '/admin/settings/hotel',
-          active: pathname === '/admin/settings/hotel'
-        },
-        {
-          key: 'payment-settings',
-          label: 'ตั้งค่าการชำระเงิน',
-          href: '/admin/settings/payment',
-          active: pathname === '/admin/settings/payment'
-        },
-        {
-          key: 'notification-settings',
-          label: 'ตั้งค่าการแจ้งเตือน',
-          href: '/admin/settings/notifications',
-          active: pathname === '/admin/settings/notifications'
-        }
-      ]
+      href: '/admin/payment-settings',
+      active: pathname === '/admin/payment-settings'
     }
   ];
 
@@ -253,52 +194,7 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }) {
   };
 
   const renderMenuItem = (item, level = 0) => {
-    const hasChildren = item.children && item.children.length > 0;
-    const isExpanded = expandedMenus[item.key];
     const Icon = item.icon;
-
-    if (hasChildren) {
-      return (
-        <div key={item.key} className="mb-1">
-          <button
-            onClick={() => toggleMenu(item.key)}
-            className={`w-full flex items-center justify-between px-4 py-3 text-left rounded-lg transition-all duration-200 ${
-              isCollapsed ? 'px-3' : ''
-            } ${
-              item.active || item.children?.some(child => child.active)
-                ? 'bg-blue-600 text-white shadow-lg'
-                : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
-            }`}
-          >
-            <div className="flex items-center">
-              <Icon className={`${isCollapsed ? 'w-5 h-5' : 'w-5 h-5 mr-3'} flex-shrink-0`} />
-              {!isCollapsed && <span className="font-medium">{item.label}</span>}
-            </div>
-            {!isCollapsed && (
-              isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />
-            )}
-          </button>
-          
-          {!isCollapsed && isExpanded && (
-            <div className="ml-4 mt-1 space-y-1">
-              {item.children.map(child => (
-                <Link
-                  key={child.key}
-                  href={child.href}
-                  className={`block px-4 py-2 rounded-lg text-sm transition-all duration-200 ${
-                    child.active
-                      ? 'bg-blue-500 text-white shadow-md'
-                      : 'text-gray-400 hover:bg-gray-700/30 hover:text-white'
-                  }`}
-                >
-                  {child.label}
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      );
-    }
 
     return (
       <Link

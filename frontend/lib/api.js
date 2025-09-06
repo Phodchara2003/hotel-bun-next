@@ -2,24 +2,39 @@ import axios from 'axios';
 import Cookies from 'js-cookie';
 import toast from 'react-hot-toast';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 
 // Create axios instance
 const api = axios.create({
   baseURL: `${API_BASE_URL}/api`,
-  timeout: 10000, // 10 second timeout
+  timeout: 30000, // 30 second timeout (increased from 10s)
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token and handle token refresh
 api.interceptors.request.use(
   (config) => {
     const token = Cookies.get('auth_token');
     console.log('API Request:', config.url, 'Token:', token ? 'Present' : 'Missing');
+    
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      
+      // Check if token is about to expire (if we have exp info)
+      try {
+        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+        const currentTime = Math.floor(Date.now() / 1000);
+        const timeUntilExpiry = tokenPayload.exp - currentTime;
+        
+        // If token expires in less than 5 minutes, log warning
+        if (timeUntilExpiry < 300) {
+          console.warn('Token expires soon:', timeUntilExpiry, 'seconds remaining');
+        }
+      } catch (error) {
+        console.log('Could not parse token payload:', error);
+      }
     }
     return config;
   },
@@ -28,30 +43,102 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle errors
+// Response interceptor to handle errors and token management
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Log successful responses for debugging
+    console.log('API Response:', response.config.url, response.status);
+    return response;
+  },
   (error) => {
+    console.error('API Error:', error.config?.url, error.response?.status, error.message);
+    
+    // Handle timeout errors
+    if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
+      console.log('Request timeout - consider retrying...');
+      toast.error('Request taking longer than expected. Please try again.');
+      return Promise.reject(new Error('Request timeout. Please try again.'));
+    }
+    
+    // Handle network errors
+    if (!error.response) {
+      console.log('Network error - server may be down');
+      toast.error('Unable to connect to server. Please check your connection.');
+      return Promise.reject(new Error('Network error. Please check your connection.'));
+    }
+    
+    // Handle authentication errors
     if (error.response?.status === 401) {
-      // Token expired or invalid
-      console.log('401 Unauthorized - Token expired or invalid');
+      console.log('401 Unauthorized - Token issue detected');
       console.log('Error details:', error.response.data);
       
-      // Don't auto-remove tokens - let user decide to logout manually
-      // Only log the error for debugging
-      console.log('Token may be expired, but keeping user logged in');
-      
-      // Show error message for admin routes only
-      if (typeof window !== 'undefined') {
-        console.log('Current path:', window.location.pathname);
-        if (window.location.pathname.startsWith('/admin/')) {
-          toast.error('Some operations may require re-authentication');
+      const currentToken = Cookies.get('auth_token');
+      if (currentToken) {
+        try {
+          const tokenPayload = JSON.parse(atob(currentToken.split('.')[1]));
+          const currentTime = Math.floor(Date.now() / 1000);
+          
+          if (tokenPayload.exp < currentTime) {
+            console.log('Token has expired');
+            toast.error('Session expired. Please log in again.');
+            
+            // Clear expired token and redirect to login
+            Cookies.remove('auth_token');
+            if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin/')) {
+              window.location.href = '/auth/login';
+            }
+          } else {
+            console.log('Token is still valid but server rejected it');
+            toast.error('Authentication error. Please try logging in again.');
+          }
+        } catch (tokenError) {
+          console.log('Could not parse token:', tokenError);
+          toast.error('Invalid session. Please log in again.');
+          Cookies.remove('auth_token');
+        }
+      } else {
+        console.log('No token found');
+        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin/')) {
+          toast.error('Please log in to access this area.');
+          window.location.href = '/auth/login';
         }
       }
     }
+    
+    // Handle server errors
+    if (error.response?.status >= 500) {
+      console.log('Server error:', error.response.status);
+      toast.error('Server error. Please try again later.');
+    }
+    
     return Promise.reject(error);
   }
 );
+
+// Retry wrapper for API calls
+const retryRequest = async (requestFn, maxRetries = 2, delay = 1000) => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await requestFn();
+    } catch (error) {
+      console.log(`API request attempt ${attempt} failed:`, error.message);
+      
+      if (attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Wait before retrying
+      if (error.code === 'ECONNABORTED' || !error.response) {
+        console.log(`Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2; // Exponential backoff
+      } else {
+        // Don't retry for non-timeout errors
+        throw error;
+      }
+    }
+  }
+};
 
 // Auth API
 export const authAPI = {
@@ -126,8 +213,10 @@ export const bookingAPI = {
 
   // Admin APIs
   getAllBookings: async (params = {}) => {
-    const response = await api.get('/bookings/admin/all', { params });
-    return response.data;
+    return retryRequest(async () => {
+      const response = await api.get('/bookings/admin/all', { params });
+      return response.data;
+    });
   },
 
   confirmBooking: async (id) => {
@@ -182,8 +271,10 @@ export const bookingAPI = {
 export const roomsAPI = {
   // Get all rooms (Admin)
   getAllRooms: async () => {
-    const response = await api.get('/admin/rooms/');
-    return response.data;
+    return retryRequest(async () => {
+      const response = await api.get('/admin/rooms/');
+      return response.data;
+    });
   },
 
   // Get single room (Admin)
@@ -228,6 +319,12 @@ export const roomsAPI = {
 
 // Users Management API (Admin)
 export const usersAPI = {
+  // Get all users (Admin) - Alias for getAllUsers
+  getUsers: async (params = {}) => {
+    const response = await api.get('/admin/users', { params });
+    return response.data;
+  },
+
   // Get all users (Admin)
   getAllUsers: async (params = {}) => {
     const response = await api.get('/admin/users', { params });
@@ -471,6 +568,245 @@ export const housekeepingAPI = {
   // ดูสถิติ housekeeping
   getStats: async (period = '7') => {
     const response = await api.get(`/housekeeping/stats?period=${period}`);
+    return response.data;
+  }
+};
+
+// User Management API (Admin)
+export const userAPI = {
+  // Get all users (Admin)
+  getAll: async (params = {}) => {
+    const response = await api.get('/admin/users', { params });
+    return response.data;
+  },
+
+  // Get user by ID (Admin)
+  getById: async (id) => {
+    const response = await api.get(`/admin/users/${id}`);
+    return response.data;
+  },
+
+  // Create new user (Admin)
+  create: async (userData) => {
+    const response = await api.post('/admin/users', userData);
+    return response.data;
+  },
+
+  // Update user (Admin)
+  update: async (id, userData) => {
+    const response = await api.put(`/admin/users/${id}`, userData);
+    return response.data;
+  },
+
+  // Delete user (Admin)
+  delete: async (id) => {
+    const response = await api.delete(`/admin/users/${id}`);
+    return response.data;
+  },
+
+  // Update user status (Admin)
+  updateStatus: async (id, status) => {
+    const response = await api.put(`/admin/users/${id}/status`, { status });
+    return response.data;
+  },
+
+  // Get user statistics (Admin)
+  getStats: async () => {
+    const response = await api.get('/admin/users/stats');
+    return response.data;
+  }
+};
+
+// Payment Management API (Admin)
+export const paymentAPI = {
+  // Get all payments (Admin)
+  getAll: async (params = {}) => {
+    const response = await api.get('/admin/payments', { params });
+    return response.data;
+  },
+
+  // Get payment by ID (Admin)
+  getPaymentById: async (id) => {
+    const response = await api.get(`/admin/payments/${id}`);
+    return response.data;
+  },
+
+  // Update payment status (Admin)
+  updatePaymentStatus: async (id, status) => {
+    const response = await api.put(`/admin/payments/${id}/status`, { status });
+    return response.data;
+  },
+
+  // Get payment statistics (Admin)
+  getPaymentStats: async (params = {}) => {
+    const response = await api.get('/admin/payments/stats', { params });
+    return response.data;
+  }
+};
+
+// Dashboard API with enhanced error handling
+export const dashboardAPI = {
+  // Get comprehensive dashboard stats with retry logic
+  getStats: async (params = {}) => {
+    try {
+      console.log('🚀 Fetching dashboard stats...', params);
+      const response = await retryRequest(() => 
+        api.get('/admin/dashboard/stats', { params }), 3, 1000
+      );
+      console.log('✅ Dashboard stats fetched successfully');
+      return response.data;
+    } catch (error) {
+      console.error('❌ Failed to fetch dashboard stats:', error);
+      // Return fallback data if API fails
+      if (error.response?.status >= 500 || !error.response) {
+        console.log('Returning fallback dashboard data');
+        return {
+          stats: {
+            totalBookings: 0,
+            pendingBookings: 0,
+            confirmedBookings: 0,
+            completedBookings: 0,
+            cancelledBookings: 0,
+            totalUsers: 0,
+            newUsersThisMonth: 0,
+            activeUsers: 0,
+            staffUsers: 0,
+            adminUsers: 0,
+            totalRevenue: 0,
+            monthlyRevenue: 0,
+            revenueGrowth: 0,
+            totalHotels: 0,
+            totalRooms: 0,
+            occupancyRate: 0,
+            totalReviews: 0,
+            averageRating: 0,
+          },
+          recentBookings: [],
+          topHotels: [],
+          bookingTrends: []
+        };
+      }
+      throw error;
+    }
+  },
+
+  // Get revenue analytics with fallback
+  getRevenueAnalytics: async (params = {}) => {
+    try {
+      console.log('🚀 Fetching revenue analytics...', params);
+      const response = await retryRequest(() => 
+        api.get('/admin/dashboard/revenue', { params }), 2, 1000
+      );
+      console.log('✅ Revenue analytics fetched successfully');
+      return response.data;
+    } catch (error) {
+      console.error('❌ Failed to fetch revenue analytics:', error);
+      // Return fallback data
+      return {
+        daily: [],
+        monthly: [],
+        yearly: []
+      };
+    }
+  },
+
+  // Get user analytics with fallback  
+  getUserAnalytics: async (params = {}) => {
+    try {
+      console.log('🚀 Fetching user analytics...', params);
+      const response = await retryRequest(() => 
+        api.get('/admin/dashboard/users-analytics', { params }), 2, 1000
+      );
+      console.log('✅ User analytics fetched successfully');
+      return response.data;
+    } catch (error) {
+      console.error('❌ Failed to fetch user analytics:', error);
+      return {
+        registrations: [],
+        activeUsers: 0,
+        totalUsers: 0
+      };
+    }
+  },
+
+  // Get hotel performance with fallback
+  getHotelPerformance: async (params = {}) => {
+    try {
+      console.log('🚀 Fetching hotel performance...', params);
+      const response = await retryRequest(() => 
+        api.get('/admin/dashboard/hotels-performance', { params }), 2, 1000
+      );
+      console.log('✅ Hotel performance fetched successfully');
+      return response.data;
+    } catch (error) {
+      console.error('❌ Failed to fetch hotel performance:', error);
+      return [];
+    }
+  }
+};
+
+// Reports API
+export const reportsAPI = {
+  // Get revenue report
+  getRevenueReport: async (params = {}) => {
+    const response = await api.get('/admin/reports/revenue', { params });
+    return response.data;
+  },
+
+  // Get booking report
+  getBookingReport: async (params = {}) => {
+    const response = await api.get('/admin/reports/bookings', { params });
+    return response.data;
+  },
+
+  // Get user report
+  getUserReport: async (params = {}) => {
+    const response = await api.get('/admin/reports/users', { params });
+    return response.data;
+  },
+
+  // Get hotel report
+  getHotelReport: async (params = {}) => {
+    const response = await api.get('/admin/reports/hotels', { params });
+    return response.data;
+  }
+};
+
+// Hotels API (extended)
+export const hotelsAPI = {
+  // Get all hotels
+  getHotels: async (params = {}) => {
+    const response = await api.get('/hotels', { params });
+    return response.data;
+  },
+
+  // Get hotel by ID
+  getHotel: async (id) => {
+    const response = await api.get(`/hotels/${id}`);
+    return response.data;
+  },
+
+  // Create hotel (Admin)
+  createHotel: async (hotelData) => {
+    const response = await api.post('/admin/hotels', hotelData);
+    return response.data;
+  },
+
+  // Update hotel (Admin)
+  updateHotel: async (id, hotelData) => {
+    const response = await api.put(`/admin/hotels/${id}`, hotelData);
+    return response.data;
+  },
+
+  // Delete hotel (Admin)
+  deleteHotel: async (id) => {
+    const response = await api.delete(`/admin/hotels/${id}`);
+    return response.data;
+  },
+
+  // Get hotel statistics (Admin)
+  getHotelStats: async (params = {}) => {
+    const response = await api.get('/admin/hotels/stats', { params });
     return response.data;
   }
 };

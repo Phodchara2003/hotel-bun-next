@@ -56,7 +56,7 @@ export const requireAdmin = async ({ headers, set }) => {
   const user = await authMiddleware({ headers, set });
   if (user.error) return user;
   
-  if (user.role !== 'admin') {
+  if (!['admin', 'super_admin'].includes(user.role)) {
     set.status = 403;
     return { error: 'Admin access required' };
   }
@@ -69,7 +69,7 @@ export const requireStaff = async ({ headers, set }) => {
   const user = await authMiddleware({ headers, set });
   if (user.error) return user;
   
-  if (!['staff', 'admin'].includes(user.role)) {
+  if (!['staff', 'admin', 'super_admin'].includes(user.role)) {
     set.status = 403;
     return { error: 'Staff or admin access required' };
   }

@@ -5,11 +5,12 @@ import { hashPassword } from '../utils/auth.js';
 import 'dotenv/config';
 
 // Admin Users API
-export const adminUsersRoutes = new Elysia({ prefix: '/admin/users' })
+export const adminUsersRoutes = new Elysia()
   // Get all users (Admin/Staff)
   .get('/', async ({ headers, query, set }) => {
     try {
-      console.log('Admin users request received');
+      console.log('🚀 Admin users GET request received');
+      console.log('📋 Query params:', query);
       
       // Authenticate staff or admin
       const user = await requireStaff({ headers, set });
@@ -38,6 +39,10 @@ export const adminUsersRoutes = new Elysia({ prefix: '/admin/users' })
 
       const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
+      console.log('📋 SQL Query params:', params);
+      console.log('📋 WHERE clause:', whereClause);
+      console.log('📋 LIMIT/OFFSET:', limit, offset);
+
       const result = await sql.unsafe(`
         SELECT 
           id, email, first_name, last_name, phone, role, created_at, updated_at
@@ -47,26 +52,28 @@ export const adminUsersRoutes = new Elysia({ prefix: '/admin/users' })
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}
       `, [...params, limit, offset]);
 
+      console.log('📊 Query result count:', result.length);
+
       // Get total count
       const countResult = await sql.unsafe(`
         SELECT COUNT(*) as total FROM users ${whereClause}
       `, params);
 
       const total = parseInt(countResult[0].total);
+      console.log('📊 Total users count:', total);
 
       const users = result.map(user => ({
         id: user.id,
         email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        fullName: `${user.first_name} ${user.last_name}`,
+        first_name: user.first_name,
+        last_name: user.last_name,
         phone: user.phone,
         role: user.role,
-        createdAt: user.created_at,
-        updatedAt: user.updated_at
+        created_at: user.created_at,
+        updated_at: user.updated_at
       }));
 
-      return {
+      const responseData = {
         users,
         pagination: {
           page: parseInt(page),
@@ -75,6 +82,13 @@ export const adminUsersRoutes = new Elysia({ prefix: '/admin/users' })
           totalPages: Math.ceil(total / limit)
         }
       };
+
+      console.log('✅ Response data prepared:', {
+        usersCount: users.length,
+        pagination: responseData.pagination
+      });
+
+      return responseData;
     } catch (error) {
       console.error('Error fetching users:', error);
       set.status = 500;
@@ -94,8 +108,8 @@ export const adminUsersRoutes = new Elysia({ prefix: '/admin/users' })
         return user;
       }
       
-      if (user.role !== 'admin') {
-        console.log('Access denied: user is not admin');
+      if (!['admin', 'super_admin'].includes(user.role)) {
+        console.log('Access denied: user role is', user.role);
         set.status = 403;
         return { error: 'Admin access required' };
       }
@@ -163,8 +177,8 @@ export const adminUsersRoutes = new Elysia({ prefix: '/admin/users' })
         return user;
       }
       
-      if (user.role !== 'admin') {
-        console.log('Access denied: user is not admin');
+      if (!['admin', 'super_admin'].includes(user.role)) {
+        console.log('Access denied: user role is', user.role);
         set.status = 403;
         return { error: 'Admin access required' };
       }
@@ -193,7 +207,16 @@ export const adminUsersRoutes = new Elysia({ prefix: '/admin/users' })
       const result = await sql`
         INSERT INTO users (
           email, password, first_name, last_name, phone, role, created_at, updated_at
-        ) VALUES (${email}, ${hashedPassword}, ${firstName}, ${lastName}, ${phone}, ${role}, NOW(), NOW())
+        ) VALUES (
+          ${email}, 
+          ${hashedPassword}, 
+          ${firstName}, 
+          ${lastName}, 
+          ${phone || null}, 
+          ${role}, 
+          NOW(), 
+          NOW()
+        )
         RETURNING id, email, first_name, last_name, phone, role, created_at, updated_at
       `;
 
@@ -201,6 +224,7 @@ export const adminUsersRoutes = new Elysia({ prefix: '/admin/users' })
       
       return {
         message: 'User created successfully',
+        success: true,
         user: {
           id: newUser.id,
           email: newUser.email,
@@ -232,8 +256,8 @@ export const adminUsersRoutes = new Elysia({ prefix: '/admin/users' })
         return user;
       }
       
-      if (user.role !== 'admin') {
-        console.log('Access denied: user is not admin');
+      if (!['admin', 'super_admin'].includes(user.role)) {
+        console.log('Access denied: user role is', user.role);
         set.status = 403;
         return { error: 'Admin access required' };
       }
@@ -319,8 +343,8 @@ export const adminUsersRoutes = new Elysia({ prefix: '/admin/users' })
         return user;
       }
       
-      if (user.role !== 'admin') {
-        console.log('Access denied: user is not admin');
+      if (!['admin', 'super_admin'].includes(user.role)) {
+        console.log('Access denied: user role is', user.role);
         set.status = 403;
         return { error: 'Admin access required' };
       }
@@ -372,8 +396,8 @@ export const adminUsersRoutes = new Elysia({ prefix: '/admin/users' })
         return user;
       }
       
-      if (user.role !== 'admin') {
-        console.log('Access denied: user is not admin');
+      if (!['admin', 'super_admin'].includes(user.role)) {
+        console.log('Access denied: user role is', user.role);
         set.status = 403;
         return { error: 'Admin access required' };
       }

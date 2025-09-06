@@ -17,8 +17,8 @@ export const adminRoomsRoutes = new Elysia()
         return user || { error: 'Authentication required' };
       }
 
-      // Check if user is admin
-      if (user.role !== 'admin') {
+      // Check if user is admin or super_admin
+      if (!['admin', 'super_admin'].includes(user.role)) {
         set.status = 403;
         return { error: 'Admin access required' };
       }
@@ -441,6 +441,54 @@ export const adminRoomsRoutes = new Elysia()
       };
     } catch (error) {
       console.error('Error toggling room availability:', error);
+      set.status = 500;
+      return { error: 'Internal server error' };
+    }
+  });
+
+// Room Types API for filtering
+export const roomTypesRoutes = new Elysia()
+  // Get all room types (Admin/Staff)
+  .get('/', async ({ headers, set }) => {
+    try {
+      console.log('Room types request received');
+      
+      // Manual auth check
+      const user = await authMiddleware({ headers, set });
+      if (!user || user.error) {
+        return user || { error: 'Authentication required' };
+      }
+
+      // Check if user has admin or staff access
+      if (!['admin', 'staff'].includes(user.role)) {
+        set.status = 403;
+        return { error: 'Admin or staff access required' };
+      }
+      
+      console.log('Authenticated user:', { id: user.id, role: user.role });
+
+      const result = await sql`
+        SELECT DISTINCT 
+          rt.name,
+          rt.id,
+          COUNT(*) as count
+        FROM room_types rt
+        JOIN hotels h ON rt.hotel_id = h.id
+        WHERE rt.available = true
+        GROUP BY rt.id, rt.name
+        ORDER BY rt.name ASC
+      `;
+
+      const roomTypes = result.map(type => ({
+        id: type.id,
+        name: type.name,
+        count: parseInt(type.count)
+      }));
+
+      console.log('Room types found:', roomTypes.length);
+      return { roomTypes };
+    } catch (error) {
+      console.error('Error fetching room types:', error);
       set.status = 500;
       return { error: 'Internal server error' };
     }

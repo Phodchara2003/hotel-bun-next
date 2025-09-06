@@ -5,6 +5,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { bookingAPI } from '../../../lib/api';
 import { isStaffOrAdmin } from '../../../lib/roles';
 import toast from 'react-hot-toast';
+import AdminNavigation from '../../../components/AdminNavigation';
 import {
   Calendar,
   Users,
@@ -12,54 +13,47 @@ import {
   TrendingUp,
   FileText,
   Download,
-  RefreshCw,
   BarChart3,
-  Activity,
-  Clock,
-  Loader2
+  Bed,
+  CreditCard
 } from 'lucide-react';
 
 export default function AdminReports() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [isVisible, setIsVisible] = useState(false);
   const [reportType, setReportType] = useState('financial');
   const [period, setPeriod] = useState('monthly');
   const [dateRange, setDateRange] = useState({
     startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0]
   });
-  
-  const [reportData, setReportData] = useState({
-    financial: {
-      totalRevenue: 0,
-      bookingsCount: 0,
-      averageBookingValue: 0,
-      roomTypeRevenue: [],
-      paymentMethods: []
-    },
-    occupancy: {
-      totalBookings: 0,
-      occupancyRate: 0,
-      averageStayDuration: 0,
-      roomTypeOccupancy: []
-    }
-  });
+  const [reportData, setReportData] = useState(null);
+
+  const reportTypes = [
+    { value: 'financial', label: 'รายงานการเงิน' },
+    { value: 'occupancy', label: 'อัตราการเข้าพัก' }
+  ];
+
+  const periods = [
+    { value: 'daily', label: 'รายวัน' },
+    { value: 'weekly', label: 'รายสัปดาห์' },
+    { value: 'monthly', label: 'รายเดือน' },
+    { value: 'yearly', label: 'รายปี' },
+    { value: 'custom', label: 'กำหนดเอง' }
+  ];
 
   useEffect(() => {
-    if (authLoading) return;
-    
-    if (isAuthenticated && isStaffOrAdmin(user)) {
+    setIsVisible(true);
+    if (isAuthenticated && user && isStaffOrAdmin(user)) {
       fetchReportData();
-    } else if (isAuthenticated && !isStaffOrAdmin(user)) {
-      toast.error('คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
-    } else if (!isAuthenticated) {
-      toast.error('กรุณาเข้าสู่ระบบก่อน');
     }
-  }, [isAuthenticated, user, authLoading, reportType, period, dateRange]);
+  }, [isAuthenticated, user, reportType, period, dateRange]);
 
   const fetchReportData = async () => {
-    setLoading(true);
     try {
+      setLoading(true);
+      
       const response = await bookingAPI.getAllBookings({
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
@@ -76,348 +70,393 @@ export default function AdminReports() {
       
     } catch (error) {
       console.error('Error fetching report data:', error);
-      toast.error('ไม่สามารถโหลดข้อมูลรายงานได้');
+      toast.error('เกิดข้อผิดพลาดในการดึงข้อมูลรายงาน');
     } finally {
       setLoading(false);
     }
   };
 
   const processFinancialData = (bookings) => {
-    const confirmedBookings = bookings.filter(b => 
-      b?.status === 'confirmed' || b?.status === 'completed'
-    );
+    let revenue = 0;
+    let totalBookings = 0;
+    const monthlyData = {};
     
-    const totalRevenue = confirmedBookings.reduce((sum, booking) => 
-      sum + (parseFloat(booking?.totalPrice) || 0), 0
-    );
-    
-    const averageBookingValue = confirmedBookings.length > 0 
-      ? totalRevenue / confirmedBookings.length 
-      : 0;
-
-    // Room type revenue
-    const roomTypeRevenue = {};
-    confirmedBookings.forEach(booking => {
-      const roomType = booking?.roomType || 'ไม่ระบุ';
-      const price = parseFloat(booking?.totalPrice) || 0;
-      roomTypeRevenue[roomType] = (roomTypeRevenue[roomType] || 0) + price;
-    });
-
-    // Payment methods
-    const paymentMethods = {};
-    confirmedBookings.forEach(booking => {
-      const method = booking?.paymentReceipt ? 'โอนเงิน' : 'รอชำระ';
-      paymentMethods[method] = (paymentMethods[method] || 0) + 1;
-    });
-
-    setReportData(prev => ({
-      ...prev,
-      financial: {
-        totalRevenue,
-        bookingsCount: confirmedBookings.length,
-        averageBookingValue,
-        roomTypeRevenue: Object.entries(roomTypeRevenue).map(([type, revenue]) => ({
-          type,
-          revenue: revenue || 0,
-          count: confirmedBookings.filter(b => (b?.roomType || 'ไม่ระบุ') === type).length
-        })),
-        paymentMethods: Object.entries(paymentMethods).map(([method, count]) => ({
-          method,
-          count: count || 0
-        }))
+    bookings.forEach(booking => {
+      if (booking.status === 'completed' || booking.status === 'confirmed') {
+        revenue += parseFloat(booking.total_price || 0);
+        totalBookings++;
+        
+        // Group by month for chart
+        const month = new Date(booking.created_at).toISOString().substring(0, 7);
+        if (!monthlyData[month]) {
+          monthlyData[month] = { revenue: 0, bookings: 0 };
+        }
+        monthlyData[month].revenue += parseFloat(booking.total_price || 0);
+        monthlyData[month].bookings++;
       }
-    }));
+    });
+
+    setReportData({
+      totalRevenue: revenue,
+      totalBookings: totalBookings,
+      averageBookingValue: totalBookings > 0 ? revenue / totalBookings : 0,
+      chartData: Object.entries(monthlyData).map(([month, data]) => ({
+        month,
+        revenue: data.revenue,
+        bookings: data.bookings
+      }))
+    });
   };
 
   const processOccupancyData = (bookings) => {
-    const totalBookings = bookings.length;
-    
-    let totalNights = 0;
-    const roomTypeOccupancy = {};
+    const roomOccupancy = {};
+    const dailyOccupancy = {};
     
     bookings.forEach(booking => {
-      if (booking?.checkInDate && booking?.checkOutDate) {
-        const checkIn = new Date(booking.checkInDate);
-        const checkOut = new Date(booking.checkOutDate);
-        const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
-        totalNights += Math.max(0, nights);
+      if (booking.status === 'confirmed' || booking.status === 'completed') {
+        // Room type occupancy
+        const roomType = booking.room_type_name || 'Unknown';
+        if (!roomOccupancy[roomType]) {
+          roomOccupancy[roomType] = 0;
+        }
+        roomOccupancy[roomType]++;
+        
+        // Daily occupancy
+        const checkIn = new Date(booking.check_in_date);
+        const checkOut = new Date(booking.check_out_date);
+        
+        for (let d = new Date(checkIn); d < checkOut; d.setDate(d.getDate() + 1)) {
+          const dayKey = d.toISOString().substring(0, 10);
+          if (!dailyOccupancy[dayKey]) {
+            dailyOccupancy[dayKey] = 0;
+          }
+          dailyOccupancy[dayKey]++;
+        }
       }
-      
-      const roomType = booking?.roomType || 'ไม่ระบุ';
-      roomTypeOccupancy[roomType] = (roomTypeOccupancy[roomType] || 0) + 1;
     });
+
+    setReportData({
+      roomOccupancy,
+      dailyOccupancy: Object.entries(dailyOccupancy).map(([date, count]) => ({
+        date,
+        occupancy: count
+      })),
+      totalRoomsBooked: Object.values(roomOccupancy).reduce((a, b) => a + b, 0)
+    });
+  };
+
+  const exportToCSV = () => {
+    if (!reportData) return;
     
-    const averageStayDuration = totalBookings > 0 ? totalNights / totalBookings : 0;
-    const occupancyRate = Math.min((totalBookings / 30) * 100, 100);
-
-    setReportData(prev => ({
-      ...prev,
-      occupancy: {
-        totalBookings,
-        occupancyRate,
-        averageStayDuration,
-        roomTypeOccupancy: Object.entries(roomTypeOccupancy).map(([type, count]) => ({
-          type,
-          count: count || 0,
-          percentage: totalBookings > 0 ? ((count || 0) / totalBookings) * 100 : 0
-        }))
-      }
-    }));
+    let csvContent = '';
+    
+    if (reportType === 'financial') {
+      csvContent = 'เดือน,รายได้,จำนวนการจอง\n';
+      reportData.chartData?.forEach(item => {
+        csvContent += `${item.month},${item.revenue},${item.bookings}\n`;
+      });
+    } else {
+      csvContent = 'ประเภทห้อง,จำนวนการจอง\n';
+      Object.entries(reportData.roomOccupancy || {}).forEach(([room, count]) => {
+        csvContent += `${room},${count}\n`;
+      });
+    }
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `report-${reportType}-${Date.now()}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('th-TH', {
-      style: 'currency',
-      currency: 'THB',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount || 0);
-  };
-
-  const formatNumber = (num) => {
-    return new Intl.NumberFormat('th-TH').format(num || 0);
-  };
-
-  if (authLoading || loading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
-          <p className="text-gray-600">กำลังโหลดข้อมูลรายงาน...</p>
-        </div>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
       </div>
     );
   }
 
-  if (!isAuthenticated || !isStaffOrAdmin(user)) {
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">ไม่มีสิทธิ์เข้าถึง</h1>
-          <p className="text-gray-600">คุณไม่มีสิทธิ์เข้าถึงหน้านี้</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+            กรุณาเข้าสู่ระบบ
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            คุณต้องเข้าสู่ระบบเพื่อเข้าถึงหน้านี้
+          </p>
         </div>
       </div>
     );
   }
 
-  const currentData = reportType === 'financial' ? reportData.financial : reportData.occupancy;
+  if (!isStaffOrAdmin(user)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+            ไม่มีสิทธิ์เข้าถึง
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            คุณไม่มีสิทธิ์เข้าถึงหน้านี้
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">รายงานระบบ</h1>
-              <p className="text-gray-600 mt-2">
-                ดูข้อมูลสถิติและรายงานของโรงแรม
-                {user?.role === 'staff' && (
-                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                    โหมดดูอย่างเดียว
-                  </span>
-                )}
-              </p>
-            </div>
-            <button
-              onClick={() => fetchReportData()}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <RefreshCw className="h-4 w-4" />
-              รีเฟรช
-            </button>
-          </div>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-700">
+      <AdminNavigation 
+        title="รายงาน" 
+        description="ดูและวิเคราะห์ข้อมูลทางธุรกิจ"
+      />
+      
+      <div className="px-4 pb-8">
+        <div className={`max-w-7xl mx-auto transform transition-all duration-1000 ease-out ${
+          isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
+        }`}>
+          
+          {/* Controls */}
+          <div className="mb-8">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {/* Report Type */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    ประเภทรายงาน
+                  </label>
+                  <select
+                    value={reportType}
+                    onChange={(e) => setReportType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  >
+                    {reportTypes.map(type => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                ประเภทรายงาน
-              </label>
-              <select
-                value={reportType}
-                onChange={(e) => setReportType(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="financial">รายงานการเงิน</option>
-                <option value="occupancy">รายงานการเข้าพัก</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                ช่วงเวลา
-              </label>
-              <select
-                value={period}
-                onChange={(e) => setPeriod(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="daily">รายวัน</option>
-                <option value="monthly">รายเดือน</option>
-                <option value="yearly">รายปี</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                วันที่เริ่มต้น
-              </label>
-              <input
-                type="date"
-                value={dateRange.startDate}
-                onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                วันที่สิ้นสุด
-              </label>
-              <input
-                type="date"
-                value={dateRange.endDate}
-                onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-        </div>
+                {/* Period */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    ช่วงเวลา
+                  </label>
+                  <select
+                    value={period}
+                    onChange={(e) => setPeriod(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  >
+                    {periods.map(p => (
+                      <option key={p.value} value={p.value}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-        {/* Stats Cards */}
-        {reportType === 'financial' ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">รายได้รวม</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    {formatCurrency(currentData.totalRevenue)}
-                  </p>
-                </div>
-                <DollarSign className="h-8 w-8 text-green-600" />
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">จำนวนการจอง</p>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {formatNumber(currentData.bookingsCount)}
-                  </p>
-                </div>
-                <Calendar className="h-8 w-8 text-blue-600" />
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">ค่าเฉลี่ยต่อการจอง</p>
-                  <p className="text-2xl font-bold text-purple-600">
-                    {formatCurrency(currentData.averageBookingValue)}
-                  </p>
-                </div>
-                <TrendingUp className="h-8 w-8 text-purple-600" />
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">การจองทั้งหมด</p>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {formatNumber(currentData.totalBookings)}
-                  </p>
-                </div>
-                <Users className="h-8 w-8 text-blue-600" />
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">อัตราการเข้าพัก</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    {(currentData.occupancyRate || 0).toFixed(1)}%
-                  </p>
-                </div>
-                <Activity className="h-8 w-8 text-green-600" />
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">ระยะเวลาเข้าพักเฉลี่ย</p>
-                  <p className="text-2xl font-bold text-purple-600">
-                    {(currentData.averageStayDuration || 0).toFixed(1)} คืน
-                  </p>
-                </div>
-                <Clock className="h-8 w-8 text-purple-600" />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Data Tables */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Room Type Data */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {reportType === 'financial' ? 'รายได้ตามประเภทห้อง' : 'การเข้าพักตามประเภทห้อง'}
-            </h3>
-            <div className="space-y-3">
-              {(reportType === 'financial' ? currentData.roomTypeRevenue : currentData.roomTypeOccupancy)?.map((room, index) => (
-                <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                  <span className="font-medium text-gray-900">{room.type}</span>
-                  <div className="text-right">
-                    <div className="font-semibold text-gray-900">
-                      {reportType === 'financial' 
-                        ? formatCurrency(room.revenue) 
-                        : `${formatNumber(room.count)} การจอง`
-                      }
+                {/* Custom Date Range */}
+                {period === 'custom' && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        วันที่เริ่ม
+                      </label>
+                      <input
+                        type="date"
+                        value={dateRange.startDate}
+                        onChange={(e) => setDateRange(prev => ({
+                          ...prev,
+                          startDate: e.target.value
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      />
                     </div>
-                    {reportType === 'occupancy' && (
-                      <div className="text-sm text-gray-600">
-                        {(room.percentage || 0).toFixed(1)}%
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        วันที่สิ้นสุด
+                      </label>
+                      <input
+                        type="date"
+                        value={dateRange.endDate}
+                        onChange={(e) => setDateRange(prev => ({
+                          ...prev,
+                          endDate: e.target.value
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Loading State */}
+          {loading && (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className="ml-3 text-gray-700 dark:text-gray-300">กำลังโหลดข้อมูล...</span>
+            </div>
+          )}
+
+          {/* Report Content */}
+          {!loading && reportData && (
+            <>
+              {/* Financial Report */}
+              {reportType === 'financial' && (
+                <div className="space-y-8">
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                      <div className="flex items-center">
+                        <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
+                          <DollarSign className="h-6 w-6 text-white" />
+                        </div>
+                        <div className="ml-4">
+                          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                            ฿{reportData.totalRevenue?.toLocaleString() || 0}
+                          </h3>
+                          <p className="text-gray-600 dark:text-gray-400">รายได้รวม</p>
+                        </div>
                       </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                      <div className="flex items-center">
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
+                          <Calendar className="h-6 w-6 text-white" />
+                        </div>
+                        <div className="ml-4">
+                          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                            {reportData.totalBookings || 0}
+                          </h3>
+                          <p className="text-gray-600 dark:text-gray-400">การจองทั้งหมด</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                      <div className="flex items-center">
+                        <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
+                          <TrendingUp className="h-6 w-6 text-white" />
+                        </div>
+                        <div className="ml-4">
+                          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                            ฿{Math.round(reportData.averageBookingValue || 0).toLocaleString()}
+                          </h3>
+                          <p className="text-gray-600 dark:text-gray-400">ค่าเฉลี่ยต่อการจอง</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Export Button */}
+                  <div className="flex justify-end">
+                    <button
+                      onClick={exportToCSV}
+                      className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      ส่งออก CSV
+                    </button>
+                  </div>
+
+                  {/* Chart */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                      แนวโน้มรายได้รายเดือน
+                    </h3>
+                    {reportData.chartData && reportData.chartData.length > 0 ? (
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-gray-200 dark:border-gray-700">
+                            <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">เดือน</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">รายได้</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">การจอง</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {reportData.chartData.map((item, index) => (
+                            <tr key={index} className="border-b border-gray-100 dark:border-gray-800">
+                              <td className="py-3 px-4 text-gray-900 dark:text-white">{item.month}</td>
+                              <td className="py-3 px-4 text-gray-900 dark:text-white">฿{item.revenue.toLocaleString()}</td>
+                              <td className="py-3 px-4 text-gray-900 dark:text-white">{item.bookings}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <p className="text-gray-600 dark:text-gray-400">ไม่มีข้อมูลสำหรับช่วงเวลาที่เลือก</p>
                     )}
                   </div>
                 </div>
-              )) || (
-                <div className="text-center text-gray-500 py-8">
-                  ไม่มีข้อมูล
+              )}
+
+              {/* Occupancy Report */}
+              {reportType === 'occupancy' && (
+                <div className="space-y-8">
+                  {/* Summary */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <div className="flex items-center">
+                      <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center">
+                        <Bed className="h-6 w-6 text-white" />
+                      </div>
+                      <div className="ml-4">
+                        <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                          {reportData.totalRoomsBooked || 0}
+                        </h3>
+                        <p className="text-gray-600 dark:text-gray-400">ห้องที่ถูกจองทั้งหมด</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Export Button */}
+                  <div className="flex justify-end">
+                    <button
+                      onClick={exportToCSV}
+                      className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      ส่งออก CSV
+                    </button>
+                  </div>
+
+                  {/* Room Occupancy Table */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                      อัตราการเข้าพักตามประเภทห้อง
+                    </h3>
+                    {reportData.roomOccupancy && Object.keys(reportData.roomOccupancy).length > 0 ? (
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-gray-200 dark:border-gray-700">
+                            <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">ประเภทห้อง</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">จำนวนการจอง</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(reportData.roomOccupancy).map(([roomType, count]) => (
+                            <tr key={roomType} className="border-b border-gray-100 dark:border-gray-800">
+                              <td className="py-3 px-4 text-gray-900 dark:text-white">{roomType}</td>
+                              <td className="py-3 px-4 text-gray-900 dark:text-white">{count}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <p className="text-gray-600 dark:text-gray-400">ไม่มีข้อมูลสำหรับช่วงเวลาที่เลือก</p>
+                    )}
+                  </div>
                 </div>
               )}
-            </div>
-          </div>
-
-          {/* Payment Methods (Financial only) */}
-          {reportType === 'financial' && (
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">วิธีการชำระเงิน</h3>
-              <div className="space-y-3">
-                {currentData.paymentMethods?.map((payment, index) => (
-                  <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <span className="font-medium text-gray-900">{payment.method}</span>
-                    <span className="font-semibold text-gray-900">
-                      {formatNumber(payment.count)} ครั้ง
-                    </span>
-                  </div>
-                )) || (
-                  <div className="text-center text-gray-500 py-8">
-                    ไม่มีข้อมูล
-                  </div>
-                )}
-              </div>
-            </div>
+            </>
           )}
         </div>
       </div>

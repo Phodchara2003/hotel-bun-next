@@ -362,3 +362,45 @@ export const adminRoomsRoutes = new Elysia({ prefix: '/admin/rooms' })
       return { error: 'Internal server error' };
     }
   });
+
+// Add separate room-types endpoint for calendar filtering
+export const roomTypesRoutes = new Elysia({ prefix: '/admin/room-types' })
+  // Get all room types (for filtering)
+  .get('/', async ({ headers, set }) => {
+    try {
+      console.log('Room types request received');
+      
+      // Authenticate staff or admin
+      const user = await requireStaff({ headers, set });
+      if (user.error) {
+        console.log('Authentication failed:', user.error);
+        return user;
+      }
+      
+      console.log('Authenticated user:', { id: user.id, role: user.role });
+
+      const result = await sql`
+        SELECT DISTINCT 
+          rt.name,
+          rt.id,
+          COUNT(*) as count
+        FROM room_types rt
+        JOIN hotels h ON rt.hotel_id = h.id
+        WHERE rt.available = true
+        GROUP BY rt.id, rt.name
+        ORDER BY rt.name ASC
+      `;
+
+      const roomTypes = result.map(type => ({
+        id: type.id,
+        name: type.name,
+        count: parseInt(type.count)
+      }));
+
+      return { roomTypes };
+    } catch (error) {
+      console.error('Error fetching room types:', error);
+      set.status = 500;
+      return { error: 'Internal server error' };
+    }
+  });

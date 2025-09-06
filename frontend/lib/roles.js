@@ -9,7 +9,7 @@ export const isStaff = (user) => {
 };
 
 export const isStaffOrAdmin = (user) => {
-  return ['staff', 'admin'].includes(user?.role);
+  return ['staff', 'admin', 'super_admin'].includes(user?.role);
 };
 
 export const canAccess = (user, page = 'admin') => {

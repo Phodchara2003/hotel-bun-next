@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { roomsAPI } from '../../../lib/api';
 import { isStaffOrAdmin } from '../../../lib/roles';
-import AdminNavigation from '../../../components/AdminNavigation';
 import Link from 'next/link';
 import { 
   Plus, 
@@ -109,7 +108,7 @@ export default function RoomsManagement() {
 
   useEffect(() => {
     setIsVisible(true);
-    if (isAuthenticated && user && isStaffOrAdmin(user)) {
+    if (isAuthenticated && user && isStaffOrAdmin(user.role)) {
       fetchRooms();
     }
   }, [isAuthenticated, user]);
@@ -117,32 +116,16 @@ export default function RoomsManagement() {
   const fetchRooms = async () => {
     try {
       setLoading(true);
-      console.log('Fetching rooms data...');
-      const response = await roomsAPI.getAllRooms();
-      console.log('Rooms API response:', response);
-      
-      if (response.rooms) {
-        setRooms(response.rooms);
-        calculateStats(response.rooms);
-        console.log('Rooms loaded:', response.rooms.length);
+      const response = await roomsAPI.getAll();
+      if (response.success) {
+        setRooms(response.data);
+        calculateStats(response.data);
       } else {
-        console.error('No rooms data in response:', response);
         toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูลห้องพัก');
       }
     } catch (error) {
       console.error('Error fetching rooms:', error);
-      console.error('Error code:', error.code);
-      
-      if (error.code === 'ECONNABORTED') {
-        toast.error('การเชื่อมต่อล่าช้า กรุณารอสักครู่...');
-        // Retry after delay
-        setTimeout(() => {
-          console.log('Retrying fetch rooms...');
-          fetchRooms();
-        }, 3000);
-      } else {
-        toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูลห้องพัก');
-      }
+      toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูลห้องพัก');
     } finally {
       setLoading(false);
     }
@@ -379,7 +362,7 @@ export default function RoomsManagement() {
     );
   }
 
-  if (!isStaffOrAdmin(user)) {
+  if (!isStaffOrAdmin(user.role)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-900">
         <div className="text-center">
@@ -400,32 +383,36 @@ export default function RoomsManagement() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-900 dark:to-neutral-800">
       <div className="container mx-auto px-4 py-8">
-        {/* Admin Navigation */}
-        <AdminNavigation 
-          title="จัดการห้องพัก"
-          description="จัดการข้อมูลห้องพัก สถานะ และสิ่งอำนวยความสะดวก"
-        />
-
-        {/* Action Buttons */}
+        {/* Header */}
         <div className={`mb-8 transform transition-all duration-700 ease-out ${
           isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
         }`}>
-          <div className="flex items-center justify-end gap-4">
-            <button
-              onClick={fetchRooms}
-              disabled={loading}
-              className="btn-outline flex items-center gap-2"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              รีเฟรช
-            </button>
-            <button
-              onClick={() => openModal('add')}
-              className="btn-primary flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              เพิ่มห้องพัก
-            </button>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-neutral-900 dark:text-white mb-2">
+                จัดการห้องพัก
+              </h1>
+              <p className="text-neutral-600 dark:text-neutral-400">
+                จัดการข้อมูลห้องพัก สถานะ และสิ่งอำนวยความสะดวก
+              </p>
+            </div>
+            <div className="flex items-center gap-4 mt-4 md:mt-0">
+              <button
+                onClick={fetchRooms}
+                disabled={loading}
+                className="btn-outline flex items-center gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                รีเฟรช
+              </button>
+              <button
+                onClick={() => openModal('add')}
+                className="btn-primary flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                เพิ่มห้องพัก
+              </button>
+            </div>
           </div>
         </div>
 
