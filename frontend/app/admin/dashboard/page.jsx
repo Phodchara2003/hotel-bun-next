@@ -1342,7 +1342,23 @@ function SettingsTab({ user }) {
     <div className="bg-white rounded-lg shadow p-6">
       <h2 className="text-xl font-semibold text-gray-900 mb-6">การตั้งค่าระบบ</h2>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Profile Settings */}
+        <div className="border rounded-lg p-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+            <Users className="h-5 w-5 mr-2" />
+            โปรไฟล์ของฉัน
+          </h3>
+          <p className="text-sm text-gray-600 mb-4">จัดการข้อมูลส่วนตัวและรหัสผ่าน</p>
+          <Link 
+            href="/admin/profile"
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <Settings className="h-4 w-4 mr-2" />
+            จัดการโปรไฟล์
+          </Link>
+        </div>
+
         <div className="border rounded-lg p-6">
           <h3 className="text-lg font-medium text-gray-900 mb-4">การตั้งค่าทั่วไป</h3>
           <div className="space-y-4">

@@ -1,29 +1,26 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { User, Settings, Mail, Shield, Key, Bell, Save, Edit, X, ArrowLeft, Phone, MapPin, Calendar, Eye, EyeOff, Lock, Users, Star } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import toast from 'react-hot-toast';
+import { useState, useEffect, useContext } from 'react';
+import { AuthContext } from '../../context/AuthContext';
+import { User, Mail, Phone, MapPin, Calendar, Save, Eye, EyeOff, Lock } from 'lucide-react';
 
-export default function ProfilePage() {
-  const { user, updateUser, loading: authLoading } = useAuth();
-  const router = useRouter();
+export default function AdminProfile() {
+  const { user, isAuthenticated } = useContext(AuthContext);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', content: '' });
-  
-  const [formData, setFormData] = useState({
+
+  const [profile, setProfile] = useState({
     firstName: '',
     lastName: '',
-    phone: '',
     email: '',
-    address: ''
+    phone: '',
+    address: '',
+    dateJoined: ''
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -32,21 +29,21 @@ export default function ProfilePage() {
     confirmPassword: ''
   });
 
-  // Load user data when component mounts or user changes
   useEffect(() => {
-    if (user) {
+    if (isAuthenticated && user) {
       loadProfile();
     }
-  }, [user]);
+  }, [isAuthenticated, user]);
 
   const loadProfile = async () => {
     try {
+      setLoading(true);
       const token = document.cookie
         .split('; ')
         .find(row => row.startsWith('auth_token='))
         ?.split('=')[1];
 
-      const response = await fetch('/api/profile', {
+      const response = await fetch('/api/admin/profile', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -55,148 +52,73 @@ export default function ProfilePage() {
 
       if (response.ok) {
         const data = await response.json();
-        setFormData({
-          firstName: data.profile.firstName || '',
-          lastName: data.profile.lastName || '',
-          phone: data.profile.phone || '',
-          email: data.profile.email || '',
-          address: data.profile.address || ''
-        });
+        setProfile(data.profile);
       } else {
-        // Fallback to user data from context
-        setFormData({
-          firstName: user.first_name || user.firstName || '',
-          lastName: user.last_name || user.lastName || '',
-          phone: user.phone || '',
-          email: user.email || '',
-          address: user.address || ''
-        });
+        setMessage({ type: 'error', content: 'ไม่สามารถโหลดข้อมูลโปรไฟล์ได้' });
       }
     } catch (error) {
       console.error('Error loading profile:', error);
-      // Fallback to user data from context
-      setFormData({
-        firstName: user.first_name || user.firstName || '',
-        lastName: user.last_name || user.lastName || '',
-        phone: user.phone || '',
-        email: user.email || '',
-        address: user.address || ''
-      });
+      setMessage({ type: 'error', content: 'เกิดข้อผิดพลาดในการโหลดข้อมูล' });
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Show loading while auth is initializing
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">กำลังโหลด...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show message if no user
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-600">กรุณาเข้าสู่ระบบเพื่อดูโปรไฟล์</p>
-        </div>
-      </div>
-    );
-  }
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleSave = async () => {
-    if (!formData.firstName || !formData.lastName || !formData.email) {
-      toast.error('กรุณากรอกข้อมูลให้ครบถ้วน');
-      return;
-    }
-
-    setSaving(true);
-    setMessage({ type: '', content: '' });
-    
+  const handleUpdateProfile = async () => {
     try {
+      setSaving(true);
+      setMessage({ type: '', content: '' });
+
       const token = document.cookie
         .split('; ')
         .find(row => row.startsWith('auth_token='))
         ?.split('=')[1];
 
-      const response = await fetch('/api/profile', {
+      const response = await fetch('/api/admin/profile', {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          profile: {
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            phone: formData.phone,
-            email: formData.email,
-            address: formData.address
-          }
-        })
+        body: JSON.stringify({ profile })
       });
 
       const data = await response.json();
 
       if (response.ok) {
         setMessage({ type: 'success', content: 'อัปเดตโปรไฟล์สำเร็จ' });
-        setIsEditing(false);
-        // อัปเดตข้อมูลใน AuthContext
-        updateUser({
-          ...user,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          phone: formData.phone,
-          email: formData.email,
-          address: formData.address
-        });
-        toast.success('อัปเดตโปรไฟล์สำเร็จ');
       } else {
         setMessage({ type: 'error', content: data.error || 'ไม่สามารถอัปเดตโปรไฟล์ได้' });
-        toast.error(data.error || 'ไม่สามารถอัปเดตโปรไฟล์ได้');
       }
     } catch (error) {
       console.error('Error updating profile:', error);
       setMessage({ type: 'error', content: 'เกิดข้อผิดพลาดในการอัปเดตโปรไฟล์' });
-      toast.error('เกิดข้อผิดพลาดในการอัปเดตโปรไฟล์');
     } finally {
       setSaving(false);
     }
   };
 
   const handleChangePassword = async () => {
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setMessage({ type: 'error', content: 'รหัสผ่านใหม่ไม่ตรงกัน' });
-      return;
-    }
-
-    if (passwordData.newPassword.length < 6) {
-      setMessage({ type: 'error', content: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร' });
-      return;
-    }
-
-    setSaving(true);
-    setMessage({ type: '', content: '' });
-
     try {
+      if (passwordData.newPassword !== passwordData.confirmPassword) {
+        setMessage({ type: 'error', content: 'รหัสผ่านใหม่ไม่ตรงกัน' });
+        return;
+      }
+
+      if (passwordData.newPassword.length < 6) {
+        setMessage({ type: 'error', content: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร' });
+        return;
+      }
+
+      setSaving(true);
+      setMessage({ type: '', content: '' });
+
       const token = document.cookie
         .split('; ')
         .find(row => row.startsWith('auth_token='))
         ?.split('=')[1];
 
-      const response = await fetch('/api/change-password', {
+      const response = await fetch('/api/admin/change-password', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -211,57 +133,37 @@ export default function ProfilePage() {
         setMessage({ type: 'success', content: 'เปลี่ยนรหัสผ่านสำเร็จ' });
         setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
         setShowPasswordForm(false);
-        toast.success('เปลี่ยนรหัสผ่านสำเร็จ');
       } else {
         setMessage({ type: 'error', content: data.error || 'ไม่สามารถเปลี่ยนรหัสผ่านได้' });
-        toast.error(data.error || 'ไม่สามารถเปลี่ยนรหัสผ่านได้');
       }
     } catch (error) {
       console.error('Error changing password:', error);
       setMessage({ type: 'error', content: 'เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน' });
-      toast.error('เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน');
     } finally {
       setSaving(false);
     }
   };
 
-  const getRoleInfo = (role) => {
-    switch (role) {
-      case 'admin':
-        return { label: 'ผู้ดูแลระบบ', icon: Shield, color: 'text-red-600', bgColor: 'bg-red-50' };
-      case 'staff':
-        return { label: 'เจ้าหน้าที่', icon: Users, color: 'text-blue-600', bgColor: 'bg-blue-50' };
-      case 'customer':
-        return { label: 'ลูกค้า', icon: User, color: 'text-green-600', bgColor: 'bg-green-50' };
-      default:
-        return { label: 'ผู้ใช้', icon: User, color: 'text-gray-600', bgColor: 'bg-gray-50' };
-    }
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">กำลังโหลดข้อมูลโปรไฟล์...</p>
+        </div>
+      </div>
+    );
+  }
 
-  const getBackLink = () => {
-    if (user?.role === 'admin' || user?.role === 'staff') {
-      return '/admin/dashboard';
-    }
-    return '/'; // หน้าหลักสำหรับลูกค้า
-  };
-
-  const roleInfo = getRoleInfo(user?.role);
-  const IconComponent = roleInfo.icon;
+  if (!isAuthenticated || !user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header with Back Button */}
+        {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center mb-4">
-            <Link 
-              href={getBackLink()}
-              className="inline-flex items-center text-gray-600 hover:text-gray-900 mr-4"
-            >
-              <ArrowLeft className="h-5 w-5 mr-1" />
-              กลับ
-            </Link>
-          </div>
           <h1 className="text-3xl font-bold text-gray-900">โปรไฟล์ของฉัน</h1>
           <p className="mt-2 text-gray-600">จัดการข้อมูลส่วนตัวและรหัสผ่าน</p>
         </div>
@@ -286,18 +188,10 @@ export default function ProfilePage() {
           <div className="lg:col-span-2">
             <div className="bg-white shadow rounded-lg">
               <div className="px-6 py-4 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                    <User className="h-5 w-5 mr-2" />
-                    ข้อมูลส่วนตัว
-                  </h3>
-                  <button
-                    onClick={() => setIsEditing(!isEditing)}
-                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                  >
-                    {isEditing ? 'ยกเลิก' : 'แก้ไข'}
-                  </button>
-                </div>
+                <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                  <User className="h-5 w-5 mr-2" />
+                  ข้อมูลส่วนตัว
+                </h3>
               </div>
               <div className="px-6 py-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -305,22 +199,18 @@ export default function ProfilePage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">ชื่อ</label>
                     <input
                       type="text"
-                      name="firstName"
-                      value={formData.firstName}
-                      onChange={handleInputChange}
-                      disabled={!isEditing}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+                      value={profile.firstName}
+                      onChange={(e) => setProfile(prev => ({ ...prev, firstName: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">นามสกุล</label>
                     <input
                       type="text"
-                      name="lastName"
-                      value={formData.lastName}
-                      onChange={handleInputChange}
-                      disabled={!isEditing}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+                      value={profile.lastName}
+                      onChange={(e) => setProfile(prev => ({ ...prev, lastName: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
@@ -331,11 +221,9 @@ export default function ProfilePage() {
                     <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                     <input
                       type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      disabled={!isEditing}
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+                      value={profile.email}
+                      onChange={(e) => setProfile(prev => ({ ...prev, email: e.target.value }))}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
@@ -346,11 +234,9 @@ export default function ProfilePage() {
                     <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                     <input
                       type="tel"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      disabled={!isEditing}
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+                      value={profile.phone}
+                      onChange={(e) => setProfile(prev => ({ ...prev, phone: e.target.value }))}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
@@ -360,34 +246,24 @@ export default function ProfilePage() {
                   <div className="relative">
                     <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                     <textarea
-                      name="address"
                       rows={3}
-                      value={formData.address}
-                      onChange={handleInputChange}
-                      disabled={!isEditing}
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+                      value={profile.address}
+                      onChange={(e) => setProfile(prev => ({ ...prev, address: e.target.value }))}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
 
-                {isEditing && (
-                  <div className="mt-8 flex justify-end space-x-3">
-                    <button
-                      onClick={() => setIsEditing(false)}
-                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-                    >
-                      ยกเลิก
-                    </button>
-                    <button
-                      onClick={handleSave}
-                      disabled={saving}
-                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
-                    </button>
-                  </div>
-                )}
+                <div className="mt-8 flex justify-end">
+                  <button
+                    onClick={handleUpdateProfile}
+                    disabled={saving}
+                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -401,20 +277,20 @@ export default function ProfilePage() {
                 <div className="flex items-center text-sm">
                   <Mail className="h-4 w-4 text-gray-400 mr-2" />
                   <span className="text-gray-600">อีเมล:</span>
-                  <span className="ml-2 font-medium">{user?.email}</span>
+                  <span className="ml-2 font-medium">{user.email}</span>
                 </div>
                 <div className="flex items-center text-sm">
-                  <IconComponent className={`h-4 w-4 mr-2 ${roleInfo.color}`} />
+                  <User className="h-4 w-4 text-gray-400 mr-2" />
                   <span className="text-gray-600">สถานะ:</span>
-                  <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${roleInfo.color} ${roleInfo.bgColor}`}>
-                    {roleInfo.label}
-                  </span>
+                  <span className="ml-2 font-medium text-green-600">{user.role === 'admin' ? 'ผู้ดูแลระบบ' : 'พนักงาน'}</span>
                 </div>
-                <div className="flex items-center text-sm">
-                  <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                  <span className="text-gray-600">เข้าร่วมเมื่อ:</span>
-                  <span className="ml-2 font-medium">{user?.created_at ? new Date(user.created_at).toLocaleDateString('th-TH') : '-'}</span>
-                </div>
+                {profile.dateJoined && (
+                  <div className="flex items-center text-sm">
+                    <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                    <span className="text-gray-600">เข้าร่วมเมื่อ:</span>
+                    <span className="ml-2 font-medium">{new Date(profile.dateJoined).toLocaleDateString('th-TH')}</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -512,29 +388,6 @@ export default function ProfilePage() {
                 </div>
               )}
             </div>
-
-            {/* Quick Actions for Admin/Staff */}
-            {(user?.role === 'admin' || user?.role === 'staff') && (
-              <div className="bg-white shadow rounded-lg p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">การดำเนินการด่วน</h3>
-                <div className="space-y-3">
-                  <Link 
-                    href="/admin/dashboard"
-                    className="block w-full px-4 py-2 text-center bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
-                  >
-                    กลับไปหน้า Dashboard
-                  </Link>
-                  {user?.role === 'admin' && (
-                    <Link 
-                      href="/admin/user-management"
-                      className="block w-full px-4 py-2 text-center border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50"
-                    >
-                      จัดการผู้ใช้
-                    </Link>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>

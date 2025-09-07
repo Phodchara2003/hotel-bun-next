@@ -9,6 +9,8 @@ import { notificationRoutes } from './routes/notifications.js';
 import { reviewRoutes } from './routes/reviews.js';
 import { adminRoomsRoutes, roomTypesRoutes } from './routes/admin-rooms-final.js';
 import { adminUsersRoutes } from './routes/admin-users.js';
+import { adminProfileRoutes } from './routes/admin-profile.js';
+import { userProfileRoutes } from './routes/user-profile.js';
 import { adminDashboardRoutes } from './routes/admin-dashboard.js';
 import { adminPaymentsRoutes } from './routes/admin-payments.js';
 import { paymentSettingsRoutes } from './routes/payment-settings-real.js';
@@ -157,6 +159,8 @@ const app = new Elysia()
         console.log('✅ Admin Users Routes loaded');
         return adminUsersApp;
       })
+      .use(adminProfileRoutes)
+      .use(userProfileRoutes)
       .group('/admin/permissions', (permissionsApp) => permissionsApp.use(permissionRoutes))
       .group('/checkin', (checkinApp) => checkinApp.use(checkinRoutes))
       .group('/housekeeping', (housekeepingApp) => housekeepingApp.use(housekeepingRoutes))
