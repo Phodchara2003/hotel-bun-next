@@ -49,18 +49,6 @@ const AdminNavigation = ({ title, description }) => {
       active: pathname === '/admin/user-management'
     },
     {
-      name: 'จัดการการชำระเงิน',
-      href: '/admin/payments',
-      icon: CreditCard,
-      active: pathname === '/admin/payments'
-    },
-    {
-      name: 'จัดการชำระเงิน',
-      href: '/admin/payment-management',
-      icon: CreditCard,
-      active: pathname === '/admin/payment-management'
-    },
-    {
       name: 'รายงาน',
       href: '/admin/reports',
       icon: TrendingUp,

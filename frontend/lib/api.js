@@ -1,6 +1,7 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
 import toast from 'react-hot-toast';
+import performanceMonitor from './performanceMonitor';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 
@@ -13,27 +14,36 @@ const api = axios.create({
   },
 });
 
-// Request interceptor to add auth token and handle token refresh
+// Request interceptor to add auth token and track performance
 api.interceptors.request.use(
   (config) => {
     const token = Cookies.get('auth_token');
-    console.log('API Request:', config.url, 'Token:', token ? 'Present' : 'Missing');
+    
+    // Track API call start
+    performanceMonitor.startApiCall(config.url, config.method?.toUpperCase());
+    
+    // Reduce console logging in production
+    if (process.env.NODE_ENV === 'development') {
+      console.log('API Request:', config.url, 'Token:', token ? 'Present' : 'Missing');
+    }
     
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
       
-      // Check if token is about to expire (if we have exp info)
-      try {
-        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
-        const currentTime = Math.floor(Date.now() / 1000);
-        const timeUntilExpiry = tokenPayload.exp - currentTime;
-        
-        // If token expires in less than 5 minutes, log warning
-        if (timeUntilExpiry < 300) {
-          console.warn('Token expires soon:', timeUntilExpiry, 'seconds remaining');
+      // Check if token is about to expire (only in development)
+      if (process.env.NODE_ENV === 'development') {
+        try {
+          const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+          const currentTime = Math.floor(Date.now() / 1000);
+          const timeUntilExpiry = tokenPayload.exp - currentTime;
+          
+          // If token expires in less than 5 minutes, log warning
+          if (timeUntilExpiry < 300) {
+            console.warn('Token expires soon:', timeUntilExpiry, 'seconds remaining');
+          }
+        } catch (error) {
+          console.log('Could not parse token payload:', error);
         }
-      } catch (error) {
-        console.log('Could not parse token payload:', error);
       }
     }
     return config;
@@ -43,11 +53,16 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle errors and token management
+// Response interceptor to handle errors and track performance
 api.interceptors.response.use(
   (response) => {
-    // Log successful responses for debugging
-    console.log('API Response:', response.config.url, response.status);
+    // Track API call completion
+    performanceMonitor.endApiCall(response.config.url, response.config.method?.toUpperCase(), true);
+    
+    // Log successful responses only in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('API Response:', response.config.url, response.status);
+    }
     return response;
   },
   (error) => {
@@ -153,7 +168,7 @@ export const authAPI = {
   },
 
   changePassword: async (passwordData) => {
-    const response = await api.put('/auth/change-password', passwordData);
+    const response = await api.post('/profile/password', passwordData);
     return response.data;
   },
 };
@@ -363,6 +378,12 @@ export const usersAPI = {
   // Get user's bookings (Admin)
   getUserBookings: async (id, params = {}) => {
     const response = await api.get(`/admin/users/${id}/bookings`, { params });
+    return response.data;
+  },
+
+  // Update current user's profile
+  updateProfile: async (profileData) => {
+    const response = await api.put('/profile', profileData);
     return response.data;
   },
 };

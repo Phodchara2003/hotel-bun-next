@@ -17,7 +17,7 @@ export async function POST(request) {
     const body = await request.json();
 
     // ส่งต่อ request ไปยัง backend โดยตรง
-    const response = await fetch(`${BACKEND_URL}/api/change-password`, {
+    const response = await fetch(`${BACKEND_URL}/change-password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

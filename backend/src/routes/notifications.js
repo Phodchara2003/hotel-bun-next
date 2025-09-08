@@ -18,8 +18,11 @@ export const notificationRoutes = new Elysia({ prefix: '/notifications' })
         unread_only = false,
         type = null 
       } = query;
-      
-      const offset = (page - 1) * limit;
+
+      // Ensure numeric types for pagination to avoid parameter type issues
+      const pageNum = parseInt(page) || 1;
+      const limitNum = parseInt(limit) || 20;
+      const offset = (pageNum - 1) * limitNum;
       
       let whereCondition = 'WHERE n.user_id = $1';
       let params = [user.id];
@@ -52,7 +55,7 @@ export const notificationRoutes = new Elysia({ prefix: '/notifications' })
         ${whereCondition}
         ORDER BY n.created_at DESC
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-      `, [...params, limit, offset]);
+      `, [...params, limitNum, offset]);
       
       // Get total count
       const countResult = await sql.unsafe(`
@@ -81,10 +84,10 @@ export const notificationRoutes = new Elysia({ prefix: '/notifications' })
           } : null
         })),
         pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
+          page: pageNum,
+          limit: limitNum,
           total,
-          totalPages: Math.ceil(total / limit)
+          totalPages: Math.ceil(total / limitNum)
         },
         summary: {
           totalNotifications: total,
@@ -93,6 +96,24 @@ export const notificationRoutes = new Elysia({ prefix: '/notifications' })
       };
     } catch (error) {
       console.error('Get notifications error:', error);
+      // Graceful fallback if notifications table is missing
+      if (error.message && /relation .*notifications/i.test(error.message)) {
+        set.status = 200;
+        return {
+          notifications: [],
+          pagination: {
+            page: parseInt(query?.page || 1),
+            limit: parseInt(query?.limit || 20),
+            total: 0,
+            totalPages: 0
+          },
+            summary: {
+              totalNotifications: 0,
+              unreadCount: 0
+            },
+            warning: 'notifications table missing (returning empty list)'
+        };
+      }
       set.status = 500;
       return { error: 'Internal server error' };
     }
@@ -109,6 +130,10 @@ export const notificationRoutes = new Elysia({ prefix: '/notifications' })
       return { unreadCount };
     } catch (error) {
       console.error('Get unread count error:', error);
+      if (error.message && /relation .*notifications/i.test(error.message)) {
+        set.status = 200;
+        return { unreadCount: 0, warning: 'notifications table missing' };
+      }
       set.status = 500;
       return { error: 'Internal server error' };
     }
@@ -241,12 +266,19 @@ export const notificationRoutes = new Elysia({ prefix: '/notifications' })
 
 // Helper functions
 async function getUnreadCount(userId) {
-  const result = await sql`
-    SELECT COUNT(*) as count 
-    FROM notifications 
-    WHERE user_id = ${userId} AND is_read = FALSE
-  `;
-  return parseInt(result[0].count);
+  try {
+    const result = await sql`
+      SELECT COUNT(*) as count 
+      FROM notifications 
+      WHERE user_id = ${userId} AND is_read = FALSE
+    `;
+    return parseInt(result[0].count);
+  } catch (e) {
+    if (e.message && /relation .*notifications/i.test(e.message)) {
+      return 0; // table missing
+    }
+    throw e;
+  }
 }
 
 export async function createNotification(userId, bookingId, type, title, message) {

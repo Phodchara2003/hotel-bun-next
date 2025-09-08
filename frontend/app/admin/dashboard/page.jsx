@@ -8,9 +8,11 @@ import { isStaffOrAdmin, canEdit, canDelete, canCreate, isReadOnly } from '../..
 import Cookies from 'js-cookie';
 import Link from 'next/link';
 import TokenStatus from '../../../components/admin/TokenStatus';
+import PerformanceDashboard from '../../../components/admin/PerformanceDashboard';
 import { 
   Calendar, 
   Users, 
+  User,
   CreditCard, 
   TrendingUp, 
   Hotel,
@@ -221,19 +223,35 @@ export default function AdminDashboard() {
     }
   }, []);
 
+  // Main data fetching effect - only run when necessary
   useEffect(() => {
     if (isAuthenticated && isStaffOrAdmin(user)) {
       fetchDashboardData();
-      // fetchUsers(); // Will be called when users tab is selected
     }
-  }, [isAuthenticated, user, filters.dateRange]);
+  }, [isAuthenticated, user]); // Remove filters.dateRange to prevent excessive calls
 
-  // Call fetchUsers when activeTab is 'users'
+  // Separate effect for date range changes
+  useEffect(() => {
+    if (isAuthenticated && isStaffOrAdmin(user) && filters.dateRange) {
+      // Debounce the API call
+      const timeoutId = setTimeout(() => {
+        fetchDashboardData();
+      }, 300);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [filters.dateRange]);
+
+  // Call fetchUsers when activeTab is 'users' - with debouncing
   useEffect(() => {
     if (activeTab === 'users' && isAuthenticated && isStaffOrAdmin(user)) {
-      fetchUsers();
+      const timeoutId = setTimeout(() => {
+        fetchUsers();
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
     }
-  }, [activeTab, isAuthenticated, user, fetchUsers]);
+  }, [activeTab, isAuthenticated, user]);
 
   const fetchDashboardData = async () => {
     try {
@@ -522,6 +540,13 @@ export default function AdminDashboard() {
               <p className="text-gray-600 mt-1">จัดการระบบโรงแรมครบวงจร</p>
             </div>
             <div className="flex items-center space-x-4">
+              <Link
+                href="/admin/profile"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <User className="h-4 w-4 mr-2" />
+                โปรไฟล์
+              </Link>
               <button
                 onClick={refreshData}
                 className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -624,6 +649,9 @@ export default function AdminDashboard() {
           <SettingsTab user={user} />
         )}
       </div>
+
+      {/* Performance Dashboard Component */}
+      <PerformanceDashboard />
     </div>
   );
 }

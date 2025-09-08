@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { usePathname } from 'next/navigation';
 import { Menu, Bell, User, Hotel } from 'lucide-react';
+import Link from 'next/link';
 
 export default function MobileHeader({ onMenuToggle }) {
   const { user, isAuthenticated } = useAuth();
@@ -43,9 +44,13 @@ export default function MobileHeader({ onMenuToggle }) {
               <button className="p-2 rounded-lg text-gray-800 hover:bg-gray-100 transition-colors">
                 <Bell className="w-5 h-5" />
               </button>
-              <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center">
+              <Link 
+                href={user?.role === 'admin' || user?.role === 'staff' ? '/admin/profile' : '/profile'}
+                className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center hover:from-emerald-600 hover:to-cyan-600 transition-colors"
+                title="จัดการโปรไฟล์"
+              >
                 <User className="w-4 h-4 text-white" />
-              </div>
+              </Link>
             </>
           )}
         </div>

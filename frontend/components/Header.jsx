@@ -172,11 +172,24 @@ const Header = () => {
             <ThemeSwitcher showLabel={false} size="small" />
             
             {isAuthenticated ? (
-              <div className="relative group">
-                <button className="flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+              <div className="flex items-center space-x-4">
+                {/* Profile Icon Link */}
+                <Link 
+                  href="/profile" 
+                  className="flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                  title="จัดการโปรไฟล์"
+                >
                   <span className="text-lg">👤</span>
-                  <span>{user?.firstName} {user?.lastName}</span>
-                </button>
+                </Link>
+                
+                {/* User Dropdown */}
+                <div className="relative group">
+                  <button className="flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                    <span>{user?.firstName} {user?.lastName}</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
                 
                 {/* Dropdown Menu */}
                 <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
@@ -242,6 +255,7 @@ const Header = () => {
                       {t('header.logout')}
                     </button>
                   </div>
+                </div>
                 </div>
               </div>
             ) : (

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { usersAPI } from '../../../lib/api';
+import Cookies from 'js-cookie';
 import { 
   Users, 
   Plus, 
@@ -54,6 +55,7 @@ export default function UserManagement() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
+      
       const params = {
         page: currentPage,
         limit: 10,
@@ -62,16 +64,39 @@ export default function UserManagement() {
       };
 
       const response = await usersAPI.getUsers(params);
-      console.log('Users API response:', response);
 
-      if (response.users) {
-        setUsers(response.users);
-        setTotalUsers(response.pagination?.total || 0);
+      if (response && response.users) {
+        // Normalize / enrich data from API (DB) -> frontend shape
+        const normalized = response.users.map(u => {
+          const first = u.first_name || u.firstName || '';
+            const last = u.last_name || u.lastName || '';
+            const fullName = u.fullName || u.full_name || `${first}${last ? ' ' + last : ''}`.trim();
+            return {
+              ...u,
+              first_name: first, // keep snake_case for existing usages
+              last_name: last,
+              fullName,
+              createdAt: u.createdAt || u.created_at,
+              role: u.role || 'user'
+            };
+        });
+        
+        setUsers(normalized);
+        setTotalUsers(response.pagination?.total || normalized.length || 0);
         setTotalPages(response.pagination?.totalPages || 1);
+      } else {
+        setUsers([]);
       }
     } catch (error) {
       console.error('Error fetching users:', error);
-      toast.error('ไม่สามารถโหลดข้อมูลผู้ใช้ได้');
+      
+      if (error.response?.status === 401) {
+        toast.error('ไม่ได้รับอนุญาต กรุณาเข้าสู่ระบบใหม่');
+      } else if (error.response?.status === 403) {
+        toast.error('ไม่มีสิทธิ์เข้าถึงข้อมูลนี้');
+      } else {
+        toast.error('ไม่สามารถโหลดข้อมูลผู้ใช้ได้');
+      }
     } finally {
       setLoading(false);
     }
@@ -189,12 +214,11 @@ export default function UserManagement() {
 
   // Format date
   const formatDate = (dateString) => {
-    if (!dateString) return 'ไม่ระบุ';
-    try {
-      return new Date(dateString).toLocaleDateString('th-TH');
-    } catch {
-      return 'ไม่ระบุ';
-    }
+    const raw = dateString || (dateString?.createdAt) || (dateString?.created_at);
+    if (!raw) return 'ไม่ระบุ';
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return 'ไม่ระบุ';
+    return d.toLocaleDateString('th-TH');
   };
 
   useEffect(() => {
@@ -358,7 +382,7 @@ export default function UserManagement() {
                               </div>
                               <div className="ml-4">
                                 <div className="text-sm font-medium text-gray-900">
-                                  {userItem.fullName || userItem.full_name || 'ไม่ระบุ'}
+                                  {userItem.fullName || 'ไม่ระบุ'}
                                 </div>
                                 <div className="text-sm text-gray-500 flex items-center">
                                   <Mail className="w-4 h-4 mr-1" />

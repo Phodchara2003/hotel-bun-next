@@ -80,31 +80,40 @@ export default function AdminReports() {
     let revenue = 0;
     let totalBookings = 0;
     const monthlyData = {};
-    
+
     bookings.forEach(booking => {
       if (booking.status === 'completed' || booking.status === 'confirmed') {
-        revenue += parseFloat(booking.total_price || 0);
+        const price = parseFloat(booking.total_price || booking.totalPrice || 0) || 0;
+        revenue += price;
         totalBookings++;
-        
-        // Group by month for chart
-        const month = new Date(booking.created_at).toISOString().substring(0, 7);
+
+        // Support multiple possible timestamp field names
+        const rawDate = booking.created_at || booking.createdAt || booking.created || null;
+        let month = 'unknown';
+        if (rawDate) {
+          const d = new Date(rawDate);
+            if (!isNaN(d.getTime())) {
+              month = d.toISOString().substring(0, 7);
+            }
+        }
         if (!monthlyData[month]) {
           monthlyData[month] = { revenue: 0, bookings: 0 };
         }
-        monthlyData[month].revenue += parseFloat(booking.total_price || 0);
+        monthlyData[month].revenue += price;
         monthlyData[month].bookings++;
       }
     });
 
+    const chartData = Object.entries(monthlyData)
+      .filter(([m]) => m !== 'unknown') // hide unknown bucket from chart
+      .sort(([a],[b]) => a.localeCompare(b))
+      .map(([month, data]) => ({ month, revenue: data.revenue, bookings: data.bookings }));
+
     setReportData({
       totalRevenue: revenue,
-      totalBookings: totalBookings,
+      totalBookings,
       averageBookingValue: totalBookings > 0 ? revenue / totalBookings : 0,
-      chartData: Object.entries(monthlyData).map(([month, data]) => ({
-        month,
-        revenue: data.revenue,
-        bookings: data.bookings
-      }))
+      chartData
     });
   };
 

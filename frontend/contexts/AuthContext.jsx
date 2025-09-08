@@ -57,7 +57,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // Continuous token monitoring
+  // Optimized token monitoring - reduce frequency
   useEffect(() => {
     if (!user) return;
 
@@ -86,12 +86,12 @@ export const AuthProvider = ({ children }) => {
 
       const timeRemaining = getTokenTimeRemaining(tokenPayload);
       
-      // Log token status every 5 minutes
-      if (timeRemaining % 300 === 0) {
+      // Log token status less frequently
+      if (timeRemaining % 600 === 0) { // Every 10 minutes
         console.log('🕒 Token status:', Math.floor(timeRemaining / 60), 'minutes remaining');
       }
       
-    }, 60000); // Check every minute
+    }, 300000); // Check every 5 minutes instead of 1 minute
 
     return () => clearInterval(tokenMonitorInterval);
   }, [user]);
@@ -101,8 +101,11 @@ export const AuthProvider = ({ children }) => {
       let token = Cookies.get('auth_token');
       let userData = Cookies.get('user_data');
       
-      console.log('🔐 Auth check - Token:', token ? 'Present' : 'Missing');
-      console.log('🔐 Auth check - UserData:', userData ? 'Present' : 'Missing');
+      // Reduce console logging for production
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔐 Auth check - Token:', token ? 'Present' : 'Missing');
+        console.log('🔐 Auth check - UserData:', userData ? 'Present' : 'Missing');
+      }
       
       if (token && userData) {
         try {

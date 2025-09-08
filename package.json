@@ -1,5 +1,17 @@
 {
+  "name": "hotel-booking-system",
+  "version": "1.0.0",
+  "description": "Hotel booking system with Next.js frontend and Bun backend",
+  "scripts": {
+    "test:e2e": "node tests/e2e/runner.js",
+    "test:auth": "node tests/e2e/runner.js auth",
+    "test:user": "node tests/e2e/runner.js user",
+    "test:dev": "NODE_ENV=development node tests/e2e/runner.js"
+  },
   "dependencies": {
     "@sinclair/typebox": "^0.34.40"
+  },
+  "devDependencies": {
+    "puppeteer": "^24.19.0"
   }
 }

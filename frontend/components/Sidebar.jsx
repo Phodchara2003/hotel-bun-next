@@ -126,13 +126,6 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }) {
       active: pathname === '/admin/user-management'
     },
     {
-      key: 'payments',
-      label: 'จัดการการชำระเงิน',
-      icon: CreditCard,
-      href: '/admin/payments',
-      active: pathname === '/admin/payments'
-    },
-    {
       key: 'reports',
       label: 'รายงาน',
       icon: FileText,
@@ -259,17 +252,20 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }) {
         {/* User Info */}
         {isAuthenticated && !isCollapsed && (
           <div className="p-4 border-b border-gray-700/50">
-            <div className="flex items-center">
+            <Link 
+              href={user?.role === 'admin' || user?.role === 'staff' ? '/admin/profile' : '/profile'} 
+              className="flex items-center hover:bg-gray-700/30 rounded-lg p-2 transition-colors"
+            >
               <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
                 <User className="w-5 h-5 text-white" />
               </div>
               <div className="ml-3">
                 <p className="text-white font-medium text-sm">
-                  {user?.first_name || user?.name || 'ผู้ใช้'}
+                  {user?.first_name || user?.firstName || user?.name || 'ผู้ใช้'}
                 </p>
                 <p className="text-gray-400 text-xs">{user?.email}</p>
               </div>
-            </div>
+            </Link>
           </div>
         )}
 
