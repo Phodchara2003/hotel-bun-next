@@ -1,5 +1,6 @@
 import { Elysia } from 'elysia';
 import { sql } from '../db/database.js';
+import { db, parseRows, parseRow } from '../db/sqlite.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { notificationService } from '../utils/notificationService.js';
 import { automaticEmailNotifications } from '../utils/automaticEmailService.js';
@@ -19,27 +20,29 @@ export const notificationRoutes = new Elysia({ prefix: '/notifications' })
         type = null 
       } = query;
 
-      // Ensure numeric types for pagination to avoid parameter type issues
       const pageNum = parseInt(page) || 1;
       const limitNum = parseInt(limit) || 20;
       const offset = (pageNum - 1) * limitNum;
       
-      let whereCondition = 'WHERE n.user_id = $1';
+      // Build where conditions
+      let whereConditions = ['n.user_id = $1'];
       let params = [user.id];
-      let paramIndex = 2;
-      
+      let paramIndex = 1;
+
       if (unread_only === 'true') {
-        whereCondition += ` AND n.is_read = FALSE`;
+        whereConditions.push('n.is_read = FALSE');
       }
-      
+
       if (type) {
-        whereCondition += ` AND n.type = $${paramIndex}`;
-        params.push(type);
         paramIndex++;
+        whereConditions.push(`n.type = $${paramIndex}`);
+        params.push(type);
       }
-      
+
+      const whereClause = whereConditions.join(' AND ');
+
       // Get notifications with booking info
-      const notifications = await sql.unsafe(`
+      const notificationsQuery = `
         SELECT 
           n.*,
           b.booking_reference,
@@ -52,15 +55,16 @@ export const notificationRoutes = new Elysia({ prefix: '/notifications' })
         LEFT JOIN bookings b ON n.booking_id = b.id
         LEFT JOIN room_types rt ON b.room_type_id = rt.id
         LEFT JOIN hotels h ON rt.hotel_id = h.id
-        ${whereCondition}
+        WHERE ${whereClause}
         ORDER BY n.created_at DESC
-        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-      `, [...params, limitNum, offset]);
+        LIMIT $${paramIndex + 1} OFFSET $${paramIndex + 2}
+      `;
+
+      const notifications = await sql.unsafe(notificationsQuery, [...params, limitNum, offset]);
       
       // Get total count
-      const countResult = await sql.unsafe(`
-        SELECT COUNT(*) as total FROM notifications n ${whereCondition}
-      `, params);
+      const countQuery = `SELECT COUNT(*) as total FROM notifications n WHERE ${whereClause}`;
+      const countResult = await sql.unsafe(countQuery, params);
       
       const total = parseInt(countResult[0].total);
       

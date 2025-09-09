@@ -3,9 +3,29 @@ import 'dotenv/config';
 
 console.log('Database URL:', process.env.DATABASE_URL);
 
-const sql = postgres(process.env.DATABASE_URL, {
-  ssl: 'require'
-});
+// Use a more flexible database configuration
+let sql;
+try {
+  const isNeonDatabase = process.env.DATABASE_URL?.includes('neon.tech');
+  
+  sql = postgres(process.env.DATABASE_URL || 'postgresql://localhost:5432/hotel_booking', {
+    ssl: isNeonDatabase ? 'require' : false, // Enable SSL for Neon, disable for local
+    onnotice: () => {}, // Ignore notices
+    connection: {
+      application_name: 'hotel_booking_api',
+    },
+    max: 10, // Maximum connections
+    idle_timeout: 20,
+    connect_timeout: 30, // Increase timeout for cloud connection
+    transform: {
+      undefined: null // Convert undefined to null
+    }
+  });
+} catch (error) {
+  console.error('Failed to initialize database connection:', error);
+  // Fallback to mock mode for development
+  sql = null;
+}
 
 export const createTables = async () => {
   try {

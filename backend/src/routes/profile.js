@@ -98,18 +98,28 @@ export const profileRoutes = new Elysia()
 
       // Support both body.profile and direct body formats
       const profile = body?.profile ? body.profile : body;
-      const allowed = ['first_name', 'last_name', 'email', 'phone', 'address', 'username'];
-      const hasField = allowed.some(k => profile[k] !== undefined);
+      console.log('PUT /profile received data:', profile);
+      
+      // Support both camelCase and snake_case field names
+      const firstName = profile.firstName || profile.first_name;
+      const lastName = profile.lastName || profile.last_name;
+      const phone = profile.phone;
+      const address = profile.address || profile.bio; // Support bio as address
+      const username = profile.username;
+      
+      const hasField = firstName !== undefined || lastName !== undefined || phone !== undefined || address !== undefined || username !== undefined;
       if (!hasField) { set.status = 400; return { error: 'No valid fields to update' }; }
 
       const updated = {
-        first_name: profile.first_name ?? authUser.first_name,
-        last_name: profile.last_name ?? authUser.last_name,
-        email: profile.email ?? authUser.email,
-        phone: profile.phone ?? authUser.phone,
-        address: profile.address ?? authUser.address,
-        username: profile.username ?? authUser.username
+        first_name: firstName ?? authUser.first_name,
+        last_name: lastName ?? authUser.last_name,
+        email: authUser.email, // Email ไม่ให้เปลี่ยน
+        phone: phone ?? authUser.phone,
+        address: address ?? authUser.address,
+        username: username ?? authUser.username
       };
+      
+      console.log('Updating user with data:', updated);
 
       await sql`UPDATE users SET 
         first_name = ${updated.first_name}, 
@@ -121,15 +131,20 @@ export const profileRoutes = new Elysia()
         updated_at = NOW() 
         WHERE id = ${authUser.id}`;
 
-      return { success: true, profile: {
+      const result = { success: true, profile: {
         firstName: updated.first_name,
         lastName: updated.last_name,
         email: updated.email,
-        phone: updated.phone,
-        address: updated.address,
-        username: updated.username,
+        phone: updated.phone || '',
+        address: updated.address || '',
+        bio: updated.address || '', // ส่ง address เป็น bio ด้วย
+        username: updated.username || '',
+        dateJoined: authUser.created_at,
         role: authUser.role
       }};
+      
+      console.log('Returning updated profile:', result);
+      return result;
     } catch (error) {
       console.error('PUT /profile error:', error);
       set.status = 500;

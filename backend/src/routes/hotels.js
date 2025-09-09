@@ -17,45 +17,21 @@ export const hotelRoutes = new Elysia({ prefix: '/hotels' })
       
       const offset = (page - 1) * limit;
       
-      let whereConditions = [];
-      let params = [];
-      
-      // Build base query (removed city filtering since it's a single hotel)
-      let queryStr = `
+      // Get hotels from PostgreSQL
+      const hotels = await sql`
         SELECT DISTINCT h.*, 
                MIN(rt.price_per_night) as min_price,
                MAX(rt.price_per_night) as max_price,
                COUNT(DISTINCT rt.id) as room_types_count
         FROM hotels h
         LEFT JOIN room_types rt ON h.id = rt.hotel_id
-      `;
-      
-      if (whereConditions.length > 0) {
-        queryStr += ` WHERE ${whereConditions.join(' AND ')}`;
-      }
-      
-      queryStr += `
-        GROUP BY h.id, h.name, h.description, h.address, h.city, h.country, h.rating, h.images, h.amenities, h.created_at, h.updated_at
+        GROUP BY h.id, h.name, h.description, h.address, h.city, h.country, h.rating, h.amenities, h.created_at, h.updated_at
         ORDER BY h.rating DESC, h.created_at DESC
-        LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+        LIMIT ${limit} OFFSET ${offset}
       `;
-      
-      params.push(limit, offset);
-      
-      const hotels = await sql.unsafe(queryStr, params);
       
       // Get total count for pagination
-      let countQuery = `
-        SELECT COUNT(DISTINCT h.id) as total
-        FROM hotels h
-        LEFT JOIN room_types rt ON h.id = rt.hotel_id
-      `;
-      
-      if (whereConditions.length > 0) {
-        countQuery += ` WHERE ${whereConditions.join(' AND ')}`;
-      }
-      
-      const countResult = await sql.unsafe(countQuery, params.slice(0, -2));
+      const countResult = await sql`SELECT COUNT(*) as total FROM hotels`;
       const total = parseInt(countResult[0].total);
       
       return {
@@ -66,12 +42,11 @@ export const hotelRoutes = new Elysia({ prefix: '/hotels' })
           address: hotel.address,
           city: hotel.city,
           country: hotel.country,
-          rating: parseFloat(hotel.rating),
-          images: hotel.images,
-          amenities: hotel.amenities,
-          minPrice: parseFloat(hotel.min_price),
-          maxPrice: parseFloat(hotel.max_price),
-          roomTypesCount: parseInt(hotel.room_types_count)
+          rating: parseFloat(hotel.rating || 0),
+          amenities: hotel.amenities || [],
+          minPrice: parseFloat(hotel.min_price || 0),
+          maxPrice: parseFloat(hotel.max_price || 0),
+          roomTypesCount: parseInt(hotel.room_types_count || 0)
         })),
         pagination: {
           page: parseInt(page),
@@ -91,26 +66,20 @@ export const hotelRoutes = new Elysia({ prefix: '/hotels' })
     try {
       const hotelId = parseInt(params.id);
       
-      // Check if hotel exists first
-      const hotelCheck = await sql`
-        SELECT id, name, description, address, city, country, rating, amenities, created_at, updated_at
-        FROM hotels WHERE id = ${hotelId}
-      `;
-      
-      if (!hotelCheck.length) {
-        set.status = 404;
-        return { error: 'Hotel not found' };
-      }
-      
-      // Get hotel data without large images first
+      // Get hotel data from PostgreSQL
       const hotel = await sql`
         SELECT id, name, description, address, city, country, rating, amenities, created_at, updated_at
         FROM hotels WHERE id = ${hotelId}
       `;
       
-      // Get room types for this hotel (exclude images initially for performance)
+      if (!hotel.length) {
+        set.status = 404;
+        return { error: 'Hotel not found' };
+      }
+      
+      // Get room types for this hotel
       const roomTypes = await sql`
-        SELECT id, name, description, price_per_night, max_guests, size_sqm, amenities, hotel_id, type
+        SELECT id, name, description, price_per_night, max_guests, amenities, hotel_id
         FROM room_types 
         WHERE hotel_id = ${hotelId}
         ORDER BY price_per_night ASC
@@ -120,7 +89,7 @@ export const hotelRoutes = new Elysia({ prefix: '/hotels' })
       const reviews = await sql`
         SELECT r.*, u.first_name, u.last_name
         FROM reviews r
-        JOIN users u ON r.user_id = u.id
+        LEFT JOIN users u ON r.user_id = u.id
         WHERE r.hotel_id = ${hotelId}
         ORDER BY r.created_at DESC
         LIMIT 10
@@ -138,20 +107,22 @@ export const hotelRoutes = new Elysia({ prefix: '/hotels' })
         rating: parseFloat(hotelData.rating),
         images: [], // Hotel images handled separately via /api/hotels/hotel-image endpoint
         amenities: hotelData.amenities,
-        roomTypes: roomTypes.map(rt => {
-          return {
-            id: rt.id,
-            name: rt.name,
-            type: rt.type,
-            description: rt.description,
-            pricePerNight: parseFloat(rt.price_per_night),
-            maxGuests: rt.max_guests,
-            sizeSqm: rt.size_sqm,
-            amenities: rt.amenities,
-            images: [`/api/hotels/room-image/${rt.id}/0`] // First image endpoint
-          };
-        }),
+        roomTypes: roomTypes.map(rt => ({
+          id: rt.id,
+          name: rt.name,
+          description: rt.description,
+          pricePerNight: parseFloat(rt.price_per_night),
+          maxGuests: parseInt(rt.max_guests) || 2,
+          amenities: rt.amenities || [],
+          images: []
+        })),
         reviews: reviews.map(review => ({
+          id: review.id,
+          rating: review.rating,
+          comment: review.comment,
+          userName: review.first_name && review.last_name ? `${review.first_name} ${review.last_name}` : 'Anonymous',
+          createdAt: review.created_at
+        })).map(review => ({
           id: review.id,
           rating: review.rating,
           comment: review.comment,

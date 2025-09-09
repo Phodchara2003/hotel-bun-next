@@ -2,6 +2,7 @@ import { Elysia } from 'elysia';
 import { cors } from '@elysiajs/cors';
 import { swagger } from '@elysiajs/swagger';
 import 'dotenv/config';
+
 import { authRoutes } from './routes/auth.js';
 import { hotelRoutes } from './routes/hotels.js';
 import { bookingRoutes } from './routes/bookings.js';
@@ -55,12 +56,10 @@ if (process.env.NODE_ENV !== 'production') {
 
 const app = new Elysia()
   .use(cors({
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:3003',
-      process.env.FRONTEND_URL
-    ].filter(Boolean),
-    credentials: true
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With']
   }))
   .use(swagger({
     documentation: {
@@ -210,11 +209,11 @@ const app = new Elysia()
   
   .listen({
     hostname: '0.0.0.0',
-    port: 3002
+    port: 3003
   });
 
-console.log(`🚀 Hotel Booking API is running at 0.0.0.0:3002`);
-console.log(`📚 API Documentation available at http://localhost:3002/swagger`);
-console.log(`Started development server: http://localhost:3002`);
+console.log(`🚀 Hotel Booking API is running at 0.0.0.0:3003`);
+console.log(`📚 API Documentation available at http://localhost:3003/swagger`);
+console.log(`Started development server: http://localhost:3003`);
 
 export default app;

@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia';
 import { sql } from '../db/database.js';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 console.log('👤 Loading Admin Profile Routes...');
 

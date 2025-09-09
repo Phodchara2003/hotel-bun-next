@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Profile Navigation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-6">Debug Profile Navigation</h1>
+        
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Current Authentication State</h2>
+            <div class="space-y-4">
+                <button onclick="checkAuthState()" 
+                        class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    Check Auth State
+                </button>
+                <button onclick="goToProfile()" 
+                        class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                    Go to Profile (Direct)
+                </button>
+                <button onclick="loginAndGoToProfile()" 
+                        class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">
+                    Login & Go to Profile
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">Debug Results</h2>
+            <pre id="results" class="bg-gray-100 p-4 rounded text-sm overflow-auto max-h-96"></pre>
+        </div>
+    </div>
+
+    <script>
+        function log(message) {
+            const results = document.getElementById('results');
+            results.textContent += new Date().toLocaleTimeString() + ': ' + message + '\n';
+        }
+
+        function checkAuthState() {
+            log('=== Checking Authentication State ===');
+            
+            // Check localStorage
+            const token = localStorage.getItem('token');
+            const authToken = localStorage.getItem('auth_token');
+            const userDataLS = localStorage.getItem('user_data');
+            
+            log('localStorage token: ' + (token ? 'Present (' + token.substring(0, 20) + '...)' : 'Missing'));
+            log('localStorage auth_token: ' + (authToken ? 'Present (' + authToken.substring(0, 20) + '...)' : 'Missing'));
+            log('localStorage user_data: ' + (userDataLS ? 'Present' : 'Missing'));
+            
+            // Check cookies
+            const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+                const [key, value] = cookie.trim().split('=');
+                acc[key] = value;
+                return acc;
+            }, {});
+            
+            log('Cookies auth_token: ' + (cookies.auth_token ? 'Present (' + cookies.auth_token.substring(0, 20) + '...)' : 'Missing'));
+            log('Cookies user_data: ' + (cookies.user_data ? 'Present' : 'Missing'));
+            
+            if (userDataLS) {
+                try {
+                    const userData = JSON.parse(userDataLS);
+                    log('User data: ' + JSON.stringify(userData, null, 2));
+                } catch (e) {
+                    log('Error parsing user data: ' + e.message);
+                }
+            }
+            
+            if (cookies.user_data) {
+                try {
+                    const userData = JSON.parse(decodeURIComponent(cookies.user_data));
+                    log('Cookie user data: ' + JSON.stringify(userData, null, 2));
+                } catch (e) {
+                    log('Error parsing cookie user data: ' + e.message);
+                }
+            }
+        }
+
+        async function loginAndGoToProfile() {
+            log('=== Login and Go to Profile ===');
+            
+            try {
+                // Login first
+                const loginResponse = await fetch('http://localhost:3003/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@royalgarden.com',
+                        password: 'admin123'
+                    })
+                });
+                
+                if (!loginResponse.ok) {
+                    log('Login failed: ' + loginResponse.status);
+                    return;
+                }
+                
+                const loginData = await loginResponse.json();
+                log('Login successful: ' + JSON.stringify(loginData, null, 2));
+                
+                // Store token
+                localStorage.setItem('token', loginData.token);
+                localStorage.setItem('auth_token', loginData.token);
+                
+                if (loginData.user) {
+                    localStorage.setItem('user_data', JSON.stringify(loginData.user));
+                    
+                    // Set cookies
+                    document.cookie = `auth_token=${loginData.token}; path=/; max-age=86400`;
+                    document.cookie = `user_data=${encodeURIComponent(JSON.stringify(loginData.user))}; path=/; max-age=86400`;
+                }
+                
+                log('Token and user data stored');
+                
+                // Wait a bit then redirect
+                setTimeout(() => {
+                    log('Redirecting to profile...');
+                    window.location.href = '/admin/profile';
+                }, 1000);
+                
+            } catch (error) {
+                log('Login error: ' + error.message);
+            }
+        }
+
+        function goToProfile() {
+            log('=== Direct Profile Navigation ===');
+            
+            const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
+            if (!token) {
+                log('No token found, cannot navigate to profile');
+                return;
+            }
+            
+            log('Token found, navigating to profile...');
+            window.location.href = '/admin/profile';
+        }
+
+        // Auto check on load
+        window.onload = function() {
+            checkAuthState();
+        }
+    </script>
+</body>
+</html>

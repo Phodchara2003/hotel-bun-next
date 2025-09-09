@@ -15,7 +15,7 @@ export async function GET(request) {
     }
 
     // ส่งต่อ request ไปยัง backend โดยตรง
-    const response = await fetch(`${BACKEND_URL}/profile`, {
+    const response = await fetch(`${BACKEND_URL}/api/profile`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -32,18 +32,11 @@ export async function GET(request) {
         { status: 401 }
       );
     } else {
-      // Return default profile if no profile found
-      return NextResponse.json({
-        success: true,
-        profile: {
-          firstName: '',
-          lastName: '',
-          email: '',
-          phone: '',
-          address: '',
-          dateJoined: new Date().toISOString()
-        }
-      });
+      console.error('Backend profile fetch failed:', response.status);
+      return NextResponse.json(
+        { error: 'Failed to fetch profile' },
+        { status: response.status }
+      );
     }
   } catch (error) {
     console.error('Profile GET error:', error);
@@ -69,7 +62,7 @@ export async function PUT(request) {
     const body = await request.json();
 
     // ส่งต่อ request ไปยัง backend โดยตรง
-    const response = await fetch(`${BACKEND_URL}/profile`, {
+    const response = await fetch(`${BACKEND_URL}/api/profile`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

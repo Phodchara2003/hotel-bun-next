@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Profile Edit</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-2xl">
+        <div class="bg-white rounded-lg shadow p-6">
+            <h1 className="text-2xl font-bold mb-6 text-center">ทดสอบการแก้ไขโปรไฟล์</h1>
+            
+            <div class="space-y-4 mb-6">
+                <button onclick="loginAndLoadProfile()" 
+                        class="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors">
+                    🔐 Login และโหลดข้อมูลโปรไฟล์
+                </button>
+                
+                <button onclick="testProfileAPI()" 
+                        class="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors">
+                    📊 ทดสอบ Profile API
+                </button>
+                
+                <button onclick="testUpdateProfile()" 
+                        class="w-full bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 transition-colors">
+                    ✏️ ทดสอบอัปเดตโปรไฟล์
+                </button>
+                
+                <button onclick="goToProfilePage()" 
+                        class="w-full bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 transition-colors">
+                    🔗 ไปหน้าโปรไฟล์
+                </button>
+            </div>
+
+            <div class="bg-gray-50 rounded p-4">
+                <h3 class="font-semibold mb-2">ข้อมูลโปรไฟล์ปัจจุบัน:</h3>
+                <div id="profileData" class="text-sm font-mono bg-white p-3 rounded border"></div>
+            </div>
+            
+            <div class="mt-4 bg-gray-50 rounded p-4">
+                <h3 class="font-semibold mb-2">ผลการทดสอบ:</h3>
+                <div id="results" class="text-sm font-mono bg-white p-3 rounded border max-h-64 overflow-auto"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentToken = null;
+        let currentUser = null;
+
+        function log(message) {
+            const results = document.getElementById('results');
+            const timestamp = new Date().toLocaleTimeString();
+            results.innerHTML += `[${timestamp}] ${message}\n`;
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function updateProfileDisplay(userData) {
+            const profileData = document.getElementById('profileData');
+            if (userData) {
+                profileData.innerHTML = `
+ชื่อ: ${userData.firstName || 'ยังไม่ได้ระบุ'}
+นามสกุล: ${userData.lastName || 'ยังไม่ได้ระบุ'}
+อีเมล: ${userData.email || 'ยังไม่ได้ระบุ'}
+เบอร์โทร: ${userData.phone || 'ยังไม่ได้ระบุ'}
+รายละเอียด: ${userData.bio || 'ยังไม่ได้เพิ่มรายละเอียด'}
+บทบาท: ${userData.role || 'ไม่ทราบ'}
+วันที่สร้าง: ${userData.dateJoined ? new Date(userData.dateJoined).toLocaleDateString('th-TH') : 'ไม่ทราบ'}
+                `.trim();
+                currentUser = userData;
+            } else {
+                profileData.innerHTML = 'ยังไม่ได้โหลดข้อมูล';
+            }
+        }
+
+        async function loginAndLoadProfile() {
+            log('🔄 เริ่มกระบวนการ login...');
+            
+            try {
+                // Login
+                const loginResponse = await fetch('http://localhost:3003/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'admin@royalgarden.com',
+                        password: 'admin123'
+                    })
+                });
+                
+                if (!loginResponse.ok) {
+                    throw new Error(`Login failed: ${loginResponse.status}`);
+                }
+                
+                const loginData = await loginResponse.json();
+                currentToken = loginData.token;
+                log('✅ Login สำเร็จ');
+                
+                // Set cookies
+                const expiresDate = new Date();
+                expiresDate.setDate(expiresDate.getDate() + 7);
+                document.cookie = `auth_token=${currentToken}; expires=${expiresDate.toUTCString()}; path=/; SameSite=Strict`;
+                document.cookie = `user_data=${encodeURIComponent(JSON.stringify(loginData.user))}; expires=${expiresDate.toUTCString()}; path=/; SameSite=Strict`;
+                
+                // Load profile
+                await testProfileAPI();
+                
+            } catch (error) {
+                log('❌ Error: ' + error.message);
+            }
+        }
+
+        async function testProfileAPI() {
+            if (!currentToken) {
+                log('❌ ไม่มี token กรุณา login ก่อน');
+                return;
+            }
+            
+            log('🔄 กำลังโหลดข้อมูลโปรไฟล์...');
+            
+            try {
+                const response = await fetch('/api/profile', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Profile API failed: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const profileData = data.profile || data;
+                
+                log('✅ โหลดข้อมูลโปรไฟล์สำเร็จ');
+                log(`📊 ข้อมูล: ${JSON.stringify(profileData, null, 2)}`);
+                
+                updateProfileDisplay(profileData);
+                
+            } catch (error) {
+                log('❌ Error loading profile: ' + error.message);
+            }
+        }
+
+        async function testUpdateProfile() {
+            if (!currentToken) {
+                log('❌ ไม่มี token กรุณา login ก่อน');
+                return;
+            }
+            
+            if (!currentUser) {
+                log('❌ ไม่มีข้อมูลโปรไฟล์ กรุณาโหลดข้อมูลก่อน');
+                return;
+            }
+            
+            log('🔄 กำลังทดสอบการอัปเดตโปรไฟล์...');
+            
+            // สร้างข้อมูลทดสอบ
+            const testData = {
+                firstName: currentUser.firstName || 'ทดสอบ',
+                lastName: currentUser.lastName || 'อัปเดต',
+                phone: '081-234-5678',
+                bio: 'ข้อมูลทดสอบที่อัปเดตเมื่อ ' + new Date().toLocaleString('th-TH')
+            };
+            
+            try {
+                const response = await fetch('/api/profile', {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Update failed: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const updatedProfile = data.profile || data;
+                
+                log('✅ อัปเดตโปรไฟล์สำเร็จ');
+                log(`📊 ข้อมูลใหม่: ${JSON.stringify(updatedProfile, null, 2)}`);
+                
+                updateProfileDisplay(updatedProfile);
+                
+            } catch (error) {
+                log('❌ Error updating profile: ' + error.message);
+            }
+        }
+
+        function goToProfilePage() {
+            if (!currentToken) {
+                log('❌ ไม่มี token กรุณา login ก่อน');
+                return;
+            }
+            
+            log('🔄 กำลังไปหน้าโปรไฟล์...');
+            window.location.href = '/admin/profile';
+        }
+
+        // Initialize
+        window.onload = function() {
+            log('=== เริ่มต้นการทดสอบ ===');
+            
+            // Check for existing token
+            const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+                const [key, value] = cookie.trim().split('=');
+                acc[key] = value;
+                return acc;
+            }, {});
+            
+            if (cookies.auth_token) {
+                currentToken = cookies.auth_token;
+                log('✅ พบ token ที่บันทึกไว้');
+                testProfileAPI();
+            } else {
+                log('ℹ️ ไม่พบ token กรุณา login');
+            }
+        }
+    </script>
+</body>
+</html>

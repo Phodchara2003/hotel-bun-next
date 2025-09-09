@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile Navigation Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-6 text-center">Profile Navigation Test</h1>
+        
+        <!-- Step 1: Login -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Step 1: Login</h2>
+            <div class="space-y-4">
+                <button onclick="doLogin()" id="loginBtn"
+                        class="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors">
+                    🔐 Login as Admin
+                </button>
+                <div id="loginStatus" class="text-sm text-gray-600"></div>
+            </div>
+        </div>
+
+        <!-- Step 2: Navigate to Profile -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Step 2: Go to Profile</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button onclick="goToProfileDirect()" 
+                        class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors">
+                    📄 Direct Link to Profile
+                </button>
+                <button onclick="goToProfileNewWindow()" 
+                        class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 transition-colors">
+                    🪟 Open Profile in New Window
+                </button>
+                <button onclick="testProfileAPI()" 
+                        class="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 transition-colors">
+                    🔧 Test Profile API
+                </button>
+                <button onclick="simulateProfileClick()" 
+                        class="bg-pink-500 text-white px-4 py-2 rounded hover:bg-pink-600 transition-colors">
+                    👆 Simulate Profile Icon Click
+                </button>
+            </div>
+        </div>
+
+        <!-- Debug Info -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">Debug Information</h2>
+            <div id="debugInfo" class="bg-gray-50 p-4 rounded text-sm font-mono max-h-96 overflow-auto"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentToken = null;
+
+        function log(message) {
+            const debugInfo = document.getElementById('debugInfo');
+            const timestamp = new Date().toLocaleTimeString();
+            debugInfo.innerHTML += `[${timestamp}] ${message}\n`;
+            debugInfo.scrollTop = debugInfo.scrollHeight;
+            console.log(message);
+        }
+
+        async function doLogin() {
+            const loginBtn = document.getElementById('loginBtn');
+            const loginStatus = document.getElementById('loginStatus');
+            
+            loginBtn.disabled = true;
+            loginBtn.textContent = '🔄 Logging in...';
+            loginStatus.textContent = 'Attempting login...';
+            
+            try {
+                log('=== Starting Login Process ===');
+                
+                const response = await fetch('http://localhost:3003/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@royalgarden.com',
+                        password: 'admin123'
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Login failed: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                currentToken = data.token;
+                
+                log('✅ Login successful');
+                log(`Token: ${currentToken.substring(0, 50)}...`);
+                log(`User: ${JSON.stringify(data.user, null, 2)}`);
+                
+                // Store in multiple places
+                localStorage.setItem('token', currentToken);
+                localStorage.setItem('auth_token', currentToken);
+                localStorage.setItem('user_data', JSON.stringify(data.user));
+                
+                // Set cookies
+                document.cookie = `auth_token=${currentToken}; path=/; max-age=86400; SameSite=Lax`;
+                document.cookie = `user_data=${encodeURIComponent(JSON.stringify(data.user))}; path=/; max-age=86400; SameSite=Lax`;
+                
+                loginBtn.textContent = '✅ Login Successful!';
+                loginBtn.className = 'w-full bg-green-500 text-white px-4 py-2 rounded';
+                loginStatus.textContent = `Logged in as: ${data.user.email}`;
+                loginStatus.className = 'text-sm text-green-600';
+                
+                log('💾 Token and user data stored in localStorage and cookies');
+                
+            } catch (error) {
+                log('❌ Login failed: ' + error.message);
+                loginBtn.textContent = '❌ Login Failed - Retry';
+                loginBtn.disabled = false;
+                loginBtn.className = 'w-full bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600';
+                loginStatus.textContent = 'Login failed: ' + error.message;
+                loginStatus.className = 'text-sm text-red-600';
+            }
+        }
+
+        function goToProfileDirect() {
+            log('=== Direct Navigation to Profile ===');
+            if (!currentToken && !localStorage.getItem('token')) {
+                log('❌ No token found. Please login first.');
+                alert('Please login first!');
+                return;
+            }
+            
+            log('🔄 Navigating to /admin/profile...');
+            window.location.href = '/admin/profile';
+        }
+
+        function goToProfileNewWindow() {
+            log('=== Opening Profile in New Window ===');
+            if (!currentToken && !localStorage.getItem('token')) {
+                log('❌ No token found. Please login first.');
+                alert('Please login first!');
+                return;
+            }
+            
+            log('🪟 Opening /admin/profile in new window...');
+            window.open('/admin/profile', '_blank');
+        }
+
+        async function testProfileAPI() {
+            log('=== Testing Profile API ===');
+            
+            const token = currentToken || localStorage.getItem('token') || localStorage.getItem('auth_token');
+            if (!token) {
+                log('❌ No token found. Please login first.');
+                return;
+            }
+            
+            try {
+                log('🔄 Calling /api/profile...');
+                const response = await fetch('/api/profile', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log('✅ Profile API success:');
+                    log(JSON.stringify(data, null, 2));
+                } else {
+                    log('❌ Profile API failed:');
+                    log(`Status: ${response.status}`);
+                    log(JSON.stringify(data, null, 2));
+                }
+                
+            } catch (error) {
+                log('❌ Profile API error: ' + error.message);
+            }
+        }
+
+        function simulateProfileClick() {
+            log('=== Simulating Profile Icon Click ===');
+            
+            // Create a temporary link element
+            const link = document.createElement('a');
+            link.href = '/admin/profile';
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            
+            log('🔄 Simulating click on profile link...');
+            link.click();
+            
+            document.body.removeChild(link);
+        }
+
+        // Check initial state
+        window.onload = function() {
+            log('=== Page Loaded ===');
+            
+            const token = localStorage.getItem('token');
+            const authToken = localStorage.getItem('auth_token');
+            const userData = localStorage.getItem('user_data');
+            
+            log(`LocalStorage token: ${token ? 'Present' : 'Missing'}`);
+            log(`LocalStorage auth_token: ${authToken ? 'Present' : 'Missing'}`);
+            log(`LocalStorage user_data: ${userData ? 'Present' : 'Missing'}`);
+            
+            if (token || authToken) {
+                currentToken = token || authToken;
+                const loginBtn = document.getElementById('loginBtn');
+                const loginStatus = document.getElementById('loginStatus');
+                
+                loginBtn.textContent = '✅ Already Logged In';
+                loginBtn.className = 'w-full bg-green-500 text-white px-4 py-2 rounded';
+                loginStatus.textContent = 'Token found in storage';
+                loginStatus.className = 'text-sm text-green-600';
+                
+                if (userData) {
+                    try {
+                        const user = JSON.parse(userData);
+                        loginStatus.textContent = `Logged in as: ${user.email}`;
+                    } catch (e) {
+                        log('Error parsing stored user data');
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
