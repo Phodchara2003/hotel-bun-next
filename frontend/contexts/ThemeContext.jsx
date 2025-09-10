@@ -13,28 +13,23 @@ export const useTheme = () => {
 };
 
 export const ThemeProvider = ({ children }) => {
-  const [theme, setTheme] = useState('light'); // default to light theme
+  const [theme, setTheme] = useState('light'); // Force light theme as default
 
   // Load saved theme from localStorage on mount
   useEffect(() => {
-    const savedTheme = localStorage.getItem('preferred_theme');
-    if (savedTheme && ['light', 'dark'].includes(savedTheme)) {
-      setTheme(savedTheme);
-    } else {
-      // Check system preference
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setTheme(prefersDark ? 'dark' : 'light');
-    }
+    // Force light theme always
+    setTheme('light');
+    localStorage.setItem('preferred_theme', 'light');
   }, []);
 
   // Apply theme to document
   useEffect(() => {
     if (typeof document !== 'undefined') {
-      if (theme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
+      // Always remove dark class to ensure light theme
+      document.documentElement.classList.remove('dark');
+      // Ensure white background and dark text
+      document.body.style.backgroundColor = '#ffffff';
+      document.body.style.color = '#1f2937';
     }
   }, [theme]);
 
