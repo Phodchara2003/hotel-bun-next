@@ -266,7 +266,7 @@ export default function ProfilePage() {
               </Link>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">โปรไฟล์ของฉัน</h1>
-                <p className="text-gray-600">จัดการข้อมูลส่วนตัวและการตั้งค่าบัญชี</p>
+                <p className="text-gray-800">จัดการข้อมูลส่วนตัวและการตั้งค่าบัญชี</p>
               </div>
             </div>
           </div>
@@ -299,7 +299,7 @@ export default function ProfilePage() {
                   className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                     activeTab === 'profile'
                       ? 'bg-emerald-100 text-emerald-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      : 'text-gray-800 hover:bg-gray-50 hover:text-gray-900'
                   }`}
                 >
                   <User className="h-4 w-4 mr-3" />
@@ -311,7 +311,7 @@ export default function ProfilePage() {
                   className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                     activeTab === 'password'
                       ? 'bg-emerald-100 text-emerald-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      : 'text-gray-800 hover:bg-gray-50 hover:text-gray-900'
                   }`}
                 >
                   <Lock className="h-4 w-4 mr-3" />
@@ -327,14 +327,14 @@ export default function ProfilePage() {
               <div className="bg-white rounded-lg shadow">
                 <div className="px-6 py-4 border-b border-gray-200">
                   <h2 className="text-lg font-medium text-gray-900">ข้อมูลส่วนตัว</h2>
-                  <p className="text-sm text-gray-600">อัพเดทข้อมูลโปรไฟล์และข้อมูลติดต่อของคุณ</p>
+                  <p className="text-sm text-gray-800">อัพเดทข้อมูลโปรไฟล์และข้อมูลติดต่อของคุณ</p>
                 </div>
 
                 <form onSubmit={handleProfileUpdate} className="p-6 space-y-6">
                   {/* Name Fields */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
+                      <label htmlFor="firstName" className="block text-sm font-medium text-gray-900 mb-2">
                         <User className="h-4 w-4 inline mr-1" />
                         ชื่อ *
                       </label>
@@ -344,10 +344,10 @@ export default function ProfilePage() {
                         name="firstName"
                         value={profileData.firstName}
                         onChange={handleProfileChange}
-                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                        className={`w-full px-3 py-2 border rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
                           errors.firstName ? 'border-red-300' : 'border-gray-300'
                         }`}
-                        placeholder="กรอกชื่อของคุณ"
+                        placeholder="เช่น สมชาย, อนิสา, ธนากร"
                       />
                       {errors.firstName && (
                         <p className="mt-1 text-sm text-red-600 flex items-center">
@@ -358,7 +358,7 @@ export default function ProfilePage() {
                     </div>
 
                     <div>
-                      <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
+                      <label htmlFor="lastName" className="block text-sm font-medium text-gray-900 mb-2">
                         <User className="h-4 w-4 inline mr-1" />
                         นามสกุล *
                       </label>
@@ -368,10 +368,10 @@ export default function ProfilePage() {
                         name="lastName"
                         value={profileData.lastName}
                         onChange={handleProfileChange}
-                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                        className={`w-full px-3 py-2 border rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
                           errors.lastName ? 'border-red-300' : 'border-gray-300'
                         }`}
-                        placeholder="กรอกนามสกุลของคุณ"
+                        placeholder="เช่น จันทร์เจริญ, วงศ์สวัสดิ์, เพชรรัตน์"
                       />
                       {errors.lastName && (
                         <p className="mt-1 text-sm text-red-600 flex items-center">
@@ -384,7 +384,7 @@ export default function ProfilePage() {
 
                   {/* Email Field */}
                   <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-900 mb-2">
                       <Mail className="h-4 w-4 inline mr-1" />
                       อีเมล *
                     </label>
@@ -394,10 +394,10 @@ export default function ProfilePage() {
                       name="email"
                       value={profileData.email}
                       onChange={handleProfileChange}
-                      className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                      className={`w-full px-3 py-2 border rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
                         errors.email ? 'border-red-300' : 'border-gray-300'
                       }`}
-                      placeholder="กรอกอีเมลของคุณ"
+                      placeholder="เช่น somchai@email.com"
                     />
                     {errors.email && (
                       <p className="mt-1 text-sm text-red-600 flex items-center">
@@ -409,7 +409,7 @@ export default function ProfilePage() {
 
                   {/* Phone Field */}
                   <div>
-                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="phone" className="block text-sm font-medium text-gray-900 mb-2">
                       <Phone className="h-4 w-4 inline mr-1" />
                       เบอร์โทรศัพท์
                     </label>
@@ -419,10 +419,10 @@ export default function ProfilePage() {
                       name="phone"
                       value={profileData.phone}
                       onChange={handleProfileChange}
-                      className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                      className={`w-full px-3 py-2 border rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
                         errors.phone ? 'border-red-300' : 'border-gray-300'
                       }`}
-                      placeholder="08X-XXX-XXXX"
+                      placeholder="เช่น 081-234-5678"
                     />
                     {errors.phone && (
                       <p className="mt-1 text-sm text-red-600 flex items-center">
@@ -434,7 +434,7 @@ export default function ProfilePage() {
 
                   {/* Address Field */}
                   <div>
-                    <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="address" className="block text-sm font-medium text-gray-900 mb-2">
                       <MapPin className="h-4 w-4 inline mr-1" />
                       ที่อยู่
                     </label>
@@ -444,8 +444,8 @@ export default function ProfilePage() {
                       value={profileData.address}
                       onChange={handleProfileChange}
                       rows="3"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                      placeholder="ที่อยู่ของคุณ"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      placeholder="เช่น 123/45 หมู่ 6 ตำบลบางพลี อำเภอบางพลี จังหวัดสมุทรปราการ 10540"
                     />
                   </div>
 
@@ -477,13 +477,13 @@ export default function ProfilePage() {
               <div className="bg-white rounded-lg shadow">
                 <div className="px-6 py-4 border-b border-gray-200">
                   <h2 className="text-lg font-medium text-gray-900">เปลี่ยนรหัสผ่าน</h2>
-                  <p className="text-sm text-gray-600">อัพเดทรหัสผ่านเพื่อความปลอดภัยของบัญชี</p>
+                  <p className="text-sm text-gray-800">อัพเดทรหัสผ่านเพื่อความปลอดภัยของบัญชี</p>
                 </div>
 
                 <form onSubmit={handlePasswordUpdate} className="p-6 space-y-6">
                   {/* Current Password */}
                   <div>
-                    <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-900 mb-2">
                       <Lock className="h-4 w-4 inline mr-1" />
                       รหัสผ่านปัจจุบัน *
                     </label>
@@ -494,10 +494,10 @@ export default function ProfilePage() {
                         name="currentPassword"
                         value={passwordData.currentPassword}
                         onChange={handlePasswordChange}
-                        className={`w-full px-3 py-2 pr-10 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                        className={`w-full px-3 py-2 pr-10 border rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
                           errors.currentPassword ? 'border-red-300' : 'border-gray-300'
                         }`}
-                        placeholder="กรอกรหัสผ่านปัจจุบัน"
+                        placeholder="ใส่รหัสผ่านเดิมของคุณ"
                       />
                       <button
                         type="button"
@@ -521,7 +521,7 @@ export default function ProfilePage() {
 
                   {/* New Password */}
                   <div>
-                    <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="newPassword" className="block text-sm font-medium text-gray-900 mb-2">
                       <Lock className="h-4 w-4 inline mr-1" />
                       รหัสผ่านใหม่ *
                     </label>
@@ -532,10 +532,10 @@ export default function ProfilePage() {
                         name="newPassword"
                         value={passwordData.newPassword}
                         onChange={handlePasswordChange}
-                        className={`w-full px-3 py-2 pr-10 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                        className={`w-full px-3 py-2 pr-10 border rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
                           errors.newPassword ? 'border-red-300' : 'border-gray-300'
                         }`}
-                        placeholder="กรอกรหัสผ่านใหม่"
+                        placeholder="ตั้งรหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)"
                       />
                       <button
                         type="button"
@@ -559,7 +559,7 @@ export default function ProfilePage() {
 
                   {/* Confirm Password */}
                   <div>
-                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-900 mb-2">
                       <Lock className="h-4 w-4 inline mr-1" />
                       ยืนยันรหัสผ่านใหม่ *
                     </label>
@@ -570,10 +570,10 @@ export default function ProfilePage() {
                         name="confirmPassword"
                         value={passwordData.confirmPassword}
                         onChange={handlePasswordChange}
-                        className={`w-full px-3 py-2 pr-10 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                        className={`w-full px-3 py-2 pr-10 border rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
                           errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
                         }`}
-                        placeholder="กรอกรหัสผ่านใหม่อีกครั้ง"
+                        placeholder="พิมพ์รหัสผ่านใหม่อีกครั้งเพื่อยืนยัน"
                       />
                       <button
                         type="button"

@@ -2,7 +2,7 @@
 console.log('=== Frontend API Configuration Test ===');
 
 // Test environment variables
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
 console.log('API URL:', API_URL);
 
 // Test axios configuration (simulate)

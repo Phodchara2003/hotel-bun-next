@@ -3,7 +3,7 @@ import Cookies from 'js-cookie';
 import toast from 'react-hot-toast';
 import performanceMonitor from './performanceMonitor';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
 
 // Create axios instance
 const api = axios.create({
@@ -229,8 +229,31 @@ export const bookingAPI = {
   // Admin APIs
   getAllBookings: async (params = {}) => {
     return retryRequest(async () => {
+      console.log('📞 Fetching all bookings with params:', params);
       const response = await api.get('/bookings/admin/all', { params });
-      return response.data;
+      console.log('✅ Get all bookings response:', response.data);
+      
+      // Handle both response formats
+      if (response.data.bookings) {
+        return {
+          success: true,
+          data: response.data.bookings,
+          pagination: response.data.pagination,
+          total: response.data.pagination?.total || response.data.bookings.length
+        };
+      } else if (Array.isArray(response.data)) {
+        return {
+          success: true,
+          data: response.data,
+          total: response.data.length
+        };
+      } else {
+        return {
+          success: true,
+          data: response.data.data || [],
+          total: response.data.total || 0
+        };
+      }
     });
   },
 
@@ -254,14 +277,28 @@ export const bookingAPI = {
     return response.data;
   },
 
-  // Delete booking (Admin only)
-  deleteBooking: async (id) => {
+  // Update booking status (Admin)
+  updateStatus: async (id, status) => {
+    console.log('📞 Updating booking status:', { id, status });
     try {
-      console.log('Attempting to delete booking:', id);
-      const response = await api.delete(`/bookings/${id}`);
-      return response.data;
+      const response = await api.put(`/bookings/${id}/status`, { status });
+      console.log('✅ Update booking status response:', response.data);
+      return { success: true, data: response.data };
     } catch (error) {
-      console.error('Delete booking error:', error);
+      console.error('❌ Update booking status error:', error);
+      throw error;
+    }
+  },
+
+  // Delete booking (Admin only)
+  delete: async (id) => {
+    try {
+      console.log('📞 Attempting to delete booking:', id);
+      const response = await api.delete(`/bookings/${id}`);
+      console.log('✅ Delete booking response:', response.data);
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error('❌ Delete booking error:', error);
       throw error;
     }
   },

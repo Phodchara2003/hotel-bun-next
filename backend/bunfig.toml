@@ -1,4 +1,4 @@
 [build]
-target = "node"
+target = "bun"
 outdir = "dist"
 format = "esm"

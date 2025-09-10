@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { dashboardAPI, usersAPI } from '../../../lib/api';
+import { dashboardAPI, usersAPI, bookingAPI } from '../../../lib/api';
 import { isStaffOrAdmin, canEdit, canDelete, canCreate, isReadOnly } from '../../../lib/roles';
 import Cookies from 'js-cookie';
 import Link from 'next/link';
@@ -92,6 +92,21 @@ export default function AdminDashboard() {
     status: 'all',
     search: ''
   });
+
+  // States for booking edit modal
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    guestName: '',
+    guestPhone: '',
+    guestEmail: '',
+    checkInDate: '',
+    checkOutDate: '',
+    guests: 1,
+    specialRequests: '',
+    status: 'pending'
+  });
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Define main navigation tabs
   const mainTabs = [
@@ -444,6 +459,95 @@ export default function AdminDashboard() {
   const refreshData = () => {
     window.dashboardRefreshManual = true; // Flag for success toast
     fetchDashboardData();
+  };
+
+  // ฟังก์ชันสำหรับเปิด modal แก้ไขการจอง
+  const openEditModal = (booking) => {
+    setSelectedBooking(booking);
+    setEditFormData({
+      guestName: booking.guest_name || '',
+      guestPhone: booking.guest_phone || '',
+      guestEmail: booking.guest_email || '',
+      checkInDate: booking.check_in_date || '',
+      checkOutDate: booking.check_out_date || '',
+      guests: booking.guests || 1,
+      specialRequests: booking.special_requests || '',
+      status: booking.status || 'pending'
+    });
+    setEditModalOpen(true);
+  };
+
+  // ฟังก์ชันสำหรับปิด modal
+  const closeEditModal = () => {
+    setEditModalOpen(false);
+    setSelectedBooking(null);
+    setEditFormData({
+      guestName: '',
+      guestPhone: '',
+      guestEmail: '',
+      checkInDate: '',
+      checkOutDate: '',
+      guests: 1,
+      specialRequests: '',
+      status: 'pending'
+    });
+  };
+
+  // ฟังก์ชันสำหรับอัปเดตข้อมูลการจอง
+  const handleUpdateBooking = async () => {
+    if (!selectedBooking || !selectedBooking.id) {
+      toast.error('ไม่พบข้อมูลการจองที่ต้องการแก้ไข');
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      // ใช้ bookingAPI.updateStatus สำหรับการอัปเดต (เพิ่มเติมในอนาคต)
+      const updateData = {
+        status: editFormData.status,
+        guestName: editFormData.guestName,
+        guestPhone: editFormData.guestPhone,
+        guestEmail: editFormData.guestEmail,
+        checkInDate: editFormData.checkInDate,
+        checkOutDate: editFormData.checkOutDate,
+        guests: parseInt(editFormData.guests),
+        specialRequests: editFormData.specialRequests
+      };
+
+      // อัปเดตสถานะการจอง
+      await bookingAPI.updateStatus(selectedBooking.id, editFormData.status);
+      
+      toast.success('อัปเดตข้อมูลการจองเรียบร้อยแล้ว');
+      closeEditModal();
+      
+      // รีเฟรชข้อมูล
+      fetchDashboardData();
+      
+    } catch (error) {
+      console.error('Error updating booking:', error);
+      toast.error('เกิดข้อผิดพลาดในการอัปเดตข้อมูล: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // ฟังก์ชันสำหรับลบการจอง
+  const handleDeleteBooking = async (bookingId) => {
+    if (!window.confirm('คุณแน่ใจว่าต้องการลบการจองนี้?')) {
+      return;
+    }
+
+    try {
+      await bookingAPI.deleteBooking(bookingId);
+      toast.success('ลบการจองเรียบร้อยแล้ว');
+      
+      // รีเฟรชข้อมูล
+      fetchDashboardData();
+      
+    } catch (error) {
+      console.error('Error deleting booking:', error);
+      toast.error('เกิดข้อผิดพลาดในการลบข้อมูล: ' + (error.response?.data?.error || error.message));
+    }
   };
 
   // Auto-refresh setup
@@ -1565,16 +1669,27 @@ function BookingsTab({ bookings, stats, user }) {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <div className="flex space-x-2">
-                    <button className="text-blue-600 hover:text-blue-900">
+                    <button 
+                      className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                      title="ดูรายละเอียด"
+                    >
                       <Eye className="h-4 w-4" />
                     </button>
                     {canEdit(user) && (
-                      <button className="text-green-600 hover:text-green-900">
+                      <button 
+                        className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
+                        onClick={() => openEditModal(booking)}
+                        title="แก้ไขการจอง"
+                      >
                         <Edit className="h-4 w-4" />
                       </button>
                     )}
                     {canDelete(user) && (
-                      <button className="text-red-600 hover:text-red-900">
+                      <button 
+                        className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                        onClick={() => handleDeleteBooking(booking.id)}
+                        title="ลบการจอง"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     )}
@@ -1979,6 +2094,174 @@ function PaymentSettingsTab({ user }) {
           </div>
         </div>
       </div>
+
+      {/* Edit Booking Modal */}
+      {editModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900">
+                  แก้ไขการจอง #{selectedBooking?.id}
+                </h2>
+                <button
+                  onClick={closeEditModal}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle className="h-6 w-6" />
+                </button>
+              </div>
+
+              <form onSubmit={(e) => { e.preventDefault(); handleUpdateBooking(); }} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* ชื่อผู้จอง */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      ชื่อผู้จอง
+                    </label>
+                    <input
+                      type="text"
+                      value={editFormData.guestName}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, guestName: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="ชื่อผู้จอง"
+                    />
+                  </div>
+
+                  {/* เบอร์โทรศัพท์ */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      เบอร์โทรศัพท์
+                    </label>
+                    <input
+                      type="tel"
+                      value={editFormData.guestPhone}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, guestPhone: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="เบอร์โทรศัพท์"
+                    />
+                  </div>
+
+                  {/* อีเมล */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      อีเมล
+                    </label>
+                    <input
+                      type="email"
+                      value={editFormData.guestEmail}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, guestEmail: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="อีเมล"
+                    />
+                  </div>
+
+                  {/* จำนวนผู้เข้าพัก */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      จำนวนผู้เข้าพัก
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={editFormData.guests}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, guests: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* วันที่เช็คอิน */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      วันที่เช็คอิน
+                    </label>
+                    <input
+                      type="date"
+                      value={editFormData.checkInDate}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, checkInDate: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* วันที่เช็คเอาต์ */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      วันที่เช็คเอาต์
+                    </label>
+                    <input
+                      type="date"
+                      value={editFormData.checkOutDate}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, checkOutDate: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* สถานะการจอง */}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      สถานะการจอง
+                    </label>
+                    <select
+                      value={editFormData.status}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, status: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="pending">รอดำเนินการ</option>
+                      <option value="confirmed">ยืนยันแล้ว</option>
+                      <option value="completed">เสร็จสิ้น</option>
+                      <option value="cancelled">ยกเลิก</option>
+                    </select>
+                  </div>
+
+                  {/* ข้อมูลพิเศษ */}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      คำขอพิเศษ
+                    </label>
+                    <textarea
+                      value={editFormData.specialRequests}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, specialRequests: e.target.value }))}
+                      rows="3"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="คำขอพิเศษหรือหมายเหตุ..."
+                    />
+                  </div>
+                </div>
+
+                {/* ปุ่มควบคุม */}
+                <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={closeEditModal}
+                    className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                    disabled={isUpdating}
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdating}
+                    className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  >
+                    {isUpdating ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        กำลังอัปเดต...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        บันทึกการแก้ไข
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

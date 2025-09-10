@@ -1002,6 +1002,116 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
     }
   })
 
+  // Update booking status (Admin)
+  .put('/:id/status', async ({ params, body, headers, set }) => {
+    try {
+      console.log('=== UPDATE BOOKING STATUS REQUEST ===');
+      console.log('Booking ID:', params.id);
+      console.log('New status:', body.status);
+      
+      // Authenticate staff or admin
+      const user = await requireStaff({ headers, set });
+      if (user.error) {
+        console.log('Auth failed:', user.error);
+        return user;
+      }
+      
+      console.log('User authenticated:', { id: user.id, role: user.role });
+      
+      const bookingId = parseInt(params.id);
+      const { status } = body;
+      
+      // Validate status
+      const validStatuses = ['pending', 'confirmed', 'completed', 'cancelled'];
+      if (!status || !validStatuses.includes(status)) {
+        set.status = 400;
+        return { error: 'Invalid status. Must be one of: ' + validStatuses.join(', ') };
+      }
+      
+      // Check if booking exists
+      const booking = await sql`
+        SELECT b.*, h.name as hotel_name, rt.name as room_type_name
+        FROM bookings b
+        LEFT JOIN room_types rt ON b.room_type_id = rt.id
+        LEFT JOIN hotels h ON rt.hotel_id = h.id
+        WHERE b.id = ${bookingId}
+      `;
+      
+      if (!booking.length) {
+        console.log('Booking not found:', bookingId);
+        set.status = 404;
+        return { error: 'Booking not found' };
+      }
+      
+      const bookingData = booking[0];
+      console.log('Current booking status:', bookingData.status, '-> New status:', status);
+      
+      // Update booking status
+      const updatedBooking = await sql`
+        UPDATE bookings
+        SET status = ${status}, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${bookingId}
+        RETURNING *
+      `;
+      
+      console.log('Booking status updated successfully');
+      
+      // Send notification to user based on status change
+      try {
+        let template;
+        switch (status) {
+          case 'confirmed':
+            template = NotificationTemplates.BOOKING_CONFIRMED(
+              bookingData.booking_reference,
+              bookingData.hotel_name,
+              bookingData.check_in_date
+            );
+            break;
+          case 'completed':
+            template = NotificationTemplates.BOOKING_APPROVED(
+              bookingData.booking_reference,
+              bookingData.hotel_name,
+              bookingData.check_in_date
+            );
+            break;
+          case 'cancelled':
+            template = NotificationTemplates.BOOKING_CANCELLED(
+              bookingData.booking_reference,
+              bookingData.hotel_name
+            );
+            break;
+        }
+        
+        if (template) {
+          await createNotification(
+            bookingData.user_id,
+            bookingId,
+            template.type,
+            template.title,
+            template.message
+          );
+          console.log('Notification sent to user');
+        }
+      } catch (notificationError) {
+        console.error('Failed to send notification:', notificationError);
+        // Don't fail the status update if notification fails
+      }
+      
+      return {
+        message: `Booking status updated to ${status} successfully`,
+        booking: {
+          id: updatedBooking[0].id,
+          status: updatedBooking[0].status,
+          updatedAt: updatedBooking[0].updated_at
+        }
+      };
+    } catch (error) {
+      console.error('Update booking status error:', error);
+      set.status = 500;
+      return { error: 'Internal server error', details: error.message };
+    }
+  })
+
   // Cancel booking (User)
   .put('/:id/cancel', async ({ params, headers, set }) => {
     try {

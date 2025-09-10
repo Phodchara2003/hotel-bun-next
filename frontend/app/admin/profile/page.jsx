@@ -191,7 +191,7 @@ export default function AdminProfilePage() {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">โปรไฟล์ผู้ดูแลระบบ</h1>
-                <p className="text-gray-600">จัดการข้อมูลบัญชีของคุณ</p>
+                <p className="text-gray-800">จัดการข้อมูลบัญชีของคุณ</p>
               </div>
               <div className="flex space-x-3">
                 <button
@@ -269,33 +269,33 @@ export default function AdminProfilePage() {
             {/* Profile Form - แสดงฟิลด์แก้ไขได้เสมอ */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-2">
                   ชื่อ
                 </label>
                 <input
                   type="text"
                   value={formData.firstName}
                   onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-black"
                   placeholder={user?.firstName ? "แก้ไขชื่อของคุณ" : "กรอกชื่อของคุณ"}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-2">
                   นามสกุล
                 </label>
                 <input
                   type="text"
                   value={formData.lastName}
                   onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-black"
                   placeholder={user?.lastName ? "แก้ไขนามสกุลของคุณ" : "กรอกนามสกุลของคุณ"}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-2">
                   อีเมล
                 </label>
                 <input
@@ -309,27 +309,27 @@ export default function AdminProfilePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-2">
                   เบอร์โทรศัพท์
                 </label>
                 <input
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-black"
                   placeholder={user?.phone ? "แก้ไขเบอร์โทรศัพท์" : "กรอกเบอร์โทรศัพท์ เช่น 081-234-5678"}
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-2">
                   รายละเอียดเพิ่มเติม
                 </label>
                 <textarea
                   value={formData.bio}
                   onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                   rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-black"
                   placeholder={user?.bio || user?.address ? "แก้ไขรายละเอียดเพิ่มเติม" : "เล่าเกี่ยวกับตัวคุณ หรือข้อมูลเพิ่มเติม..."}
                 />
               </div>
@@ -340,7 +340,7 @@ export default function AdminProfilePage() {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">ข้อมูลบัญชี</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
                     วันที่สร้างบัญชี
                   </label>
                   <p className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg flex items-center">
@@ -349,7 +349,7 @@ export default function AdminProfilePage() {
                   </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
                     บทบาท
                   </label>
                   <p className="px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg flex items-center text-blue-800">
