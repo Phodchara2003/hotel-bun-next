@@ -27,6 +27,7 @@ import { qrPaymentRoutes } from './routes/qr-payment.js';
 import forgotPasswordRoutes from './routes/forgotPassword.js';
 import userEmailRoutes from './routes/userEmailSettings.js';
 import changeEmailRoutes from './routes/changeEmail.js';
+import { passwordResetRoutes } from './routes/password-reset.js';
 // import './db/create-user-email-table.js'; // Create user email settings table
 // import './db/create-payment-settings-table.js'; // Create payment settings table
 // import './db/add-payment-slip-columns.js'; // Add payment slip columns
@@ -168,6 +169,7 @@ const app = new Elysia()
       .use(forgotPasswordRoutes)
       .use(userEmailRoutes)
       .use(changeEmailRoutes)
+      .use(passwordResetRoutes)
       .use(paymentSlipRoutes)
       .use(qrPaymentRoutes)
   )

@@ -1,35 +1,33 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../contexts/AuthContext';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { useTranslation } from '../../translations';
-import { Eye, EyeOff, Mail, Lock, Hotel, User } from 'lucide-react';
-import ForgotPassword from '../../components/ForgotPassword';
+import { Eye, EyeOff, Mail, Lock, Hotel, ArrowRight, CheckCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { login } = useAuth();
-  const { language } = useLanguage();
-  const { t } = useTranslation(language);
+  const { login, user, getRememberMePreference } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [redirectUrl, setRedirectUrl] = useState(null);
+  const [rememberMe, setRememberMe] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
 
+  // Load remember me preference and redirect if already logged in
   useEffect(() => {
-    const redirect = searchParams.get('redirect');
-    if (redirect) {
-      setRedirectUrl(decodeURIComponent(redirect));
+    // Load remember me preference from localStorage
+    const savedRememberMe = getRememberMePreference();
+    setRememberMe(savedRememberMe);
+    
+    if (user) {
+      router.push('/');
     }
-  }, [searchParams]);
+  }, [user, router, getRememberMePreference]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -39,209 +37,269 @@ export default function LoginPage() {
     }));
   };
 
+  const handleRememberMeChange = (e) => {
+    setRememberMe(e.target.checked);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const result = await login(formData);
+      // Pass both credentials and rememberMe preference
+      const result = await login(
+        { email: formData.email, password: formData.password },
+        rememberMe
+      );
+      
       if (result.success) {
-        // Get user data from the login result
-        const user = result.user;
-        
-        // Wait a moment for state to update, then redirect
-        setTimeout(() => {
-          if (redirectUrl) {
-            // Redirect to the original page they were trying to access
-            router.push(redirectUrl);
-          } else if (user?.role === 'admin') {
-            router.push('/admin/dashboard');
-          } else if (user?.role === 'staff') {
-            router.push('/admin/dashboard'); // Staff can access admin dashboard but read-only
-          } else {
-            router.push('/'); // Regular users go to homepage
-          }
-        }, 100);
+        toast.success('เข้าสู่ระบบสำเร็จ!');
+        router.push('/');
       }
     } catch (error) {
       console.error('Login error:', error);
+      toast.error('เข้าสู่ระบบไม่สำเร็จ');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 bg-white/30 backdrop-blur-3xl"></div>
-      <div 
-        className="absolute inset-0 opacity-10"
-        style={{
-          backgroundImage: 'radial-gradient(circle at 25% 25%, #6366f1 0%, transparent 50%), radial-gradient(circle at 75% 75%, #8b5cf6 0%, transparent 50%)'
-        }}
-      ></div>
-      
-      <div className="relative max-w-md w-full space-y-8">
-        {/* Header */}
-        <div className="text-center">
-          <div className="flex items-center justify-center mb-6">
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur-lg opacity-70"></div>
-              <div className="relative bg-gradient-to-r from-blue-600 to-purple-600 p-4 rounded-2xl">
-                <Hotel className="h-8 w-8 text-white" />
-              </div>
-            </div>
-          </div>
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-            {t('auth.loginTitle')}
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            {language === 'en' 
-              ? 'Sign in to book hotels and manage your reservations'
-              : 'เข้าสู่ระบบเพื่อจองโรงแรมและจัดการการจองของคุณ'
-            }
-          </p>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0">
+        <div className="absolute top-10 left-10 w-72 h-72 bg-blue-400/20 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
+        <div className="absolute top-0 right-4 w-72 h-72 bg-purple-400/20 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
+        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-400/20 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
+      </div>
 
-        {/* Login Form */}
-        <div className="relative">
-          {/* Glass effect background */}
-          <div className="absolute inset-0 bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20"></div>
+      {/* Main Content */}
+      <div className="relative z-10 min-h-screen flex items-center justify-center p-6">
+        <div className="w-full max-w-md">
           
-          <div className="relative p-8">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Email Field */}
-              <div>
-                <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-                  {t('auth.email')}
-                </label>
-                <div className="relative group">
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className="w-full pl-12 pr-4 py-3 bg-white/90 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 group-hover:bg-white text-gray-900 placeholder-gray-500"
-                    placeholder="your@example.com"
-                  />
-                  <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-                    <Mail className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
-                  </div>
-                </div>
-              </div>
+          {/* Header Section */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl mb-6 shadow-lg transform hover:scale-105 transition-all duration-300">
+              <Hotel className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-blue-900 to-purple-900 bg-clip-text text-transparent mb-3">
+              ยินดีต้อนรับกลับ
+            </h1>
+            <p className="text-gray-600 text-lg">
+              เข้าสู่ระบบเพื่อจองโรงแรมกับเรา
+            </p>
+          </div>
 
-              {/* Password Field */}
-              <div>
-                <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
-                  {t('auth.password')}
-                </label>
-                <div className="relative group">
-                  <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    required
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className="w-full pl-12 pr-12 py-3 bg-white/90 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 group-hover:bg-white text-gray-900 placeholder-gray-500"
-                    placeholder="••••••••"
-                  />
-                  <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-                    <Lock className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Submit Button */}
+          {/* Test Accounts Info */}
+          <div className="mb-6 p-4 bg-amber-50/80 backdrop-blur-sm rounded-2xl border border-amber-200">
+            <div className="text-center mb-3">
+              <h3 className="text-sm font-semibold text-amber-800 mb-2">🧪 บัญชีทดสอบ</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
               <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-xl font-semibold text-lg 
-                         hover:from-blue-700 hover:to-purple-700 transform hover:scale-[1.02] transition-all duration-200 
-                         disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg hover:shadow-xl
-                         flex items-center justify-center"
+                type="button"
+                onClick={() => fillTestAccount('admin')}
+                className="bg-white/70 p-3 rounded-lg border border-amber-200 hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 cursor-pointer"
               >
-                {loading ? (
-                  <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  t('auth.loginButton')
-                )}
+                <div className="font-semibold text-blue-700 mb-1">👨‍💼 แอดมิน</div>
+                <div className="text-gray-600">
+                  <div>📧 admin@hotel.com</div>
+                  <div>🔑 admin123</div>
+                </div>
               </button>
-
-              {/* Forgot Password Link */}
-              <div className="text-center mt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowForgotPassword(true)}
-                  className="text-sm text-blue-600 hover:text-purple-600 font-medium transition-colors"
-                >
-                  {t('auth.forgotPassword')}
-                </button>
-              </div>
-            </form>
-
-            {/* Footer Links */}
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600">
-                {t('auth.noAccount')}{' '}
-                <Link href="/register" className="text-blue-600 hover:text-purple-600 font-semibold transition-colors">
-                  {t('auth.clickHere')}
-                </Link>
+              <button
+                type="button"
+                onClick={() => fillTestAccount('user')}
+                className="bg-white/70 p-3 rounded-lg border border-amber-200 hover:bg-green-50 hover:border-green-300 transition-all duration-200 cursor-pointer"
+              >
+                <div className="font-semibold text-green-700 mb-1">👤 ลูกค้า</div>
+                <div className="text-gray-600">
+                  <div>📧 user@hotel.com</div>
+                  <div>🔑 user123</div>
+                </div>
+              </button>
+            </div>
+            <div className="text-center mt-3">
+              <p className="text-xs text-amber-700">
+                💡 คลิกเพื่อใช้บัญชีทดสอบ
               </p>
             </div>
           </div>
-        </div>
 
-        {/* Demo Account Info */}
-        <div className="space-y-3">
+          {/* Login Form */}
           <div className="relative">
-            <div className="absolute inset-0 bg-blue-500/10 backdrop-blur-xl rounded-xl border border-blue-200/30"></div>
-            <div className="relative p-4">
-              <h3 className="text-sm font-semibold text-blue-800 mb-2 flex items-center">
-                <User className="h-4 w-4 mr-2" />
-                บัญชีทดลองใช้งาน (ผู้ใช้ทั่วไป)
-              </h3>
-              <div className="text-sm text-blue-700 space-y-1 bg-blue-50/50 rounded-lg p-3">
-                <p><strong>Email:</strong> demo@example.com</p>
-                <p><strong>Password:</strong> password123</p>
+            {/* Glass Card Background */}
+            <div className="absolute inset-0 bg-white/70 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/40"></div>
+            
+            <div className="relative p-8">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                
+                {/* Email Field */}
+                <div className="space-y-2">
+                  <label htmlFor="email" className="block text-sm font-semibold text-gray-700">
+                    อีเมล
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <Mail className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200" />
+                    </div>
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      required
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className="block w-full pl-12 pr-4 py-4 bg-white/80 border-2 border-gray-200/60 rounded-2xl 
+                               focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 
+                               hover:border-gray-300 transition-all duration-200
+                               text-gray-900 placeholder-gray-500 text-base"
+                      placeholder="example@email.com"
+                    />
+                  </div>
+                </div>
+
+                {/* Password Field */}
+                <div className="space-y-2">
+                  <label htmlFor="password" className="block text-sm font-semibold text-gray-700">
+                    รหัสผ่าน
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <Lock className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200" />
+                    </div>
+                    <input
+                      id="password"
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
+                      required
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      className="block w-full pl-12 pr-12 py-4 bg-white/80 border-2 border-gray-200/60 rounded-2xl 
+                               focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 
+                               hover:border-gray-300 transition-all duration-200
+                               text-gray-900 placeholder-gray-500 text-base"
+                      placeholder="••••••••"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                    >
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Remember & Forgot Password */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <input
+                      id="remember-me"
+                      name="remember-me"
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={handleRememberMeChange}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded transition-colors duration-200"
+                    />
+                    <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 font-medium">
+                      จดจำการเข้าสู่ระบบ (30 วัน)
+                    </label>
+                  </div>
+                  <Link href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors">
+                    ลืมรหัสผ่าน?
+                  </Link>
+                </div>
+
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="group relative w-full flex justify-center items-center py-4 px-4 border border-transparent text-base font-semibold rounded-2xl text-white 
+                           bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 
+                           focus:outline-none focus:ring-4 focus:ring-blue-500/50 
+                           disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
+                           transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl"
+                >
+                  <span className="absolute left-0 inset-y-0 flex items-center pl-4">
+                    {loading ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <CheckCircle className="h-5 w-5 text-white/80 group-hover:text-white transition-colors" />
+                    )}
+                  </span>
+                  {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+                  {!loading && (
+                    <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                  )}
+                </button>
+
+              </form>
+
+              {/* Divider */}
+              <div className="my-8">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300/60"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-4 bg-white/70 text-gray-500 font-medium">หรือ</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Register Link */}
+              <div className="text-center">
+                <p className="text-gray-600 text-base">
+                  ยังไม่มีบัญชี?{' '}
+                  <Link 
+                    href="/register" 
+                    className="font-semibold text-blue-600 hover:text-purple-600 transition-colors duration-200 hover:underline"
+                  >
+                    สมัครสมาชิกที่นี่
+                  </Link>
+                </p>
+              </div>
+
+              {/* Test Accounts */}
+              <div className="mt-6 text-center text-sm text-gray-500">
+                <p>บัญชีทดสอบ:</p>
+                <p>Admin: admin@hotel.com / admin123</p>
+                <p>Customer: user@hotel.com / user123</p>
+                <p>Staff: staff@hotel.com / staff123</p>
               </div>
             </div>
           </div>
 
-          <div className="relative">
-            <div className="absolute inset-0 bg-purple-500/10 backdrop-blur-xl rounded-xl border border-purple-200/30"></div>
-            <div className="relative p-4">
-              <h3 className="text-sm font-semibold text-purple-800 mb-2 flex items-center">
-                <Hotel className="h-4 w-4 mr-2" />
-                บัญชีผู้จัดการ (Admin)
-              </h3>
-              <div className="text-sm text-purple-700 space-y-1 bg-purple-50/50 rounded-lg p-3">
-                <p><strong>Email:</strong> admin@royalgarden.com</p>
-                <p><strong>Password:</strong> admin123</p>
-              </div>
-            </div>
+          {/* Footer */}
+          <div className="mt-8 text-center">
+            <p className="text-sm text-gray-500">
+              © 2025 Hotel Management System. All rights reserved.
+            </p>
           </div>
+
         </div>
       </div>
 
-      {/* Forgot Password Modal */}
-      {showForgotPassword && (
-        <ForgotPassword
-          isOpen={showForgotPassword}
-          onClose={() => setShowForgotPassword(false)}
-        />
-      )}
+      <style jsx>{`
+        @keyframes blob {
+          0% { transform: translate(0px, 0px) scale(1); }
+          33% { transform: translate(30px, -50px) scale(1.1); }
+          66% { transform: translate(-20px, 20px) scale(0.9); }
+          100% { transform: translate(0px, 0px) scale(1); }
+        }
+        .animate-blob {
+          animation: blob 7s infinite;
+        }
+        .animation-delay-2000 {
+          animation-delay: 2s;
+        }
+        .animation-delay-4000 {
+          animation-delay: 4s;
+        }
+      `}</style>
     </div>
   );
 }

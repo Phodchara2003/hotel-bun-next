@@ -1,23 +1,28 @@
 // Helper functions for role checking
+// ไฟล์นี้เป็น legacy - ใช้ permissions.js แทน
 
-export const isAdmin = (user) => {
-  return user?.role === 'admin';
-};
+import {
+  isAdmin as checkIsAdmin,
+  isStaff as checkIsStaff,
+  isStaffOrAdmin as checkIsStaffOrAdmin,
+  canEditBookings,
+  canDeleteBookings,
+  canCreateBookings,
+  getRoleDisplayName,
+  getRoleBadgeClass
+} from './permissions.js';
 
-export const isStaff = (user) => {
-  return user?.role === 'staff';
-};
-
-export const isStaffOrAdmin = (user) => {
-  return ['staff', 'admin', 'super_admin'].includes(user?.role);
-};
+// Legacy functions for backward compatibility
+export const isAdmin = checkIsAdmin;
+export const isStaff = checkIsStaff;
+export const isStaffOrAdmin = checkIsStaffOrAdmin;
 
 export const canAccess = (user, page = 'admin') => {
   switch (page) {
     case 'admin':
-      return isStaffOrAdmin(user);
+      return checkIsStaffOrAdmin(user);
     case 'admin-write':
-      return isAdmin(user); // Only admin can write/modify
+      return checkIsAdmin(user); // Only admin can write/modify
     default:
       return false;
   }
@@ -25,56 +30,33 @@ export const canAccess = (user, page = 'admin') => {
 
 // Check if user can modify/edit data (admin and staff for bookings)
 export const canEdit = (user) => {
-  return isStaffOrAdmin(user);
+  return canEditBookings(user).all || canEditBookings(user).own;
 };
 
 // Check if user can delete data (only admin)
 export const canDelete = (user) => {
-  return isAdmin(user);
+  return canDeleteBookings(user).all || canDeleteBookings(user).own;
 };
 
 // Check if user can create new data (only admin)
 export const canCreate = (user) => {
-  return isAdmin(user);
+  return canCreateBookings(user);
 };
 
 // Check if user can manage bookings (confirm/cancel) - both admin and staff
 export const canManageBookings = (user) => {
-  return isStaffOrAdmin(user);
+  return checkIsStaffOrAdmin(user);
 };
 
 // Check if user can approve bookings (only admin)
 export const canApproveBookings = (user) => {
-  return isAdmin(user);
+  return checkIsAdmin(user);
 };
 
 // Check if user is in read-only mode (staff for most operations)
 export const isReadOnly = (user) => {
-  return isStaff(user);
+  return checkIsStaff(user);
 };
 
-export const getRoleText = (role) => {
-  switch (role) {
-    case 'admin':
-      return 'ผู้ดูแลระบบ';
-    case 'staff':
-      return 'พนักงาน';
-    case 'user':
-      return 'ผู้ใช้งาน';
-    default:
-      return 'ไม่ระบุ';
-  }
-};
-
-export const getRoleColor = (role) => {
-  switch (role) {
-    case 'admin':
-      return 'bg-red-100 text-red-800';
-    case 'staff':
-      return 'bg-blue-100 text-blue-800';
-    case 'user':
-      return 'bg-green-100 text-green-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-};
+export const getRoleText = getRoleDisplayName;
+export const getRoleColor = getRoleBadgeClass;

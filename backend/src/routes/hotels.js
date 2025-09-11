@@ -61,6 +61,68 @@ export const hotelRoutes = new Elysia({ prefix: '/hotels' })
       return { error: 'Internal server error' };
     }
   })
+
+  // Public endpoint to get all room types
+  .get('/room-types', async ({ query, set }) => {
+    try {
+      const { 
+        page = 1,
+        limit = 50
+      } = query;
+      
+      const offset = (page - 1) * limit;
+      
+      // Get all room types from PostgreSQL
+      const roomTypes = await sql`
+        SELECT rt.id, rt.name, rt.description, rt.price_per_night, rt.max_guests, 
+               rt.amenities, rt.hotel_id, rt.size_sqm, rt.available,
+               h.name as hotel_name
+        FROM room_types rt
+        LEFT JOIN hotels h ON rt.hotel_id = h.id
+        WHERE rt.available = true
+        ORDER BY rt.price_per_night ASC
+        LIMIT ${limit} OFFSET ${offset}
+      `;
+      
+      // Get total count for pagination
+      const countResult = await sql`
+        SELECT COUNT(*) as total 
+        FROM room_types rt 
+        WHERE rt.available = true
+      `;
+      const total = parseInt(countResult[0].total);
+      
+      return {
+        success: true,
+        data: roomTypes.map(rt => ({
+          id: rt.id,
+          name: rt.name,
+          description: rt.description,
+          pricePerNight: parseFloat(rt.price_per_night || 0),
+          maxGuests: parseInt(rt.max_guests || 2),
+          sizeSqm: parseInt(rt.size_sqm || 0),
+          amenities: rt.amenities || [],
+          hotelId: rt.hotel_id,
+          hotelName: rt.hotel_name,
+          available: rt.available
+        })),
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          totalPages: Math.ceil(total / limit)
+        }
+      };
+    } catch (error) {
+      console.error('Get room types error:', error);
+      set.status = 500;
+      return { 
+        success: false, 
+        error: 'Internal server error',
+        details: error.message 
+      };
+    }
+  })
   
   .get('/:id', async ({ params, set }) => {
     try {

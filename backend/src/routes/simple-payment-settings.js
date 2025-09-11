@@ -1,7 +1,16 @@
 import { Elysia } from 'elysia';
 import { sql } from '../db/database.js';
+import path from 'path';
+import fs from 'fs';
 
 console.log('🏦 Simple Payment Settings Routes loading...');
+
+// สร้างโฟลเดอร์สำหรับเก็บ QR codes
+const qrUploadsDir = path.join(process.cwd(), 'uploads', 'qr-codes');
+if (!fs.existsSync(qrUploadsDir)) {
+  fs.mkdirSync(qrUploadsDir, { recursive: true });
+  console.log('📁 Created QR codes uploads directory');
+}
 
 // Simple payment settings routes
 export const simplePaymentRoutes = new Elysia()
@@ -129,6 +138,137 @@ export const simplePaymentRoutes = new Elysia()
       set.status = 500;
       return { error: 'Internal server error' };
     }
+  })
+
+  // QR Code upload endpoint
+  .post('/api/simple-payment-settings/qr-upload', async ({ body, set }) => {
+    try {
+      console.log('📤 QR Code upload request received');
+      
+      if (!body || !body.qrImage) {
+        set.status = 400;
+        return {
+          success: false,
+          message: 'ไม่พบไฟล์ QR Code'
+        };
+      }
+
+      const { qrImage } = body;
+      
+      // ตรวจสอบประเภทไฟล์
+      if (!qrImage.type || !qrImage.type.startsWith('image/')) {
+        set.status = 400;
+        return {
+          success: false,
+          message: 'ประเภทไฟล์ไม่ถูกต้อง กรุณาอัปโหลดไฟล์รูปภาพเท่านั้น'
+        };
+      }
+
+      // ตรวจสอบขนาดไฟล์ (2MB)
+      if (qrImage.size > 2 * 1024 * 1024) {
+        set.status = 400;
+        return {
+          success: false,
+          message: 'ไฟล์มีขนาดใหญ่เกินไป กรุณาเลือกไฟล์ที่มีขนาดไม่เกิน 2MB'
+        };
+      }
+
+      // สร้างชื่อไฟล์ที่ไม่ซ้ำ
+      const timestamp = Date.now();
+      const fileExtension = path.extname(qrImage.name) || '.jpg';
+      const filename = `qr_code_${timestamp}${fileExtension}`;
+      const filePath = path.join(qrUploadsDir, filename);
+
+      // บันทึกไฟล์
+      const arrayBuffer = await qrImage.arrayBuffer();
+      fs.writeFileSync(filePath, new Uint8Array(arrayBuffer));
+
+      // URL สำหรับเข้าถึงไฟล์
+      const qrCodeUrl = `/uploads/qr-codes/${filename}`;
+
+      console.log('💾 QR Code saved:', {
+        filename,
+        path: filePath,
+        url: qrCodeUrl
+      });
+
+      // อัปเดตการตั้งค่าในฐานข้อมูล
+      try {
+        // ดึงการตั้งค่าปัจจุบัน
+        const currentSettings = await sql`
+          SELECT settings FROM simple_payment_settings 
+          ORDER BY updated_at DESC 
+          LIMIT 1
+        `;
+
+        let updatedSettings = {
+          bankInfo: {
+            bankName: 'ธนาคารทดสอบใหม่',
+            accountNumber: '999-888-777',
+            accountName: 'New Test Account'
+          },
+          instructions: 'กรุณาโอนเงินเข้าบัญชีตามรายละเอียดข้างต้น และส่งสลิปการโอนเงินเพื่อยืนยันการชำระเงิน',
+          qrCodeUrl: qrCodeUrl
+        };
+
+        if (currentSettings.length > 0) {
+          const existing = typeof currentSettings[0].settings === 'string' 
+            ? JSON.parse(currentSettings[0].settings) 
+            : currentSettings[0].settings;
+          
+          updatedSettings = {
+            ...existing,
+            qrCodeUrl: qrCodeUrl
+          };
+        }
+
+        // บันทึกการตั้งค่าใหม่
+        await sql`
+          INSERT INTO simple_payment_settings (settings, updated_at) 
+          VALUES (${JSON.stringify(updatedSettings)}, CURRENT_TIMESTAMP)
+        `;
+
+        console.log('✅ Settings updated with QR code URL');
+      } catch (dbError) {
+        console.error('⚠️ Could not update database:', dbError.message);
+      }
+
+      set.status = 200;
+      return {
+        success: true,
+        message: 'อัปโหลด QR Code เรียบร้อย',
+        qrCodeUrl: qrCodeUrl,
+        filename: filename
+      };
+
+    } catch (error) {
+      console.error('❌ Error uploading QR code:', error);
+      set.status = 500;
+      return {
+        success: false,
+        message: 'เกิดข้อผิดพลาดในการอัปโหลด QR Code',
+        error: error.message
+      };
+    }
+  })
+
+  // Serve QR code files
+  .get('/uploads/qr-codes/:filename', ({ params }) => {
+    try {
+      const { filename } = params;
+      const filePath = path.join(qrUploadsDir, filename);
+      
+      if (!fs.existsSync(filePath)) {
+        return new Response('File not found', { status: 404 });
+      }
+      
+      const file = Bun.file(filePath);
+      return new Response(file);
+      
+    } catch (error) {
+      console.error('❌ Error serving QR code file:', error);
+      return new Response('Error serving file', { status: 500 });
+    }
   });
 
 console.log('✅ Simple Payment Settings Routes loaded');
@@ -185,6 +325,7 @@ export const userPaymentRoutes = new Elysia()
         accountNumber: bankInfo.accountNumber || '999-888-777',
         accountName: bankInfo.accountName || 'New Test Account',
         bankImageUrl: bankInfo.bankImageUrl || '',
+        qrCodeUrl: parsedSettings.qrCodeUrl || bankInfo.qrCodeUrl || '', // เพิ่มการดึง qrCodeUrl
         instructions: parsedSettings.instructions || 'กรุณาโอนเงินเข้าบัญชีตามรายละเอียดข้างต้น และส่งสลิปการโอนเงินเพื่อยืนยันการชำระเงิน'
       };
       console.log('✅ Returning user settings:', userSettings);

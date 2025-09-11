@@ -1,179 +1,114 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { useLanguage } from '../contexts/LanguageContext';
-import { hotelAPI } from '../lib/api';
-import { 
-  Search, 
-  Filter, 
-  MapPin, 
-  Star, 
-  Users, 
-  Wifi, 
-  Car, 
-  Coffee,
-  Tv,
-  Wind,
-  Calendar,
-  SortAsc,
-  SortDesc,
-  Grid,
-  List
-} from 'lucide-react';
-import RoomCard from '../components/RoomCard';
-import DatePickerComponent from '../components/DatePicker';
-import toast from 'react-hot-toast';
 import Link from 'next/link';
+import { Calendar, MapPin, Star, Users, Wifi, Car, Coffee, Tv, Wind } from 'lucide-react';
+import { hotelAPI } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'react-hot-toast';
 
 export default function HomePage() {
-  const { isAuthenticated, user } = useAuth();
-  const { language } = useLanguage();
+  const { user } = useAuth();
   const [hotel, setHotel] = useState(null);
   const [roomTypes, setRoomTypes] = useState([]);
-  const [filteredRooms, setFilteredRooms] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState('grid'); // grid or list
-  
-  // Search and filter states
-  const [searchTerm, setSearchTerm] = useState('');
-  const [priceRange, setPriceRange] = useState([0, 10000]);
-  const [maxGuests, setMaxGuests] = useState('');
-  const [amenityFilters, setAmenityFilters] = useState([]);
-  const [sortBy, setSortBy] = useState('price-asc'); // price-asc, price-desc, rating, size
-  const [dateRange, setDateRange] = useState({
-    checkIn: '',
-    checkOut: ''
-  });
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fallback data ในกรณีที่ API ไม่ได้
+  const fallbackHotel = {
+    name: "โรงแรมสวยงาม",
+    description: "โรงแรมสุดหรูใจกลางเมือง พร้อมสิ่งอำนวยความสะดวกครบครัน",
+    address: "123 ถนนใหญ่ กรุงเทพฯ",
+    rating: 4.5
+  };
+
+  const fallbackRooms = [
+    {
+      id: 1,
+      name: "ห้องสแตนดาร์ด",
+      description: "ห้องพักสำหรับผู้เข้าพักทั่วไปพร้อมสิ่งอำนวยความสะดวกครบครัน",
+      pricePerNight: 1200,
+      maxGuests: 2,
+      sizeSqm: 25,
+      amenities: ["Wi-Fi ฟรี", "เครื่องปรับอากาศ", "ทีวี"]
+    },
+    {
+      id: 2,
+      name: "ห้องซูพีเรียร์",
+      description: "ห้องพักขนาดใหญ่กว่าพร้อมวิวที่สวยงาม",
+      pricePerNight: 1800,
+      maxGuests: 3,
+      sizeSqm: 35,
+      amenities: ["Wi-Fi ฟรี", "เครื่องปรับอากาศ", "ทีวี", "ตู้เซฟ"]
+    },
+    {
+      id: 3,
+      name: "ห้องดีลักซ์",
+      description: "ห้องพักหรูหราพร้อมระเบียงส่วนตัว",
+      pricePerNight: 2500,
+      maxGuests: 4,
+      sizeSqm: 45,
+      amenities: ["Wi-Fi ฟรี", "เครื่องปรับอากาศ", "ทีวี", "ตู้เซฟ", "ระเบียง"]
+    },
+    {
+      id: 4,
+      name: "ห้องสวีท",
+      description: "ห้องพักขนาดใหญ่พร้อมห้องนั่งเล่นแยกต่างหาก",
+      pricePerNight: 3500,
+      maxGuests: 6,
+      sizeSqm: 65,
+      amenities: ["Wi-Fi ฟรี", "เครื่องปรับอากาศ", "ทีวี", "ตู้เซฟ", "ระเบียง", "ห้องนั่งเล่น"]
+    },
+    {
+      id: 5,
+      name: "ห้องแฟมิลี่",
+      description: "ห้องพักขนาดใหญ่สำหรับครอบครัว",
+      pricePerNight: 4200,
+      maxGuests: 8,
+      sizeSqm: 80,
+      amenities: ["Wi-Fi ฟรี", "เครื่องปรับอากาศ", "ทีวี", "ตู้เซฟ", "ครัวเล็ก", "ห้องนั่งเล่น"]
+    }
+  ];
+
+  const fetchHotelAndRooms = async () => {
+    try {
+      setIsLoading(true);
+      
+      // ดึงข้อมูลโรงแรม
+      const hotelResponse = await hotelAPI.getHotelInfo();
+      if (hotelResponse.success) {
+        setHotel(hotelResponse.data);
+      } else {
+        setHotel(fallbackHotel);
+      }
+
+      // ดึงข้อมูลประเภทห้องพัก
+      const roomsResponse = await hotelAPI.getRoomTypes();
+      if (roomsResponse.success && roomsResponse.data.length > 0) {
+        setRoomTypes(roomsResponse.data);
+      } else {
+        setRoomTypes(fallbackRooms);
+      }
+      
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setHotel(fallbackHotel);
+      setRoomTypes(fallbackRooms);
+      toast.error('ไม่สามารถโหลดข้อมูลได้ กำลังแสดงข้อมูลตัวอย่าง');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchHotelAndRooms();
   }, []);
 
-  useEffect(() => {
-    applyFiltersAndSort();
-  }, [roomTypes, searchTerm, priceRange, maxGuests, amenityFilters, sortBy]);
-
-  const fetchHotelAndRooms = async () => {
-    try {
-      console.log('Fetching hotel data from API...');
-      
-      // Check cache first
-      const cacheKey = 'hotel_data_1';
-      const cached = sessionStorage.getItem(cacheKey);
-      if (cached) {
-        const cachedData = JSON.parse(cached);
-        console.log('Using cached hotel data');
-        setHotel(cachedData);
-        setRoomTypes(cachedData.roomTypes || []);
-        setLoading(false);
-        return;
-      }
-      
-      const hotelResponse = await hotelAPI.getHotelById(1);
-      console.log('Hotel response received:', hotelResponse);
-      console.log('Room types in response:', hotelResponse.roomTypes);
-      
-      // Cache the data
-      sessionStorage.setItem(cacheKey, JSON.stringify(hotelResponse));
-      
-      setHotel(hotelResponse);
-      setRoomTypes(hotelResponse.roomTypes || []);
-      console.log('Hotel and room types set successfully');
-    } catch (error) {
-      console.error('Error fetching hotel data:', error);
-      console.error('Error response:', error.response);
-      console.error('Error status:', error.response?.status);
-      console.error('Error data:', error.response?.data);
-      toast.error('ไม่สามารถโหลดข้อมูลห้องพักได้');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const applyFiltersAndSort = () => {
-    let filtered = [...roomTypes];
-
-    // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter(room => 
-        room.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        room.description.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Price filter
-    filtered = filtered.filter(room => 
-      room.pricePerNight >= priceRange[0] && room.pricePerNight <= priceRange[1]
-    );
-
-    // Max guests filter
-    if (maxGuests) {
-      filtered = filtered.filter(room => room.maxGuests >= parseInt(maxGuests));
-    }
-
-    // Amenity filters
-    if (amenityFilters.length > 0) {
-      filtered = filtered.filter(room => 
-        amenityFilters.every(amenity => 
-          room.amenities && room.amenities.includes(amenity)
-        )
-      );
-    }
-
-    // Sorting
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'price-asc':
-          return a.pricePerNight - b.pricePerNight;
-        case 'price-desc':
-          return b.pricePerNight - a.pricePerNight;
-        case 'rating':
-          return (b.rating || 0) - (a.rating || 0);
-        case 'size':
-          return (b.sizeSqm || 0) - (a.sizeSqm || 0);
-        default:
-          return 0;
-      }
-    });
-
-    setFilteredRooms(filtered);
-  };
-
-  const handleAmenityFilter = (amenity) => {
-    setAmenityFilters(prev => {
-      if (prev.includes(amenity)) {
-        return prev.filter(a => a !== amenity);
-      } else {
-        return [...prev, amenity];
-      }
-    });
-  };
-
-  const clearFilters = () => {
-    setSearchTerm('');
-    setPriceRange([0, 10000]);
-    setMaxGuests('');
-    setAmenityFilters([]);
-    setSortBy('price-asc');
-    setDateRange({ checkIn: '', checkOut: '' });
-  };
-
-  const commonAmenities = [
-    { id: 'wifi', name: 'Wi-Fi', icon: Wifi },
-    { id: 'parking', name: 'ที่จอดรถ', icon: Car },
-    { id: 'breakfast', name: 'อาหารเช้า', icon: Coffee },
-    { id: 'tv', name: 'ทีวี', icon: Tv },
-    { id: 'aircon', name: 'เครื่องปรับอากาศ', icon: Wind }
-  ];
-
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-slate-700 text-lg font-medium">กำลังโหลดข้อมูลห้องพัก...</p>
-          <p className="text-slate-500 text-sm mt-2">กรุณารอสักครู่</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">กำลังโหลดข้อมูล...</p>
         </div>
       </div>
     );
@@ -183,270 +118,240 @@ export default function HomePage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Hotel Header */}
-        {hotel && (
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-            <div className="flex items-start justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">{hotel.name}</h1>
-                <div className="flex items-center mt-2 text-gray-600">
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+          <div className="flex flex-col md:flex-row md:items-center justify-between">
+            <div className="mb-4 md:mb-0">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                {hotel?.name || 'ยินดีต้อนรับ'}
+              </h1>
+              <p className="text-gray-600 mb-2">
+                {hotel?.description || 'โรงแรมสุดหรูใจกลางเมือง'}
+              </p>
+              <div className="flex items-center text-sm text-gray-500 space-x-4">
+                <div className="flex items-center">
                   <MapPin className="h-4 w-4 mr-1" />
-                  <span>{hotel.address}, {hotel.city}, {hotel.country}</span>
+                  <span>{hotel?.address || 'กรุงเทพฯ'}</span>
                 </div>
-                <div className="flex items-center mt-2">
-                  <div className="flex text-yellow-400">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className={`h-4 w-4 ${i < Math.floor(hotel.rating) ? 'fill-current' : ''}`} />
-                    ))}
-                  </div>
-                  <span className="ml-2 text-sm text-gray-600">({hotel.rating} จาก 5)</span>
+                <div className="flex items-center">
+                  <Star className="h-4 w-4 mr-1 fill-yellow-400 text-yellow-400" />
+                  <span>{hotel?.rating || '4.5'} คะแนน</span>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-sm text-gray-600">ห้องพักทั้งหมด</p>
-                <p className="text-2xl font-bold text-blue-600">{roomTypes.length} ห้อง</p>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-blue-600">
+                ห้องพักพร้อม {roomTypes.length} ประเภท
+              </p>
+              <p className="text-sm text-gray-500">ราคาเริ่มต้น ฿{roomTypes.length > 0 ? Math.min(...roomTypes.map(r => r.pricePerNight)).toLocaleString() : '1,200'}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Booking Form */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">วันที่เช็คอิน</label>
+              <input 
+                type="date" 
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">วันที่เช็คเอาท์</label>
+              <input 
+                type="date" 
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">จำนวนผู้เข้าพัก</label>
+              <select className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <option value="1">1 คน</option>
+                <option value="2">2 คน</option>
+                <option value="3">3 คน</option>
+                <option value="4">4 คน</option>
+              </select>
+            </div>
+            <div className="flex items-end">
+              <Link 
+                href="/booking" 
+                className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-center font-semibold"
+              >
+                ค้นหาห้องพัก
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Room Types Section */}
+        {roomTypes.length > 0 ? (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-gray-900">ประเภทห้องพัก</h3>
+              <div className="text-sm text-gray-600">
+                ราคาเริ่มต้น ฿{Math.min(...roomTypes.map(r => r.pricePerNight)).toLocaleString()} - ฿{Math.max(...roomTypes.map(r => r.pricePerNight)).toLocaleString()}
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {roomTypes.map((room) => (
+                <div key={room.id} className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300 border border-gray-100">
+                  <div className="relative h-40 bg-gradient-to-br from-blue-100 to-blue-200">
+                    <div className="absolute inset-0 flex items-center justify-center text-blue-600">
+                      <div className="text-center">
+                        <Calendar className="h-8 w-8 mx-auto mb-1" />
+                        <span className="text-xs font-medium">ภาพห้องพัก</span>
+                      </div>
+                    </div>
+                    {/* Price Badge */}
+                    <div className="absolute top-3 right-3 bg-blue-600 text-white px-2 py-1 rounded-lg text-sm font-semibold">
+                      ฿{room.pricePerNight.toLocaleString()}
+                    </div>
+                  </div>
+                  
+                  <div className="p-4">
+                    <div className="mb-2">
+                      <h4 className="text-base font-semibold text-gray-900 truncate">{room.name}</h4>
+                      <p className="text-xs text-gray-600 mt-1">{room.description}</p>
+                    </div>
+                    
+                    <div className="flex items-center justify-between text-xs text-gray-600 mb-3">
+                      <div className="flex items-center">
+                        <Users className="h-3 w-3 mr-1" />
+                        <span>{room.maxGuests} คน</span>
+                      </div>
+                      <div>
+                        <span>{room.sizeSqm || 'N/A'} ตร.ม.</span>
+                      </div>
+                    </div>
+
+                    {/* Amenities - แสดงเฉพาะ 3 ตัวแรก */}
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {(room.amenities || []).slice(0, 3).map((amenity, index) => (
+                        <span key={index} className="inline-flex px-1.5 py-0.5 text-xs bg-blue-50 text-blue-600 rounded">
+                          {amenity}
+                        </span>
+                      ))}
+                      {(room.amenities || []).length > 3 && (
+                        <span className="inline-flex px-1.5 py-0.5 text-xs bg-gray-100 text-gray-500 rounded">
+                          +{room.amenities.length - 3}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex space-x-2">
+                      <Link 
+                        href="/booking"
+                        className="flex-1 bg-blue-600 text-white text-center py-2 px-2 rounded text-xs font-semibold hover:bg-blue-700 transition-colors"
+                      >
+                        จองเลย
+                      </Link>
+                      <button className="px-3 py-2 border border-gray-300 text-gray-700 rounded text-xs hover:bg-gray-50 transition-colors">
+                        ดูรายละเอียด
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+            <div className="text-gray-400 mb-4">
+              <Calendar className="h-12 w-12 mx-auto" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">ไม่พบข้อมูลห้องพัก</h3>
+            <p className="text-gray-600 mb-4">ขณะนี้ยังไม่มีข้อมูลห้องพักในระบบ</p>
+            <button
+              onClick={fetchHotelAndRooms}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              โหลดข้อมูลใหม่
+            </button>
+          </div>
+        )}
+
+        {/* Room Statistics */}
+        {roomTypes.length > 0 && (
+          <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white rounded-lg shadow-sm p-4 text-center">
+              <div className="text-2xl font-bold text-blue-600">{roomTypes.length}</div>
+              <div className="text-sm text-gray-600">ประเภทห้องพัก</div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm p-4 text-center">
+              <div className="text-2xl font-bold text-green-600">฿{Math.min(...roomTypes.map(r => r.pricePerNight)).toLocaleString()}</div>
+              <div className="text-sm text-gray-600">ราคาเริ่มต้น</div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm p-4 text-center">
+              <div className="text-2xl font-bold text-purple-600">{Math.max(...roomTypes.map(r => r.maxGuests))}</div>
+              <div className="text-sm text-gray-600">รองรับสูงสุด (คน)</div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm p-4 text-center">
+              <div className="text-2xl font-bold text-orange-600">{Math.max(...roomTypes.map(r => r.sizeSqm || 0))}</div>
+              <div className="text-sm text-gray-600">ขนาดใหญ่สุด (ตร.ม.)</div>
+            </div>
+          </div>
+        )}
+
+        {/* Room Categories */}
+        {roomTypes.length > 0 && (
+          <div className="mt-8 bg-white rounded-lg shadow-sm p-6">
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">หมวดหมู่ห้องพัก</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="text-center p-4 bg-blue-50 rounded-lg">
+                <div className="text-lg font-bold text-blue-600">
+                  {roomTypes.filter(r => r.pricePerNight <= 2000).length}
+                </div>
+                <div className="text-sm text-blue-800">ห้องราคาประหยัด</div>
+                <div className="text-xs text-blue-600">≤ ฿2,000</div>
+              </div>
+              <div className="text-center p-4 bg-green-50 rounded-lg">
+                <div className="text-lg font-bold text-green-600">
+                  {roomTypes.filter(r => r.pricePerNight > 2000 && r.pricePerNight <= 5000).length}
+                </div>
+                <div className="text-sm text-green-800">ห้องระดับกลาง</div>
+                <div className="text-xs text-green-600">฿2,001 - ฿5,000</div>
+              </div>
+              <div className="text-center p-4 bg-purple-50 rounded-lg">
+                <div className="text-lg font-bold text-purple-600">
+                  {roomTypes.filter(r => r.pricePerNight > 5000).length}
+                </div>
+                <div className="text-sm text-purple-800">ห้องหรูหรา</div>
+                <div className="text-xs text-purple-600">&gt; ฿5,000</div>
               </div>
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Filters Sidebar */}
-          <div className="lg:col-span-1 space-y-6">
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">ตัวกรอง</h2>
-                <button
-                  onClick={clearFilters}
-                  className="text-sm text-blue-600 hover:text-blue-800"
-                >
-                  ล้างทั้งหมด
-                </button>
+        {/* Features Section */}
+        <div className="mt-12 bg-white rounded-lg shadow-sm p-8">
+          <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">สิ่งอำนวยความสะดวก</h3>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+            {[
+              { icon: Wifi, name: "Wi-Fi ฟรี" },
+              { icon: Car, name: "ที่จอดรถ" },
+              { icon: Coffee, name: "อาหารเช้า" },
+              { icon: Tv, name: "ทีวี" },
+              { icon: Wind, name: "เครื่องปรับอากาศ" }
+            ].map((feature, index) => (
+              <div key={index} className="text-center">
+                <feature.icon className="h-8 w-8 mx-auto mb-2 text-blue-600" />
+                <p className="text-sm text-gray-700 font-medium">{feature.name}</p>
               </div>
-
-              {/* Search */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">ค้นหาห้องพัก</label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="ชื่อห้อง, รายละเอียด..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              {/* Date Range */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">วันที่เข้าพัก</label>
-                <div className="space-y-2">
-                  <input
-                    type="date"
-                    value={dateRange.checkIn}
-                    onChange={(e) => setDateRange(prev => ({ ...prev, checkIn: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <input
-                    type="date"
-                    value={dateRange.checkOut}
-                    onChange={(e) => setDateRange(prev => ({ ...prev, checkOut: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              {/* Price Range */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  ช่วงราคา (฿{priceRange[0].toLocaleString()} - ฿{priceRange[1].toLocaleString()})
-                </label>
-                <div className="space-y-2">
-                  <input
-                    type="range"
-                    min="0"
-                    max="10000"
-                    step="500"
-                    value={priceRange[1]}
-                    onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value)])}
-                    className="w-full"
-                  />
-                </div>
-              </div>
-
-              {/* Guests */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">จำนวนผู้เข้าพัก</label>
-                <select
-                  value={maxGuests}
-                  onChange={(e) => setMaxGuests(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">ไม่จำกัด</option>
-                  <option value="1">1 คน</option>
-                  <option value="2">2 คน</option>
-                  <option value="3">3 คน</option>
-                  <option value="4">4 คน หรือมากกว่า</option>
-                </select>
-              </div>
-
-              {/* Amenities */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">สิ่งอำนวยความสะดวก</label>
-                <div className="space-y-2">
-                  {commonAmenities.map((amenity) => {
-                    const IconComponent = amenity.icon;
-                    return (
-                      <label key={amenity.id} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={amenityFilters.includes(amenity.id)}
-                          onChange={() => handleAmenityFilter(amenity.id)}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        <IconComponent className="h-4 w-4 ml-3 mr-2 text-gray-500" />
-                        <span className="text-sm text-gray-700">{amenity.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
+        </div>
 
-          {/* Main Content */}
-          <div className="lg:col-span-3">
-            {/* Header with view toggle and sort */}
-            <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <p className="text-gray-600">
-                    พบ {filteredRooms.length} ห้องพัก
-                  </p>
-                  
-                  {/* View Mode Toggle */}
-                  <div className="flex border border-gray-300 rounded-lg">
-                    <button
-                      onClick={() => setViewMode('grid')}
-                      className={`p-2 ${viewMode === 'grid' ? 'bg-blue-500 text-white' : 'text-gray-500'} rounded-l-lg`}
-                    >
-                      <Grid className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => setViewMode('list')}
-                      className={`p-2 ${viewMode === 'list' ? 'bg-blue-500 text-white' : 'text-gray-500'} rounded-r-lg`}
-                    >
-                      <List className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Sort */}
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="price-asc">ราคา: ต่ำ → สูง</option>
-                  <option value="price-desc">ราคา: สูง → ต่ำ</option>
-                  <option value="rating">คะแนนรีวิว</option>
-                  <option value="size">ขนาดห้อง</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Rooms Grid/List */}
-            {filteredRooms.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-                <div className="text-gray-400 mb-4">
-                  <Search className="h-12 w-12 mx-auto" />
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">ไม่พบห้องพักที่ตรงกับเงื่อนไข</h3>
-                <p className="text-gray-600 mb-4">ลองปรับเปลี่ยนตัวกรองหรือเงื่อนไขการค้นหา</p>
-                <button
-                  onClick={clearFilters}
-                  className="btn-primary"
-                >
-                  ล้างตัวกรอง
-                </button>
-              </div>
-            ) : (
-              <div className={viewMode === 'grid' ? 
-                'grid grid-cols-1 md:grid-cols-2 gap-6' : 
-                'space-y-6'
-              }>
-                {filteredRooms.map((room) => (
-                  <div key={room.id} className={`bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow ${
-                    viewMode === 'list' ? 'flex' : ''
-                  }`}>
-                    <div className={viewMode === 'list' ? 'w-1/3' : 'w-full'}>
-                      <div className="relative h-48 bg-gray-200">
-                        <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-                          <span className="text-sm">ภาพห้องพัก</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className={`p-6 ${viewMode === 'list' ? 'flex-1' : ''}`}>
-                      <div className="flex items-start justify-between mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900">{room.name}</h3>
-                        <div className="text-right">
-                          <p className="text-2xl font-bold text-blue-600">฿{room.pricePerNight.toLocaleString()}</p>
-                          <p className="text-sm text-gray-600">ต่อคืน</p>
-                        </div>
-                      </div>
-                      
-                      <p className="text-gray-600 text-sm mb-3 line-clamp-2">{room.description}</p>
-                      
-                      <div className="flex items-center space-x-4 text-sm text-gray-600 mb-4">
-                        <div className="flex items-center">
-                          <Users className="h-4 w-4 mr-1" />
-                          <span>{room.maxGuests} คน</span>
-                        </div>
-                        {room.sizeSqm && (
-                          <div>
-                            <span>{room.sizeSqm} ตร.ม.</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Amenities */}
-                      {room.amenities && room.amenities.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mb-4">
-                          {room.amenities.slice(0, 4).map((amenity, index) => (
-                            <span key={index} className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
-                              {amenity}
-                            </span>
-                          ))}
-                          {room.amenities.length > 4 && (
-                            <span className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
-                              +{room.amenities.length - 4} อื่นๆ
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="flex space-x-3">
-                        <Link 
-                          href={`/rooms/${room.id}/book?hotelId=${hotel.id}`}
-                          className="flex-1 btn-primary text-center"
-                        >
-                          จองเลย
-                        </Link>
-                        <Link 
-                          href={`/rooms/${room.id}?hotelId=${hotel.id}`}
-                          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                          ดูรายละเอียด
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+        {/* Call to Action */}
+        <div className="mt-12 bg-gradient-to-r from-green-600 to-green-800 rounded-lg shadow-lg p-8 text-white text-center">
+          <h3 className="text-2xl font-bold mb-4">พร้อมจองห้องพักแล้วหรือยัง?</h3>
+          <p className="text-green-100 mb-6">เริ่มต้นการเดินทางที่น่าจดจำของคุณกับเรา</p>
+          <Link 
+            href="/booking" 
+            className="inline-block bg-white text-green-600 px-8 py-3 rounded-lg font-semibold hover:bg-green-50 transition-colors"
+          >
+            จองห้องพักตอนนี้
+          </Link>
         </div>
       </div>
     </div>

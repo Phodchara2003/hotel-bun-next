@@ -144,40 +144,75 @@ export default function PaymentSettingsPage() {
     const file = event.target.files[0];
     if (!file) return;
 
+    // ตรวจสอบประเภทไฟล์
+    if (!file.type.startsWith('image/')) {
+      setMessage({ 
+        type: 'error', 
+        content: 'กรุณาเลือกไฟล์รูปภาพเท่านั้น' 
+      });
+      return;
+    }
+
+    // ตรวจสอบขนาดไฟล์ (2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      setMessage({ 
+        type: 'error', 
+        content: 'ไฟล์รูปภาพต้องมีขนาดไม่เกิน 2MB' 
+      });
+      return;
+    }
+
     const formData = new FormData();
-    formData.append('file', file);
-    formData.append('type', type);
+    formData.append('qrImage', file);
 
     try {
-      const token = Cookies.get('auth_token');
-      const response = await fetch('/api/admin/upload-qr', {
+      setSaving(true);
+      setMessage({ type: 'info', content: 'กำลังอัปโหลด QR Code...' });
+
+      const response = await fetch('http://localhost:3001/api/simple-payment-settings/qr-upload', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
         body: formData
       });
 
       if (response.ok) {
         const data = await response.json();
+        
+        // อัปเดต settings ใน state
         setSettings(prev => ({
           ...prev,
           promptPay: {
             ...prev.promptPay,
-            qrCodeUrl: data.url
+            qrCodeUrl: data.qrCodeUrl
           }
         }));
+
         setMessage({ 
           type: 'success', 
           content: 'อัปโหลด QR Code เรียบร้อยแล้ว' 
         });
+
+        // ล้างข้อความหลังจาก 3 วินาที
+        setTimeout(() => {
+          setMessage({ type: '', content: '' });
+        }, 3000);
+      } else {
+        const error = await response.json();
+        throw new Error(error.message || 'อัปโหลดไม่สำเร็จ');
       }
     } catch (error) {
       console.error('Error uploading QR code:', error);
       setMessage({ 
         type: 'error', 
-        content: 'เกิดข้อผิดพลาดในการอัปโหลดไฟล์' 
+        content: `เกิดข้อผิดพลาดในการอัปโหลดไฟล์: ${error.message}` 
       });
+    } finally {
+      setSaving(false);
+      // ล้างข้อความ error หลังจาก 5 วินาที
+      setTimeout(() => {
+        if (message.type === 'error') {
+          setMessage({ type: '', content: '' });
+        }
+      }, 5000);
     }
   };
 

@@ -101,6 +101,40 @@ export const AuthProvider = ({ children }) => {
       let token = Cookies.get('auth_token');
       let userData = Cookies.get('user_data');
       
+      // Check for remember me backup if main auth data is missing
+      if (!token || !userData) {
+        const rememberMe = typeof window !== 'undefined' ? localStorage.getItem('remember_me') === 'true' : false;
+        
+        if (rememberMe && typeof window !== 'undefined') {
+          console.log('🔍 Checking Remember Me backup data...');
+          
+          const backupToken = localStorage.getItem('auth_token_backup');
+          const backupUserData = localStorage.getItem('user_data_backup');
+          const backupExpiresAt = localStorage.getItem('backup_expires_at');
+          
+          // Check if backup data exists and hasn't expired
+          if (backupToken && backupUserData && backupExpiresAt) {
+            const expiresAt = parseInt(backupExpiresAt);
+            const now = Date.now();
+            
+            if (now < expiresAt) {
+              console.log('✅ Valid Remember Me backup found, restoring session...');
+              token = backupToken;
+              userData = backupUserData;
+              
+              // Restore to cookies
+              updateStoredUserData(JSON.parse(userData), token, true);
+            } else {
+              console.log('❌ Remember Me backup expired, clearing...');
+              localStorage.removeItem('auth_token_backup');
+              localStorage.removeItem('user_data_backup');
+              localStorage.removeItem('backup_expires_at');
+              localStorage.removeItem('remember_me');
+            }
+          }
+        }
+      }
+      
       // Reduce console logging for production
       if (process.env.NODE_ENV === 'development') {
         console.log('🔐 Auth check - Token:', token ? 'Present' : 'Missing');
@@ -224,25 +258,39 @@ export const AuthProvider = ({ children }) => {
       sessionStorage.removeItem('token_expires_at');
     }
     
-    // Clear localStorage if any auth data is stored there
+    // Clear localStorage backup data (but keep remember_me preference for next login)
     if (typeof window !== 'undefined') {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_data');
-      localStorage.removeItem('remember_me');
+      localStorage.removeItem('auth_token_backup');
+      localStorage.removeItem('user_data_backup');
+      localStorage.removeItem('backup_expires_at');
+      // Note: We don't remove 'remember_me' so user preference is preserved
     }
     
     console.log('✅ Auth data cleared completely');
   };
 
-  const updateStoredUserData = (userData, token) => {
+  const updateStoredUserData = (userData, token, rememberMe = false) => {
     const userDataString = JSON.stringify(userData);
     
     // Parse token to get expiration
     const tokenPayload = parseJWT(token);
-    const expiresInDays = tokenPayload ? 
+    let expiresInDays = tokenPayload ? 
       Math.min(7, Math.ceil(getTokenTimeRemaining(tokenPayload) / (24 * 60 * 60))) : 7;
     
-    console.log('💾 Storing user data with expiration:', expiresInDays, 'days');
+    // If remember me is enabled, extend the session
+    if (rememberMe) {
+      expiresInDays = 30; // 30 days for remember me
+      console.log('💾 Storing with Remember Me - Extended to 30 days');
+    } else {
+      console.log('💾 Storing with regular session -', expiresInDays, 'days');
+    }
+    
+    // Store remember me preference
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('remember_me', rememberMe.toString());
+    }
     
     // Store in cookies with appropriate expiration
     Cookies.set('user_data', userDataString, { 
@@ -261,7 +309,14 @@ export const AuthProvider = ({ children }) => {
       httpOnly: false // Must be false for client-side access
     });
     
-    // Also store in sessionStorage as backup
+    // For remember me, also store in localStorage as backup
+    if (rememberMe && typeof window !== 'undefined') {
+      localStorage.setItem('user_data_backup', userDataString);
+      localStorage.setItem('auth_token_backup', token);
+      localStorage.setItem('backup_expires_at', (Date.now() + (30 * 24 * 60 * 60 * 1000)).toString());
+    }
+    
+    // Store in sessionStorage as usual
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('user_data', userDataString);
       sessionStorage.setItem('auth_token', token);
@@ -276,10 +331,10 @@ export const AuthProvider = ({ children }) => {
     console.log('✅ Auth data stored successfully');
   };
 
-  const login = async (credentials) => {
+  const login = async (credentials, rememberMe = false) => {
     try {
       setLoading(true);
-      console.log('🔐 Attempting login...');
+      console.log('🔐 Attempting login...', rememberMe ? '(Remember Me enabled)' : '');
       
       const response = await authAPI.login(credentials);
       
@@ -306,15 +361,15 @@ export const AuthProvider = ({ children }) => {
         console.log('✅ Token validation passed');
         console.log('🕒 Token expires at:', new Date(tokenPayload.exp * 1000));
         
-        // Store auth data with enhanced metadata
-        updateStoredUserData(userData, token);
+        // Store auth data with remember me preference
+        updateStoredUserData(userData, token, rememberMe);
         setUser(userData);
         
         // Set up token monitoring
         scheduleTokenRefresh(tokenPayload);
         
         console.log('✅ Login successful:', userData.email, userData.role);
-        toast.success(`ยินดีต้อนรับ ${userData.first_name || userData.email}!`);
+        toast.success(`ยินดีต้อนรับ ${userData.first_name || userData.email}!${rememberMe ? ' (จดจำการเข้าสู่ระบบแล้ว)' : ''}`);
         
         return { success: true, user: userData, token };
       } else {
@@ -451,6 +506,21 @@ export const AuthProvider = ({ children }) => {
     needsRefresh,
     refreshToken,
     forceCheckAuth,
+    // Remember Me utilities
+    getRememberMePreference: () => {
+      if (typeof window !== 'undefined') {
+        return localStorage.getItem('remember_me') === 'true';
+      }
+      return false;
+    },
+    clearRememberMe: () => {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('remember_me');
+        localStorage.removeItem('auth_token_backup');
+        localStorage.removeItem('user_data_backup');
+        localStorage.removeItem('backup_expires_at');
+      }
+    },
     // Utility functions
     isTokenValid: () => {
       const tokenInfo = getTokenInfo();

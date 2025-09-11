@@ -6,6 +6,7 @@ import { LanguageProvider } from '../contexts/LanguageContext'
 import { ThemeProvider } from '../contexts/ThemeContext'
 import LayoutWrapper from '../components/LayoutWrapper'
 import GlobalLanguageThemeHandler from '../components/GlobalLanguageThemeHandler'
+import SessionManager from '../components/auth/SessionManager'
 import { Toaster } from 'react-hot-toast'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -48,6 +49,7 @@ export default function RootLayout({ children }) {
               <NotificationProvider>
                 <LayoutWrapper>
                   {children}
+                  <SessionManager />
                 </LayoutWrapper>
                 <Toaster 
                   position="top-right"

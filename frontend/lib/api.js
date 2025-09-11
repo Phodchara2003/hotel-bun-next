@@ -184,6 +184,63 @@ export const hotelAPI = {
     const response = await api.get(`/hotels/${id}`);
     return response.data;
   },
+
+  // Get hotel info (ใช้ hotel แรก ถ้ามีหลายโรงแรม)
+  getHotelInfo: async () => {
+    try {
+      const response = await api.get('/hotels', { params: { limit: 1 } });
+      if (response.data && response.data.hotels && response.data.hotels.length > 0) {
+        return {
+          success: true,
+          data: response.data.hotels[0]
+        };
+      } else {
+        return {
+          success: false,
+          error: 'No hotel found'
+        };
+      }
+    } catch (error) {
+      console.error('Error fetching hotel info:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  },
+
+  // Get room types (ใช้ hotel ID แรกแล้วดึง room types จาก hotel details)
+  getRoomTypes: async () => {
+    try {
+      // ดึงโรงแรมแรกเพื่อเอา ID
+      const hotelsResponse = await api.get('/hotels', { params: { limit: 1 } });
+      
+      if (hotelsResponse.data && hotelsResponse.data.hotels && hotelsResponse.data.hotels.length > 0) {
+        const hotelId = hotelsResponse.data.hotels[0].id;
+        
+        // ดึงรายละเอียดโรงแรมที่มี room types
+        const hotelResponse = await api.get(`/hotels/${hotelId}`);
+        
+        if (hotelResponse.data && hotelResponse.data.roomTypes) {
+          return {
+            success: true,
+            data: hotelResponse.data.roomTypes
+          };
+        }
+      }
+      
+      return {
+        success: false,
+        error: 'No room types found'
+      };
+    } catch (error) {
+      console.error('Error fetching room types:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  },
   
   searchAvailability: async (searchParams) => {
     const response = await api.get('/hotels/search/availability', { params: searchParams });

@@ -1,0 +1,19 @@
+{
+  "name": "hotel-booking-tests",
+  "version": "1.0.0",
+  "description": "Automated testing suite for Hotel Booking System",
+  "scripts": {
+    "test": "node auto-test.js",
+    "test:frontend": "node frontend-test.js",
+    "test:backend": "node auto-test.js",
+    "test:all": "npm run test:backend && npm run test:frontend",
+    "test:quick": "node quick-test.js",
+    "install-playwright": "bun add -D playwright && bunx playwright install chromium"
+  },
+  "devDependencies": {
+    "axios": "^1.6.0",
+    "playwright": "^1.40.0"
+  },
+  "keywords": ["testing", "automation", "hotel", "booking"],
+  "author": "Hotel Booking Team"
+}
