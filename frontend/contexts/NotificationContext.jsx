@@ -30,9 +30,18 @@ export const NotificationProvider = ({ children }) => {
       const response = await notificationAPI.getNotifications(params);
       setNotifications(response.notifications || []);
       setUnreadCount(response.summary?.unreadCount || 0);
+      console.log('✅ Notifications: Data loaded successfully');
     } catch (error) {
-      console.error('Failed to fetch notifications:', error);
-      if (error.response?.status !== 401) {
+      console.log('⚠️ Notifications: API failed, using empty fallback:', error.message);
+      
+      // Use fallback empty state instead of showing errors
+      setNotifications([]);
+      setUnreadCount(0);
+      
+      // Only show error for serious issues, not for database quota
+      if (error.response?.status === 401) {
+        console.log('🔐 Notifications: Authentication required');
+      } else if (!error.message.includes('quota') && !error.message.includes('500')) {
         toast.error('ไม่สามารถโหลดการแจ้งเตือนได้');
       }
     } finally {
@@ -48,7 +57,8 @@ export const NotificationProvider = ({ children }) => {
       const response = await notificationAPI.getUnreadCount();
       setUnreadCount(response.unreadCount || 0);
     } catch (error) {
-      console.error('Failed to fetch unread count:', error);
+      console.log('⚠️ Unread Count: API failed, keeping current count');
+      // Keep current count instead of resetting to 0
     }
   };
 
@@ -202,10 +212,11 @@ export const NotificationProvider = ({ children }) => {
     if (isAuthenticated && user) {
       fetchNotifications();
       
-      // Set up polling for unread count every 30 seconds
+      // Reduced polling frequency due to database quota issues
+      // Only poll unread count every 5 minutes instead of 30 seconds
       const interval = setInterval(() => {
         fetchUnreadCount();
-      }, 30000);
+      }, 300000); // 5 minutes = 300000ms
       
       return () => clearInterval(interval);
     } else {

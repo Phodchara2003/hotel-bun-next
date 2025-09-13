@@ -448,7 +448,7 @@ export const adminRoomsRoutes = new Elysia()
 
 // Room Types API for filtering
 export const roomTypesRoutes = new Elysia()
-  // Get all room types (Admin/Staff)
+  // Get all room types with global pricing (Admin/Staff)
   .get('/', async ({ headers, set }) => {
     try {
       console.log('Room types request received');
@@ -467,28 +467,97 @@ export const roomTypesRoutes = new Elysia()
       
       console.log('Authenticated user:', { id: user.id, role: user.role });
 
+      // Get global price
+      const globalPriceResult = await sql`
+        SELECT setting_value FROM global_settings WHERE setting_key = 'room_price_per_night'
+      `;
+      const globalPrice = globalPriceResult[0]?.setting_value || '1500';
+
       const result = await sql`
-        SELECT DISTINCT 
-          rt.name,
+        SELECT 
           rt.id,
-          COUNT(*) as count
+          rt.name,
+          rt.description,
+          rt.max_guests,
+          rt.size_sqm,
+          rt.amenities,
+          rt.images,
+          rt.type,
+          rt.price_per_night,
+          h.name as hotel_name
         FROM room_types rt
         JOIN hotels h ON rt.hotel_id = h.id
         WHERE rt.available = true
-        GROUP BY rt.id, rt.name
         ORDER BY rt.name ASC
       `;
 
       const roomTypes = result.map(type => ({
         id: type.id,
         name: type.name,
-        count: parseInt(type.count)
+        description: type.description,
+        max_guests: type.max_guests,
+        size_sqm: type.size_sqm,
+        amenities: type.amenities || [],
+        images: type.images || [],
+        type: type.type,
+        price_per_night: parseFloat(globalPrice), // Use global price instead of individual room price
+        hotel_name: type.hotel_name
       }));
 
       console.log('Room types found:', roomTypes.length);
-      return { roomTypes };
+      return roomTypes; // Return array directly for frontend compatibility
     } catch (error) {
       console.error('Error fetching room types:', error);
+      set.status = 500;
+      return { error: 'Internal server error' };
+    }
+  })
+  
+  // Update room type (Admin)
+  .put('/:id', async ({ params, body, headers, set }) => {
+    try {
+      console.log('Updating room type:', params.id, body);
+      
+      // Manual auth check
+      const user = await authMiddleware({ headers, set });
+      if (!user || user.error) {
+        return user || { error: 'Authentication required' };
+      }
+
+      // Check if user has admin access
+      if (user.role !== 'admin') {
+        set.status = 403;
+        return { error: 'Admin access required' };
+      }
+
+      const { name, description, max_guests, size_sqm, amenities, images } = body;
+
+      // Check if room exists
+      const existing = await sql`SELECT * FROM room_types WHERE id = ${params.id}`;
+      if (existing.length === 0) {
+        set.status = 404;
+        return { error: 'Room type not found' };
+      }
+
+      // Update room type
+      const result = await sql`
+        UPDATE room_types 
+        SET 
+          name = ${name || existing[0].name},
+          description = ${description || existing[0].description},
+          max_guests = ${max_guests || existing[0].max_guests},
+          size_sqm = ${size_sqm || existing[0].size_sqm},
+          amenities = ${JSON.stringify(amenities || existing[0].amenities)},
+          images = ${JSON.stringify(images || existing[0].images)},
+          updated_at = NOW()
+        WHERE id = ${params.id}
+        RETURNING *
+      `;
+
+      console.log('Room type updated successfully');
+      return result[0];
+    } catch (error) {
+      console.error('Error updating room type:', error);
       set.status = 500;
       return { error: 'Internal server error' };
     }

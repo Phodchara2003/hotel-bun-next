@@ -22,8 +22,8 @@ export default function BookingConfirmation({ params }) {
         checkOut: '2025-09-17',
         nights: 2,
         guests: 2,
-        roomType: 'Deluxe Room',
-        totalAmount: 5000,
+        roomType: 'ห้องพัก',
+        totalAmount: 3000, // 1500 * 2 nights
         status: 'confirmed',
         paymentStatus: 'pending',
         customerName: 'ทดสอบ ลูกค้า',

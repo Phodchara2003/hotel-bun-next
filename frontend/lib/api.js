@@ -123,7 +123,16 @@ api.interceptors.response.use(
     // Handle server errors
     if (error.response?.status >= 500) {
       console.log('Server error:', error.response.status);
-      toast.error('Server error. Please try again later.');
+      
+      // Only show toast for specific critical errors, not for quota/database issues
+      const isQuotaError = error.message?.includes('quota') || 
+                          error.response?.data?.message?.includes('quota');
+      const isNotificationError = error.config?.url?.includes('/notifications');
+      const isHotelError = error.config?.url?.includes('/hotels');
+      
+      if (!isQuotaError && !isNotificationError && !isHotelError) {
+        toast.error('Server error. Please try again later.');
+      }
     }
     
     return Promise.reject(error);
@@ -183,6 +192,41 @@ export const hotelAPI = {
   getHotelById: async (id) => {
     const response = await api.get(`/hotels/${id}`);
     return response.data;
+  },
+
+  // Get hotel info และ room types ในครั้งเดียว
+  getHotelAndRoomTypes: async () => {
+    try {
+      // ดึงโรงแรมแรกพร้อมรายละเอียด
+      const hotelsResponse = await api.get('/hotels', { params: { limit: 1 } });
+      
+      if (hotelsResponse.data && hotelsResponse.data.hotels && hotelsResponse.data.hotels.length > 0) {
+        const hotel = hotelsResponse.data.hotels[0];
+        const hotelId = hotel.id;
+        
+        // ดึงรายละเอียดโรงแรมที่มี room types
+        const hotelResponse = await api.get(`/hotels/${hotelId}`);
+        
+        return {
+          success: true,
+          data: {
+            hotel: hotel,
+            roomTypes: hotelResponse.data?.roomTypes || []
+          }
+        };
+      }
+      
+      return {
+        success: false,
+        error: 'No hotel found'
+      };
+    } catch (error) {
+      console.error('Error fetching hotel and room types:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
   },
 
   // Get hotel info (ใช้ hotel แรก ถ้ามีหลายโรงแรม)

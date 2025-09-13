@@ -228,15 +228,16 @@ export const AuthProvider = ({ children }) => {
   const scheduleTokenRefresh = (payload) => {
     const timeRemaining = getTokenTimeRemaining(payload);
     
+    // Session warnings disabled to prevent screen blocking
     // Warn when 10 minutes remaining
-    if (timeRemaining > 600) {
+    if (false && timeRemaining > 600) {
       setTimeout(() => {
         toast.warning('เซสชันจะหมดอายุในอีก 10 นาที');
       }, (timeRemaining - 600) * 1000);
     }
     
     // Final warning at 5 minutes
-    if (timeRemaining > 300) {
+    if (false && timeRemaining > 300) {
       setTimeout(() => {
         toast.error('เซสชันจะหมดอายุในอีก 5 นาที กรุณาเซฟงานของคุณ');
       }, (timeRemaining - 300) * 1000);

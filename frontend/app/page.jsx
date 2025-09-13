@@ -73,27 +73,55 @@ export default function HomePage() {
     try {
       setIsLoading(true);
       
-      // ดึงข้อมูลโรงแรม
-      const hotelResponse = await hotelAPI.getHotelInfo();
-      if (hotelResponse.success) {
-        setHotel(hotelResponse.data);
-      } else {
-        setHotel(fallbackHotel);
+      // Get global pricing first
+      let uniformPrice = 1500; // Default fallback price
+      try {
+        const globalPriceRes = await fetch('http://localhost:3003/global-settings/room_price_per_night');
+        const globalPriceData = await globalPriceRes.json();
+        uniformPrice = parseFloat(globalPriceData.setting_value || '1500');
+      } catch (priceError) {
+        console.log('⚠️ Homepage: Could not fetch global price, using default 1500');
       }
-
-      // ดึงข้อมูลประเภทห้องพัก
-      const roomsResponse = await hotelAPI.getRoomTypes();
-      if (roomsResponse.success && roomsResponse.data.length > 0) {
-        setRoomTypes(roomsResponse.data);
+      
+      // ดึงข้อมูลโรงแรมและห้องพักในครั้งเดียว
+      const response = await hotelAPI.getHotelAndRoomTypes();
+      
+      if (response && response.success && response.data) {
+        setHotel(response.data.hotel);
+        
+        // Apply uniform pricing to all room types
+        const roomTypesWithUniformPricing = response.data.roomTypes.map(room => ({
+          ...room,
+          price: uniformPrice
+        }));
+        
+        setRoomTypes(roomTypesWithUniformPricing);
+        console.log('✅ Homepage: Data loaded successfully with uniform pricing');
       } else {
-        setRoomTypes(fallbackRooms);
+        // ใช้ fallback data with uniform pricing
+        console.log('⚠️ Homepage: Using fallback data due to API response issue');
+        setHotel(fallbackHotel);
+        
+        const fallbackRoomsWithUniformPricing = fallbackRooms.map(room => ({
+          ...room,
+          price: uniformPrice
+        }));
+        
+        setRoomTypes(fallbackRoomsWithUniformPricing);
       }
       
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.log('⚠️ Homepage: API failed, using fallback data:', error.message);
       setHotel(fallbackHotel);
-      setRoomTypes(fallbackRooms);
-      toast.error('ไม่สามารถโหลดข้อมูลได้ กำลังแสดงข้อมูลตัวอย่าง');
+      
+      // Apply uniform pricing to fallback rooms
+      const fallbackRoomsWithUniformPricing = fallbackRooms.map(room => ({
+        ...room,
+        price: 1500 // Fallback uniform price
+      }));
+      
+      setRoomTypes(fallbackRoomsWithUniformPricing);
+      // ไม่แสดง toast error เพราะ user ยังได้เห็นข้อมูลอยู่
     } finally {
       setIsLoading(false);
     }

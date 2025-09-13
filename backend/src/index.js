@@ -3,13 +3,15 @@ import { cors } from '@elysiajs/cors';
 import { swagger } from '@elysiajs/swagger';
 import 'dotenv/config';
 
-import { authRoutes } from './routes/auth.js';
+import { authRoutes } from './routes/auth-sqlite.js';
 import { hotelRoutes } from './routes/hotels.js';
 import { bookingRoutes } from './routes/bookings.js';
 import { notificationRoutes } from './routes/notifications.js';
 import { reviewRoutes } from './routes/reviews.js';
 import { adminRoomsRoutes, roomTypesRoutes } from './routes/admin-rooms-final.js';
 import { adminUsersRoutes } from './routes/admin-users.js';
+import { adminRoomManagementRoutes } from './routes/admin-room-management.js';
+import { globalSettingsRoutes } from './routes/global-settings.js';
 // Unified profile routes (replaces admin-profile & user-profile)
 import { profileRoutes } from './routes/profile.js';
 import { adminDashboardRoutes } from './routes/admin-dashboard.js';
@@ -94,18 +96,28 @@ const app = new Elysia()
     timestamp: new Date().toISOString()
   }))
   
+  // Add global request logging
+  .onRequest((context) => {
+    console.log(`🌐 REQUEST: ${context.request.method} ${context.request.url}`);
+  })
+  
   // Static file serving for uploads
   .get('/uploads/*', async ({ params, set }) => {
+    console.log('🗂️ Static file request:', params['*']);
     try {
       const fs = await import('fs');
       const path = await import('path');
       const filePath = path.join(process.cwd(), 'uploads', params['*']);
       
+      console.log('📁 Looking for file at:', filePath);
+      
       if (!fs.existsSync(filePath)) {
+        console.log('❌ File not found:', filePath);
         set.status = 404;
         return { error: 'File not found' };
       }
       
+      console.log('✅ File found, serving:', filePath);
       const file = fs.readFileSync(filePath);
       const ext = path.extname(filePath).toLowerCase();
       
@@ -118,12 +130,15 @@ const app = new Elysia()
         '.gif': 'image/gif'
       };
       
-      set.headers['Content-Type'] = contentTypes[ext] || 'application/octet-stream';
+      const contentType = contentTypes[ext] || 'application/octet-stream';
+      console.log('📄 Content-Type:', contentType);
+      
+      set.headers['Content-Type'] = contentType;
       set.headers['Cache-Control'] = 'public, max-age=31536000'; // 1 year cache
       
       return file;
     } catch (error) {
-      console.error('Static file serving error:', error);
+      console.error('❌ Static file serving error:', error);
       set.status = 500;
       return { error: 'Internal server error' };
     }
@@ -159,6 +174,8 @@ const app = new Elysia()
         console.log('✅ Admin Users Routes loaded');
         return adminUsersApp;
       })
+  .use(adminRoomManagementRoutes)
+  .use(globalSettingsRoutes)
   .use(profileRoutes)
       .group('/admin/permissions', (permissionsApp) => permissionsApp.use(permissionRoutes))
       .group('/checkin', (checkinApp) => checkinApp.use(checkinRoutes))

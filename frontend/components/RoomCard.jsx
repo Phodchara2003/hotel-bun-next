@@ -114,7 +114,7 @@ const RoomCard = ({ roomType, hotelId }) => {
           {/* Price Badge */}
           <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm rounded-xl px-3 py-2 shadow-lg">
             <div className="text-lg font-bold text-primary-600">
-              ฿{roomType.pricePerNight?.toLocaleString()}
+              ฿{(roomType.price || roomType.pricePerNight || 1500).toLocaleString()}
             </div>
             <div className="text-xs dark-text-muted">ต่อคืน</div>
           </div>
@@ -191,7 +191,7 @@ const RoomCard = ({ roomType, hotelId }) => {
         <div className="flex items-center justify-between pt-6 dark-border border-t">
           <div>
             <div className="text-2xl font-bold text-primary-600">
-              ฿{roomType.pricePerNight?.toLocaleString()}
+              ฿{(roomType.price || roomType.pricePerNight || 1500).toLocaleString()}
             </div>
             <div className="text-sm dark-text-muted">ต่อคืน (รวมภาษี)</div>
           </div>

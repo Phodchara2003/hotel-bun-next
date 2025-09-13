@@ -584,8 +584,9 @@ export default function AdminDashboard() {
           const currentTime = Math.floor(Date.now() / 1000);
           const timeUntilExpiry = tokenPayload.exp - currentTime;
           
+          // Session warnings disabled to prevent screen blocking
           // Warn if token expires in less than 10 minutes
-          if (timeUntilExpiry < 600 && timeUntilExpiry > 0) {
+          if (false && timeUntilExpiry < 600 && timeUntilExpiry > 0) {
             toast.warning('เซสชันจะหมดอายุในอีก ' + Math.floor(timeUntilExpiry / 60) + ' นาที');
           }
         } catch (error) {
@@ -1341,27 +1342,29 @@ function UsersTab({ users, stats, user }) {
         )}
       </div>
 
-      {/* Token Status Display */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">สถานะ Token การจัดการผู้ใช้</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="border rounded-lg p-4">
-            <h4 className="text-sm font-medium text-gray-700 mb-2">Token ล่าสุด</h4>
-            <p className="text-xs text-gray-600 font-mono break-all">
-              {sessionStorage.getItem('last_users_fetch_token')?.substring(0, 50) || 'ไม่มี token'}...
-            </p>
-          </div>
-          <div className="border rounded-lg p-4">
-            <h4 className="text-sm font-medium text-gray-700 mb-2">เวลาดึงข้อมูลล่าสุด</h4>
-            <p className="text-xs text-gray-600">
-              {sessionStorage.getItem('last_users_fetch_time') ? 
-                new Date(sessionStorage.getItem('last_users_fetch_time')).toLocaleString('th-TH') : 
-                'ยังไม่เคยดึงข้อมูล'
-              }
-            </p>
+      {/* Token Status Display - Hidden to prevent screen blocking */}
+      {false && (
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">สถานะ Token การจัดการผู้ใช้</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="border rounded-lg p-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Token ล่าสุด</h4>
+              <p className="text-xs text-gray-600 font-mono break-all">
+                {sessionStorage.getItem('last_users_fetch_token')?.substring(0, 50) || 'ไม่มี token'}...
+              </p>
+            </div>
+            <div className="border rounded-lg p-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">เวลาดึงข้อมูลล่าสุด</h4>
+              <p className="text-xs text-gray-600">
+                {sessionStorage.getItem('last_users_fetch_time') ? 
+                  new Date(sessionStorage.getItem('last_users_fetch_time')).toLocaleString('th-TH') : 
+                  'ยังไม่เคยดึงข้อมูล'
+                }
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* User Modals */}
       <UserModal

@@ -20,13 +20,16 @@ export default function BookingPage() {
   });
   const [paymentSettings, setPaymentSettings] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [paymentSlip, setPaymentSlip] = useState(null);
+  const [uploadingSlip, setUploadingSlip] = useState(false);
 
-  // ข้อมูลประเภทห้องตัวอย่าง
-  const roomTypes = [
-    { id: 'standard', name: 'Standard Room', price: 1500, description: 'ห้องมาตรฐานพร้อมสิ่งอำนวยความสะดวก' },
-    { id: 'deluxe', name: 'Deluxe Room', price: 2500, description: 'ห้องดีลักซ์ขนาดใหญ่พร้อมวิวสวยงาม' },
-    { id: 'suite', name: 'Suite Room', price: 4000, description: 'ห้องสวีทพร้อมห้องนั่งเล่นแยก' },
-  ];
+  // ข้อมูลห้องพักแบบเดียว (ราคาเดียวกัน)
+  const singleRoomType = { 
+    id: 'room', 
+    name: 'ห้องพัก', 
+    price: 1500, 
+    description: 'ห้องพักสะดวกสบายพร้อมสิ่งอำนวยความสะดวกครบครัน' 
+  };
 
   // คำนวณจำนวนคืนและราคารวม
   useEffect(() => {
@@ -37,14 +40,15 @@ export default function BookingPage() {
       const nights = Math.ceil(timeDiff / (1000 * 3600 * 24));
       
       if (nights > 0) {
-        const selectedRoom = roomTypes.find(room => room.id === bookingData.roomType);
-        const roomPrice = selectedRoom ? selectedRoom.price : 0;
-        const total = nights * roomPrice;
+        // คำนวณราคาห้องเท่านั้น ไม่บวกตามจำนวนคน
+        const roomPrice = singleRoomType.price;
+        const total = nights * roomPrice; // ไม่คูณกับจำนวนคน
         
         setBookingData(prev => ({
           ...prev,
           nights: nights,
-          totalAmount: total
+          totalAmount: total,
+          roomType: 'room' // Set default room type
         }));
       }
     }
@@ -60,7 +64,7 @@ export default function BookingPage() {
   const fetchPaymentSettings = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:3001/api/simple-payment-settings');
+      const response = await fetch('http://localhost:3003/api/simple-payment-settings');
       
       if (response.ok) {
         const data = await response.json();
@@ -101,10 +105,7 @@ export default function BookingPage() {
         }
         return true;
       case 3:
-        if (!bookingData.roomType) {
-          toast.error('กรุณาเลือกประเภทห้อง');
-          return false;
-        }
+        // ไม่ต้องตรวจสอบประเภทห้อง เพราะมีแค่ห้องเดียว
         return true;
       default:
         return true;
@@ -121,17 +122,87 @@ export default function BookingPage() {
     setStep(step - 1);
   };
 
+  // ฟังก์ชันอัปโหลดสลิป
+  const handleSlipUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // ตรวจสอบประเภทไฟล์
+    if (!file.type.startsWith('image/')) {
+      toast.error('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
+      return;
+    }
+
+    // ตรวจสอบขนาดไฟล์ (ไม่เกิน 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('ขนาดไฟล์ต้องไม่เกิน 5MB');
+      return;
+    }
+
+    setUploadingSlip(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('paymentSlip', file);
+      formData.append('bookingId', 'TEMP_' + Date.now()); // Temporary booking ID
+      formData.append('amount', bookingData.totalAmount.toString());
+
+      const response = await fetch('http://localhost:3003/api/payment-slip/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setPaymentSlip(result.filePath);
+        toast.success('อัปโหลดสลิปเรียบร้อย!');
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (error) {
+      console.error('Error uploading slip:', error);
+      toast.error('เกิดข้อผิดพลาดในการอัปโหลดสลิป');
+    } finally {
+      setUploadingSlip(false);
+    }
+  };
+
   const completeBooking = async () => {
+    if (!paymentSlip) {
+      toast.error('กรุณาอัปโหลดสลิปการโอนเงินก่อนยืนยันการจอง');
+      return;
+    }
+
     try {
       setLoading(true);
       
-      // สร้างการจอง (จำลอง)
-      const bookingId = 'HTL' + Date.now();
-      
-      toast.success('จองห้องพักเรียบร้อย!');
-      
-      // ไปยังหน้าสรุปการจอง
-      router.push(`/booking-confirmation/${bookingId}`);
+      // สร้างการจองพร้อมข้อมูลสลิป
+      const bookingPayload = {
+        ...bookingData,
+        paymentSlip: paymentSlip,
+        paymentStatus: 'pending_verification',
+        bookingDate: new Date().toISOString(),
+        userId: user?.id
+      };
+
+      const response = await fetch('http://localhost:3003/api/bookings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(bookingPayload)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        toast.success('จองห้องพักเรียบร้อย! กำลังรอการตรวจสอบการชำระเงิน');
+        
+        // ไปยังหน้าสรุปการจอง
+        router.push(`/booking-confirmation/${result.bookingId || 'HTL' + Date.now()}`);
+      } else {
+        throw new Error('Booking failed');
+      }
       
     } catch (error) {
       console.error('Error creating booking:', error);
@@ -213,34 +284,26 @@ export default function BookingPage() {
       case 3:
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900 text-center">เลือกประเภทห้อง</h2>
+            <h2 className="text-2xl font-bold text-gray-900 text-center">ข้อมูลห้องพัก</h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {roomTypes.map(room => (
-                <div
-                  key={room.id}
-                  onClick={() => handleInputChange('roomType', room.id)}
-                  className={`p-6 border-2 rounded-lg cursor-pointer transition-colors ${
-                    bookingData.roomType === room.id
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-300 hover:border-blue-300'
-                  }`}
-                >
-                  <div className="text-center">
-                    <Bed className="w-12 h-12 mx-auto mb-3 text-gray-600" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{room.name}</h3>
-                    <p className="text-gray-600 text-sm mb-3">{room.description}</p>
-                    <p className="text-xl font-bold text-blue-600">
-                      ฿{room.price.toLocaleString()}/คืน
-                    </p>
-                    {bookingData.nights > 0 && (
-                      <p className="text-sm text-gray-500 mt-1">
-                        รวม {bookingData.nights} คืน: ฿{(room.price * bookingData.nights).toLocaleString()}
+            <div className="max-w-md mx-auto">
+              <div className="p-6 border-2 border-blue-500 bg-blue-50 rounded-lg">
+                <div className="text-center">
+                  <Bed className="w-16 h-16 mx-auto mb-4 text-blue-600" />
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{singleRoomType.name}</h3>
+                  <p className="text-gray-600 mb-4">{singleRoomType.description}</p>
+                  <p className="text-2xl font-bold text-blue-600 mb-2">
+                    ฿{singleRoomType.price.toLocaleString()}/คืน
+                  </p>
+                  {bookingData.nights > 0 && (
+                    <div className="bg-white rounded-lg p-4 mt-4">
+                      <p className="text-lg font-semibold text-gray-800">
+                        รวม {bookingData.nights} คืน: ฿{(singleRoomType.price * bookingData.nights).toLocaleString()}
                       </p>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
-              ))}
+              </div>
             </div>
           </div>
         );
@@ -272,12 +335,15 @@ export default function BookingPage() {
                 </div>
                 <div className="flex justify-between">
                   <span>ประเภทห้อง:</span>
-                  <span>{roomTypes.find(r => r.id === bookingData.roomType)?.name}</span>
+                  <span>{singleRoomType.name}</span>
                 </div>
                 <hr className="my-3" />
                 <div className="flex justify-between text-lg font-semibold text-blue-600">
                   <span>ยอดรวมทั้งสิ้น:</span>
                   <span>฿{bookingData.totalAmount.toLocaleString()}</span>
+                </div>
+                <div className="text-sm text-gray-500 mt-1">
+                  (คิดราคาห้องเท่านั้น ไม่บวกตามจำนวนคน)
                 </div>
               </div>
             </div>
@@ -285,51 +351,26 @@ export default function BookingPage() {
             {/* แสดงห้องที่เลือกและตัวเลือกอื่น */}
             <div className="bg-blue-50 rounded-lg p-6">
               <h3 className="text-lg font-semibold text-blue-800 mb-4">ห้องที่คุณเลือก</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {roomTypes.map(room => (
-                  <div
-                    key={room.id}
-                    onClick={() => handleInputChange('roomType', room.id)}
-                    className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-                      bookingData.roomType === room.id
-                        ? 'border-blue-500 bg-blue-100 shadow-md'
-                        : 'border-gray-300 bg-white hover:border-blue-300'
-                    }`}
-                  >
-                    <div className="text-center">
-                      <Bed className={`w-8 h-8 mx-auto mb-2 ${
-                        bookingData.roomType === room.id ? 'text-blue-600' : 'text-gray-600'
-                      }`} />
-                      <h4 className={`font-semibold mb-1 ${
-                        bookingData.roomType === room.id ? 'text-blue-800' : 'text-gray-900'
-                      }`}>
-                        {room.name}
-                      </h4>
-                      <p className="text-sm text-gray-600 mb-2">{room.description}</p>
-                      <p className={`font-bold ${
-                        bookingData.roomType === room.id ? 'text-blue-600' : 'text-gray-800'
-                      }`}>
-                        ฿{room.price.toLocaleString()}/คืน
+              <div className="max-w-md mx-auto">
+                <div className="p-4 border-2 border-blue-500 bg-blue-100 shadow-md rounded-lg">
+                  <div className="text-center">
+                    <Bed className="w-8 h-8 mx-auto mb-2 text-blue-600" />
+                    <h4 className="font-semibold text-blue-900 mb-1">{singleRoomType.name}</h4>
+                    <p className="text-blue-700 text-sm mb-2">{singleRoomType.description}</p>
+                    <p className="text-lg font-bold text-blue-600">
+                      ฿{singleRoomType.price.toLocaleString()}/คืน
+                    </p>
+                    <p className="text-xs text-blue-500 mt-1">
+                      ราคาเดียวกันทุกห้อง ไม่ขึ้นกับจำนวนคน
+                    </p>
+                    {bookingData.nights > 0 && (
+                      <p className="text-sm text-blue-600 mt-1">
+                        รวม {bookingData.nights} คืน: ฿{(singleRoomType.price * bookingData.nights).toLocaleString()}
                       </p>
-                      {bookingData.nights > 0 && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          รวม {bookingData.nights} คืน: ฿{(room.price * bookingData.nights).toLocaleString()}
-                        </p>
-                      )}
-                      {bookingData.roomType === room.id && (
-                        <div className="mt-2">
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-800 bg-blue-200 rounded-full">
-                            ✓ เลือกแล้ว
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
-                ))}
+                </div>
               </div>
-              <p className="text-center text-sm text-blue-600 mt-3">
-                คลิกที่ห้องอื่นเพื่อเปลี่ยนแปลงการเลือก
-              </p>
             </div>
 
             {/* QR Code Payment */}
@@ -347,7 +388,7 @@ export default function BookingPage() {
                 <div className="text-center mb-4">
                   <div className="bg-white p-4 rounded-lg border inline-block">
                     <img
-                      src={`http://localhost:3001${paymentSettings.qrCodeUrl}`}
+                      src={`http://localhost:3003${paymentSettings.qrCodeUrl}`}
                       alt="QR Code สำหรับชำระเงิน"
                       className="w-48 h-48 object-contain mx-auto"
                       onError={(e) => {
@@ -393,8 +434,77 @@ export default function BookingPage() {
 
                 <div className="bg-yellow-50 rounded-lg p-4 mt-4">
                   <p className="text-yellow-800 text-sm">
-                    <span className="font-medium">หมายเหตุ:</span> หลังจากโอนเงินแล้ว ระบบจะนำคุณไปยังหน้าอัปโหลดสลิปการโอนเงิน
+                    <span className="font-medium">หมายเหตุ:</span> หลังจากโอนเงินแล้ว กรุณาอัปโหลดสลิปการโอนเงินด้านล่าง
                   </p>
+                </div>
+
+                {/* ส่วนอัปโหลดสลิป */}
+                <div className="bg-green-50 border-2 border-green-200 rounded-lg p-6 mt-6">
+                  <h4 className="text-lg font-semibold text-green-800 mb-4 text-center">
+                    อัปโหลดสลิปการโอนเงิน
+                  </h4>
+                  
+                  {!paymentSlip ? (
+                    <div className="text-center">
+                      <div className="border-2 border-dashed border-green-300 rounded-lg p-6 mb-4">
+                        <CreditCard className="w-12 h-12 mx-auto mb-3 text-green-500" />
+                        <p className="text-green-700 mb-3">
+                          เลือกไฟล์สลิปการโอนเงิน (JPG, PNG)
+                        </p>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleSlipUpload}
+                          disabled={uploadingSlip}
+                          className="hidden"
+                          id="slip-upload"
+                        />
+                        <label
+                          htmlFor="slip-upload"
+                          className={`inline-flex items-center px-4 py-2 border border-green-300 rounded-md shadow-sm text-sm font-medium text-green-700 bg-white hover:bg-green-50 cursor-pointer ${
+                            uploadingSlip ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                        >
+                          {uploadingSlip ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
+                              กำลังอัปโหลด...
+                            </>
+                          ) : (
+                            <>
+                              <CreditCard className="w-4 h-4 mr-2" />
+                              เลือกไฟล์สลิป
+                            </>
+                          )}
+                        </label>
+                      </div>
+                      <p className="text-sm text-green-600">
+                        ขนาดไฟล์ไม่เกิน 5MB
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <div className="bg-white rounded-lg p-4 border-2 border-green-300">
+                        <div className="flex items-center justify-center mb-3">
+                          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                            <CreditCard className="w-6 h-6 text-green-600" />
+                          </div>
+                        </div>
+                        <p className="text-green-800 font-medium mb-2">
+                          ✅ อัปโหลดสลิปเรียบร้อยแล้ว
+                        </p>
+                        <p className="text-sm text-green-600 mb-3">
+                          ไฟล์: {paymentSlip.split('/').pop()}
+                        </p>
+                        <button
+                          onClick={() => setPaymentSlip(null)}
+                          className="text-sm text-green-700 hover:text-green-800 underline"
+                        >
+                          เปลี่ยนไฟล์
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -497,7 +607,7 @@ export default function BookingPage() {
           ) : (
             <button
               onClick={completeBooking}
-              disabled={loading || !paymentSettings?.qrCodeUrl}
+              disabled={loading || !paymentSettings?.qrCodeUrl || !paymentSlip}
               className="flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
@@ -505,6 +615,11 @@ export default function BookingPage() {
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
                   กำลังจอง...
                 </div>
+              ) : !paymentSlip ? (
+                <>
+                  <CreditCard className="w-5 h-5 mr-2" />
+                  กรุณาอัปโหลดสลิปก่อน
+                </>
               ) : (
                 <>
                   <CreditCard className="w-5 h-5 mr-2" />

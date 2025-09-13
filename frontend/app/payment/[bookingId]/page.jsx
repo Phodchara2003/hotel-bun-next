@@ -328,12 +328,12 @@ export default function PaymentPage() {
                               />
                             </div>
                             <p className="text-green-700 font-medium mt-4 mb-2">สแกน QR Code ด้านบนเพื่อชำระเงิน</p>
-                            <p className="text-xs text-gray-500">Debug: {paymentSettings.bankImageUrl}</p>
+                            {/* <p className="text-xs text-gray-500">Debug: {paymentSettings.bankImageUrl}</p> */}
                           </div>
                         ) : (
                           <div className="mb-4">
                             <Building2 className="h-32 w-32 mx-auto text-blue-600 mb-4" />
-                            <p className="text-xs text-red-600">Debug: No bankImageUrl - {JSON.stringify(paymentSettings, null, 2)}</p>
+                            {/* <p className="text-xs text-red-600">Debug: No bankImageUrl - {JSON.stringify(paymentSettings, null, 2)}</p> */}
                           </div>
                         )}
                         

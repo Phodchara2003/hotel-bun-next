@@ -19,7 +19,13 @@ class PerformanceMonitor {
     const count = this.apiCalls.get(key) || 0;
     this.apiCalls.set(key, count + 1);
     
-    console.log(`📞 API Call #${count + 1}: ${key}`);
+    // Only log if it's not a repeated call within 5 seconds
+    const lastLog = this.lastLogTime?.get(key) || 0;
+    if (now - lastLog > 5000) {
+      console.log(`📞 API Call #${count + 1}: ${key}`);
+      if (!this.lastLogTime) this.lastLogTime = new Map();
+      this.lastLogTime.set(key, now);
+    }
   }
 
   // Track API call end

@@ -9,7 +9,7 @@ import {
   UserPermissionStatus,
   NoPermissionMessage,
   usePermissions 
-} from '../components/PermissionComponents';
+} from '../../components/PermissionComponents';
 import { Trash2, Edit, Plus, Eye } from 'lucide-react';
 
 // ตัวอย่างหน้า Dashboard ที่มีการตรวจสอบสิทธิ์
@@ -227,11 +227,13 @@ export default function ExampleDashboard() {
         </div>
       </PermissionGuard>
 
-      {/* Debug Information - แสดงสิทธิ์ปัจจุบัน */}
-      <div className="mt-8 bg-gray-100 rounded-lg p-4">
-        <h3 className="text-sm font-semibold mb-2">ข้อมูลการดีบัก (สิทธิ์ปัจจุบัน)</h3>
-        <PermissionSummaryDebug />
-      </div>
+      {/* Debug Information - Hidden to prevent screen blocking */}
+      {false && (
+        <div className="mt-8 bg-gray-100 rounded-lg p-4">
+          <h3 className="text-sm font-semibold mb-2">ข้อมูลการดีบัก (สิทธิ์ปัจจุบัน)</h3>
+          <PermissionSummaryDebug />
+        </div>
+      )}
     </div>
   );
 }

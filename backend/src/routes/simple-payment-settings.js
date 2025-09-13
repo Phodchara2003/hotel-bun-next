@@ -59,6 +59,30 @@ export const simplePaymentRoutes = new Elysia()
       return { settings: parsedSettings };
     } catch (error) {
       console.error('❌ Error fetching payment settings:', error);
+      
+      // Check if it's a database quota error
+      if (error.message && error.message.includes('compute time quota')) {
+        console.log('🔄 Database quota exceeded, returning fallback settings');
+        
+        // Return fallback settings when database is unavailable
+        const fallbackSettings = {
+          bankInfo: {
+            bankName: 'ธนาคารกสิกรไทย',
+            accountNumber: '123-456-789',
+            accountName: 'โรงแรมตัวอย่าง จำกัด',
+            branchName: 'สาขาสยามพารากอน'
+          },
+          promptPayInfo: {
+            phoneNumber: '081-234-5678',
+            idNumber: '1234567890123',
+            qrCodeUrl: '/uploads/qr-codes/qr_code_1757665703988.jpg' // Use existing QR file
+          },
+          isEnabled: true
+        };
+        
+        return { settings: fallbackSettings };
+      }
+      
       set.status = 500;
       return { error: 'Internal server error' };
     }

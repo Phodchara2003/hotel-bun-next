@@ -20,6 +20,9 @@ export const NotificationProvider = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  
+  // Add debouncing to prevent multiple simultaneous requests
+  const [isRequestInProgress, setIsRequestInProgress] = useState(false);
 
   // Initialize with cached data immediately
   useEffect(() => {
@@ -71,7 +74,7 @@ export const NotificationProvider = ({ children }) => {
       }
     }, 1000); // 1 second delay
 
-    // Set up polling interval for updates
+    // Set up polling interval for updates - reduce frequency
     const interval = setInterval(() => {
       fetchUnreadCount();
       // Only refresh full notifications if user is on relevant pages
@@ -79,7 +82,7 @@ export const NotificationProvider = ({ children }) => {
           window.location.pathname.includes('/admin')) {
         fetchNotifications();
       }
-    }, 30000); // 30 seconds
+    }, 60000); // 60 seconds (1 minute) - reduced from 30 seconds
 
     return () => {
       clearTimeout(delayedInit);
@@ -109,10 +112,20 @@ export const NotificationProvider = ({ children }) => {
   };
 
   const fetchUnreadCount = async () => {
-    if (!isAuthenticated || !user?.id) return;
+    if (!isAuthenticated || !user?.id || isRequestInProgress) return;
     
+    setIsRequestInProgress(true);
     try {
-      const response = await api.get('/api/notifications/unread-count');
+      // Add timeout to prevent long-running requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
+      const response = await api.get('/api/notifications/unread-count', {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
       if (response.data !== undefined) {
         const count = response.data.count || response.data;
         setUnreadCount(count);
@@ -122,8 +135,14 @@ export const NotificationProvider = ({ children }) => {
         }
       }
     } catch (error) {
-      console.error('Error fetching unread count:', error);
+      if (error.name === 'AbortError') {
+        console.warn('Unread count request timed out');
+      } else {
+        console.error('Error fetching unread count:', error);
+      }
       // On error, keep cached count if available
+    } finally {
+      setIsRequestInProgress(false);
     }
   };
 

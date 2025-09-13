@@ -362,7 +362,7 @@ function LegacyBankTransfer({ settings, bookingId, amount, language }) {
               <h3 className="text-lg font-medium text-gray-800 mb-3">สแกน QR Code เพื่อชำระเงิน</h3>
               <div className="bg-white p-6 rounded-lg border-2 border-gray-200 shadow-sm">
                 <img
-                  src={`http://localhost:3001${settings.qrCodeUrl}`}
+                  src={`http://localhost:3003${settings.qrCodeUrl}`}
                   alt="QR Code สำหรับชำระเงิน"
                   className="w-64 h-64 object-contain"
                   onError={(e) => {

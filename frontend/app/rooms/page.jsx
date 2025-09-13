@@ -37,14 +37,14 @@ export default function RoomsPage() {
   
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
-  const [priceRange, setPriceRange] = useState([0, 10000]);
   const [maxGuests, setMaxGuests] = useState('');
   const [amenityFilters, setAmenityFilters] = useState([]);
-  const [sortBy, setSortBy] = useState('price-asc'); // price-asc, price-desc, rating, size
+  const [sortBy, setSortBy] = useState('name'); // name, rating, size
   const [dateRange, setDateRange] = useState({
     checkIn: '',
     checkOut: ''
   });
+  const [globalPrice, setGlobalPrice] = useState(1500); // ราคาเดียวกันสำหรับทุกห้อง
 
   useEffect(() => {
     fetchHotelAndRooms();
@@ -52,16 +52,38 @@ export default function RoomsPage() {
 
   useEffect(() => {
     applyFiltersAndSort();
-  }, [roomTypes, searchTerm, priceRange, maxGuests, amenityFilters, sortBy]);
+  }, [roomTypes, searchTerm, maxGuests, amenityFilters, sortBy]);
 
   const fetchHotelAndRooms = async () => {
     try {
+      // Get global pricing first
+      const globalPriceRes = await fetch('http://localhost:3003/global-settings/room_price_per_night');
+      const globalPriceData = await globalPriceRes.json();
+      const uniformPrice = parseFloat(globalPriceData.setting_value || '1500');
+      
       const hotelResponse = await hotelAPI.getHotelById(1);
       setHotel(hotelResponse);
-      setRoomTypes(hotelResponse.roomTypes || []);
+      
+      // Apply uniform pricing to all room types from global settings
+      const roomTypesWithUniformPricing = (hotelResponse.roomTypes || []).map(room => ({
+        ...room,
+        price: uniformPrice // Use global price for all rooms
+      }));
+      
+      setRoomTypes(roomTypesWithUniformPricing);
     } catch (error) {
       console.error('Error fetching hotel data:', error);
-      toast.error('ไม่สามารถโหลดข้อมูลห้องพักได้');
+      // Fallback to default uniform price
+      const hotelResponse = await hotelAPI.getHotelById(1);
+      setHotel(hotelResponse);
+      
+      const roomTypesWithFallbackPricing = (hotelResponse.roomTypes || []).map(room => ({
+        ...room,
+        price: 1500 // Fallback uniform price
+      }));
+      
+      setRoomTypes(roomTypesWithFallbackPricing);
+      toast.error('ไม่สามารถโหลดข้อมูลราคาได้ ใช้ราคามาตรฐาน 1,500 บาท');
     } finally {
       setLoading(false);
     }
@@ -78,11 +100,6 @@ export default function RoomsPage() {
       );
     }
 
-    // Price filter
-    filtered = filtered.filter(room => 
-      room.pricePerNight >= priceRange[0] && room.pricePerNight <= priceRange[1]
-    );
-
     // Max guests filter
     if (maxGuests) {
       filtered = filtered.filter(room => room.maxGuests >= parseInt(maxGuests));
@@ -97,17 +114,15 @@ export default function RoomsPage() {
       );
     }
 
-    // Sorting
+    // Sorting (simplified since price is uniform)
     filtered.sort((a, b) => {
       switch (sortBy) {
-        case 'price-asc':
-          return a.pricePerNight - b.pricePerNight;
-        case 'price-desc':
-          return b.pricePerNight - a.pricePerNight;
         case 'rating':
           return (b.rating || 0) - (a.rating || 0);
         case 'size':
           return (b.sizeSqm || 0) - (a.sizeSqm || 0);
+        case 'name':
+          return a.name.localeCompare(b.name);
         default:
           return 0;
       }
@@ -128,10 +143,9 @@ export default function RoomsPage() {
 
   const clearFilters = () => {
     setSearchTerm('');
-    setPriceRange([0, 10000]);
     setMaxGuests('');
     setAmenityFilters([]);
-    setSortBy('price-asc');
+    setSortBy('name');
     setDateRange({ checkIn: '', checkOut: '' });
   };
 
@@ -232,24 +246,6 @@ export default function RoomsPage() {
                 </div>
               </div>
 
-              {/* Price Range */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  ช่วงราคา (฿{priceRange[0].toLocaleString()} - ฿{priceRange[1].toLocaleString()})
-                </label>
-                <div className="space-y-2">
-                  <input
-                    type="range"
-                    min="0"
-                    max="10000"
-                    step="500"
-                    value={priceRange[1]}
-                    onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value)])}
-                    className="w-full"
-                  />
-                </div>
-              </div>
-
               {/* Guests */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">จำนวนผู้เข้าพัก</label>
@@ -323,8 +319,7 @@ export default function RoomsPage() {
                   onChange={(e) => setSortBy(e.target.value)}
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="price-asc">ราคา: ต่ำ → สูง</option>
-                  <option value="price-desc">ราคา: สูง → ต่ำ</option>
+                  <option value="name">ชื่อห้อง A-Z</option>
                   <option value="rating">คะแนนรีวิว</option>
                   <option value="size">ขนาดห้อง</option>
                 </select>
@@ -367,7 +362,7 @@ export default function RoomsPage() {
                       <div className="flex items-start justify-between mb-2">
                         <h3 className="text-lg font-semibold text-gray-900">{room.name}</h3>
                         <div className="text-right">
-                          <p className="text-2xl font-bold text-blue-600">฿{room.pricePerNight.toLocaleString()}</p>
+                          <p className="text-2xl font-bold text-blue-600">฿1,500</p>
                           <p className="text-sm text-gray-600">ต่อคืน</p>
                         </div>
                       </div>
