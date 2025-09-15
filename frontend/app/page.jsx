@@ -76,9 +76,9 @@ export default function HomePage() {
       // Get global pricing first
       let uniformPrice = 1500; // Default fallback price
       try {
-        const globalPriceRes = await fetch('http://localhost:3003/global-settings/room_price_per_night');
+        const globalPriceRes = await fetch('http://localhost:3001/api/global-settings');
         const globalPriceData = await globalPriceRes.json();
-        uniformPrice = parseFloat(globalPriceData.setting_value || '1500');
+        uniformPrice = parseFloat(globalPriceData.data?.room_price_per_night || '1500');
       } catch (priceError) {
         console.log('⚠️ Homepage: Could not fetch global price, using default 1500');
       }

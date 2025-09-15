@@ -6,7 +6,16 @@ const { parse } = require('url');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = process.env.PORT || 3003;
+// Mock payment slip manager functions
+const createPaymentSlip = () => ({ success: true, message: 'Payment slip created' });
+const getAllSlips = () => ({ success: true, data: [] });
+const getSlipById = () => ({ success: true, data: null });
+const getSlipByReference = () => ({ success: true, data: null });
+const updateSlipStatus = () => ({ success: true, message: 'Status updated' });
+const deleteSlip = () => ({ success: true, message: 'Slip deleted' });
+const getSlipStatistics = () => ({ success: true, data: { total: 0, pending: 0, confirmed: 0 } });
+
+const PORT = process.env.PORT || 3004;
 
 // Database file paths
 const DB_DIR = path.join(__dirname, 'db');
@@ -176,6 +185,17 @@ function getSetting(key) {
   }
 }
 
+function getSettings() {
+  try {
+    const data = fs.readFileSync(SETTINGS_DB, 'utf8');
+    const settings = JSON.parse(data);
+    return settings;
+  } catch (error) {
+    console.error('Error reading settings:', error);
+    return {};
+  }
+}
+
 const server = createServer(async (req, res) => {
   setCORSHeaders(res);
   
@@ -230,6 +250,10 @@ const server = createServer(async (req, res) => {
           'GET /api/hotels',
           'GET /api/notifications', 
           'GET /global-settings/room_price_per_night',
+          'GET /api/simple-payment-settings',
+          'POST /api/payment-slip/upload',
+          'GET /api/payment-slips',
+          'GET /api/payment-slips/statistics',
           'GET /api/database-info'
         ]
       });
@@ -283,6 +307,102 @@ const server = createServer(async (req, res) => {
         price: price || 1500,
         currency: currency || 'THB',
         source: 'json_database'
+      });
+      return;
+    }
+
+    // API: Simple Payment Settings
+    if (path === '/api/simple-payment-settings' && method === 'GET') {
+      console.log('🔧 Fetching simple payment settings from JSON database...');
+      
+      const settings = getSettings();
+      
+      console.log('✅ Found payment settings from JSON database');
+      
+      sendJSON(res, 200, {
+        success: true,
+        data: {
+          room_price_per_night: settings.room_price_per_night || 1500,
+          currency: settings.currency || 'THB',
+          tax_rate: settings.tax_rate || 7,
+          service_fee: settings.service_fee || 100,
+          payment_methods: ['bank_transfer', 'qr_code'],
+          payment_status: 'active'
+        },
+        source: 'json_database'
+      });
+      return;
+    }
+
+    // API: Payment Slip Upload
+    if (path === '/api/payment-slip/upload' && method === 'POST') {
+      console.log('📤 Processing payment slip upload...');
+      
+      try {
+        let body = '';
+        req.on('data', chunk => {
+          body += chunk.toString();
+        });
+        
+        req.on('end', () => {
+          // This is a simplified version - in real implementation you'd handle file uploads
+          const slipData = {
+            bookingId: 'temp-booking-id',
+            amount: 1500,
+            uploadedBy: 'customer',
+            notes: 'Payment slip uploaded via website'
+          };
+          
+          const result = createPaymentSlip(slipData);
+          
+          console.log('✅ Payment slip created successfully');
+          
+          sendJSON(res, 200, {
+            success: true,
+            data: result,
+            message: 'Payment slip uploaded successfully'
+          });
+        });
+      } catch (error) {
+        console.error('❌ Payment slip upload error:', error);
+        sendJSON(res, 500, {
+          success: false,
+          error: 'Failed to upload payment slip',
+          message: error.message
+        });
+      }
+      return;
+    }
+
+    // API: Get All Payment Slips
+    if (path === '/api/payment-slips' && method === 'GET') {
+      console.log('📋 Fetching all payment slips...');
+      
+      const slips = getAllSlips();
+      
+      console.log(`✅ Found ${slips.length} payment slips`);
+      
+      sendJSON(res, 200, {
+        success: true,
+        data: slips,
+        count: slips.length,
+        source: 'payment_slip_database'
+      });
+      return;
+    }
+
+    // API: Get Payment Slip Statistics
+    if (path === '/api/payment-slips/statistics' && method === 'GET') {
+      console.log('📊 Fetching payment slip statistics...');
+      
+      const stats = getSlipStatistics();
+      
+      console.log('✅ Payment slip statistics retrieved');
+      
+      sendJSON(res, 200, {
+        success: true,
+        data: stats,
+        source: 'payment_slip_database'
       });
       return;
     }
@@ -356,6 +476,10 @@ server.listen(PORT, () => {
   console.log(`   GET http://localhost:${PORT}/api/hotels                  - Hotels (JSON Database)`);
   console.log(`   GET http://localhost:${PORT}/api/notifications           - Notifications (JSON Database)`);
   console.log(`   GET http://localhost:${PORT}/global-settings/room_price_per_night - Room pricing (JSON Database)`);
+  console.log(`   GET http://localhost:${PORT}/api/simple-payment-settings - Payment settings (JSON Database)`);
+  console.log(`   POST http://localhost:${PORT}/api/payment-slip/upload     - Upload payment slip`);
+  console.log(`   GET http://localhost:${PORT}/api/payment-slips           - Get all payment slips`);
+  console.log(`   GET http://localhost:${PORT}/api/payment-slips/statistics - Payment slip statistics`);
   console.log(`   GET http://localhost:${PORT}/api/database-info           - Database information`);
   
   console.log('\n✅ Server ready with JSON database!');

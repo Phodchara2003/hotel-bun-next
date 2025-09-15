@@ -15,14 +15,19 @@
     "@sinclair/typebox": "^0.34.41",
     "axios": "^1.11.0",
     "bcrypt": "^6.0.0",
+    "busboy": "^1.6.0",
     "cors": "^2.8.5",
-    "elysia": "^1.4.4",
+    "dotenv": "^17.2.2",
+    "elysia": "^1.4.5",
     "express": "^5.1.0",
     "form-data": "^4.0.4",
     "jsonwebtoken": "^9.0.2",
+    "mime-types": "^3.0.1",
+    "multer": "^2.0.2",
     "node-fetch": "^3.3.2",
     "pg": "^8.16.3",
-    "postgres": "^3.4.7"
+    "postgres": "^3.4.7",
+    "xtend": "^4.0.2"
   },
   "devDependencies": {
     "puppeteer": "^24.19.0"

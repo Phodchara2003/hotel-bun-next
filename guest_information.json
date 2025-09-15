@@ -1,0 +1,206 @@
+{
+  "guests": [
+    {
+      "id": 1,
+      "guestReference": "GST718278HRB",
+      "bookingReference": "BOK001",
+      "primaryGuest": {
+        "title": "Mr.",
+        "firstName": "Somchai",
+        "lastName": "Jaidee",
+        "email": "somchai.jaidee@email.com",
+        "phone": "+66812345678",
+        "idType": "passport",
+        "idNumber": "AB1234567",
+        "nationality": "Thai",
+        "dateOfBirth": "1990-05-15",
+        "address": {
+          "street": "123 Sukhumvit Road",
+          "city": "Bangkok",
+          "state": "Bangkok",
+          "postalCode": "10110",
+          "country": "Thailand"
+        }
+      },
+      "additionalGuests": [
+        {
+          "title": "Mrs.",
+          "firstName": "Malee",
+          "lastName": "Jaidee",
+          "relationship": "spouse",
+          "idType": "nationalId",
+          "idNumber": "1234567890123"
+        }
+      ],
+      "bookingDetails": {
+        "hotelId": 1,
+        "hotelName": "Premium Hotel Bangkok",
+        "roomNumber": null,
+        "roomType": "Deluxe Suite",
+        "checkInDate": "2024-02-20",
+        "checkOutDate": "2024-02-22",
+        "numberOfNights": 2,
+        "numberOfGuests": 2,
+        "totalAmount": 3000
+      },
+      "paymentInfo": {
+        "paymentSlipUploaded": true,
+        "paymentSlipPath": "/uploads/payment-slips/slip-001.jpg",
+        "paymentMethod": "bank_transfer",
+        "paymentStatus": "pending_verification",
+        "paymentAmount": 3000,
+        "paymentDate": "2024-02-19",
+        "paymentReference": "TXN123456789"
+      },
+      "specialRequests": {
+        "dietaryRequirements": [
+          "vegetarian"
+        ],
+        "accessibilityNeeds": [],
+        "bedPreference": "double",
+        "smokingPreference": "non-smoking",
+        "floorPreference": null,
+        "additionalRequests": "High floor with city view"
+      },
+      "checkInStatus": "checked_in",
+      "checkInTime": "2025-09-15T16:28:38.281Z",
+      "checkOutTime": null,
+      "emergencyContact": {
+        "name": "Siriporn Jaidee",
+        "relationship": "sister",
+        "phone": "+66887654321"
+      },
+      "status": "active",
+      "createdAt": "2025-09-15T16:28:38.278Z",
+      "updatedAt": "2025-09-15T16:28:38.281Z",
+      "createdBy": "system",
+      "notes": "VIP guest - anniversary celebration"
+    },
+    {
+      "id": 2,
+      "guestReference": "GST921547J6O",
+      "bookingReference": "BOK006",
+      "primaryGuest": {
+        "title": "Ms.",
+        "firstName": "Siriporn",
+        "lastName": "Smiths",
+        "email": "siriporn.smith@example.com",
+        "phone": "+66987654321",
+        "idType": "passport",
+        "idNumber": "CD9876543",
+        "nationality": "Thai",
+        "dateOfBirth": "1992-08-20",
+        "address": {
+          "street": "456 Silom Road",
+          "city": "Bangkok",
+          "state": "Bangkok",
+          "postalCode": "10500",
+          "country": "Thailand"
+        }
+      },
+      "additionalGuests": [
+        {
+          "title": "Mr.",
+          "firstName": "John",
+          "lastName": "Smith",
+          "relationship": "spouse",
+          "idType": "passport",
+          "idNumber": "US123456789"
+        }
+      ],
+      "bookingDetails": {
+        "hotelId": 2,
+        "hotelName": "Grand Hotel Bangkok",
+        "roomNumber": null,
+        "roomType": "Executive Suite",
+        "checkInDate": "2024-02-25",
+        "checkOutDate": "2024-02-28",
+        "numberOfNights": 3,
+        "numberOfGuests": 2,
+        "totalAmount": 4500
+      },
+      "paymentInfo": {
+        "paymentSlipUploaded": true,
+        "paymentSlipPath": "/uploads/payment-slips/slip-006.jpg",
+        "paymentMethod": "bank_transfer",
+        "paymentStatus": "pending_verification",
+        "paymentAmount": 4500,
+        "paymentDate": "2024-02-24",
+        "paymentReference": "TXN987654321"
+      },
+      "specialRequests": {
+        "dietaryRequirements": [
+          "vegetarian"
+        ],
+        "accessibilityNeeds": [],
+        "bedPreference": "double",
+        "smokingPreference": "non-smoking",
+        "floorPreference": "high",
+        "additionalRequests": "Anniversary celebration - please arrange flowers"
+      },
+      "checkInStatus": "checked_in",
+      "checkInTime": "2025-09-15T16:32:01.584Z",
+      "checkOutTime": null,
+      "emergencyContact": {
+        "name": "Robert Smith",
+        "relationship": "father",
+        "phone": "+1234567890"
+      },
+      "status": "active",
+      "createdAt": "2025-09-15T16:32:01.547Z",
+      "updatedAt": "2025-09-15T16:32:01.584Z",
+      "createdBy": "api_test",
+      "notes": ""
+    }
+  ],
+  "checkins": [
+    {
+      "id": 1,
+      "checkinReference": "CHK7182818MI",
+      "guestId": 1,
+      "guestReference": "GST718278HRB",
+      "checkInTime": "2025-09-15T16:28:38.281Z",
+      "actualRoomNumber": "1205",
+      "keyCardsIssued": 2,
+      "checkedInBy": "front_desk",
+      "staffId": null,
+      "staffName": "Reception Staff",
+      "additionalServices": [],
+      "depositAmount": 500,
+      "depositMethod": "credit_card",
+      "idVerified": true,
+      "paymentVerified": true,
+      "status": "active",
+      "createdAt": "2025-09-15T16:28:38.281Z",
+      "notes": ""
+    },
+    {
+      "id": 2,
+      "checkinReference": "CHK921584A4I",
+      "guestId": 2,
+      "guestReference": "GST921547J6O",
+      "checkInTime": "2025-09-15T16:32:01.584Z",
+      "actualRoomNumber": "2501",
+      "keyCardsIssued": 2,
+      "checkedInBy": "front_desk",
+      "staffId": null,
+      "staffName": "Reception Manager",
+      "additionalServices": [],
+      "depositAmount": 1000,
+      "depositMethod": "credit_card",
+      "idVerified": true,
+      "paymentVerified": true,
+      "status": "active",
+      "createdAt": "2025-09-15T16:32:01.584Z",
+      "notes": "VIP guest - anniversary celebration"
+    }
+  ],
+  "receipts": [],
+  "metadata": {
+    "lastGuestId": 2,
+    "lastCheckinId": 2,
+    "lastReceiptId": 0,
+    "createdAt": "2025-09-15T16:28:38.269Z",
+    "lastUpdated": "2025-09-15T16:32:01.584Z"
+  }
+}

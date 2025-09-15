@@ -317,7 +317,7 @@ function LegacyBankTransfer({ settings, bookingId, amount, language }) {
       formData.append('bookingId', bookingId);
       formData.append('amount', amount);
 
-      const response = await fetch('http://localhost:3001/api/payment-slip/upload', {
+      const response = await fetch('http://localhost:3003/api/payment-slip/upload', {
         method: 'POST',
         body: formData
       });

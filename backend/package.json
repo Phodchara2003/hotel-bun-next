@@ -1,17 +1,16 @@
 {
   "name": "hotel-booking-backend",
   "version": "1.0.0",
+  "type": "module",
   "description": "Hotel booking system backend with Bun and Elysia",
   "main": "json-db-server.js",
   "scripts": {
-    "dev": "node --watch json-db-server.js",
-    "start": "node json-db-server.js",
-    "test": "node auto-test-suite.js",
-    "test:quick": "node quick-test.js",
-    "test:integration": "node integration-test.js",
-    "test:all": "node master-test.js",
-    "setup-db": "node setup-database.js",
-    "db:migrate": "bun src/db/migrate.js"
+    "dev": "node --watch simple-http-server.js",
+    "start": "node simple-http-server.js",
+    "dev:json": "node --watch json-db-server.js",
+    "start:json": "node json-db-server.js",
+    "dev:elysia": "bun run --watch server.js",
+    "start:elysia": "bun run server.js"
   },
   "dependencies": {
     "@elysiajs/bearer": "^1.4.1",
@@ -21,9 +20,12 @@
     "@sinclair/typebox": "^0.34.41",
     "@types/pg": "^8.15.5",
     "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
     "dotenv": "^17.2.2",
-    "elysia": "^1.4.4",
+    "elysia": "^1.4.5",
+    "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
     "nodemailer": "^7.0.6",
     "pg": "^8.16.3",
     "qrcode": "^1.5.4",

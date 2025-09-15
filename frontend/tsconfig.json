@@ -18,18 +18,31 @@
     "jsx": "preserve",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"],
-      "@/components/*": ["components/*"],
-      "@/contexts/*": ["contexts/*"],
-      "@/lib/*": ["lib/*"],
-      "@/translations": ["translations/index.js"],
-      "@/translations/*": ["translations/*"]
+      "@/*": [
+        "./*"
+      ],
+      "@/components/*": [
+        "components/*"
+      ],
+      "@/contexts/*": [
+        "contexts/*"
+      ],
+      "@/lib/*": [
+        "lib/*"
+      ],
+      "@/translations": [
+        "translations/index.js"
+      ],
+      "@/translations/*": [
+        "translations/*"
+      ]
     },
     "plugins": [
       {
         "name": "next"
       }
-    ]
+    ],
+    "strictNullChecks": true
   },
   "include": [
     "next-env.d.ts",

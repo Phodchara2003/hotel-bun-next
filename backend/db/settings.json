@@ -5,6 +5,6 @@
   "service_fee": 100,
   "max_booking_days": 365,
   "cancellation_hours": 24,
-  "updated_at": "2025-09-15T11:34:22.012Z",
+  "updated_at": "2025-09-15T18:40:00.000Z",
   "data_source": "json_database"
 }

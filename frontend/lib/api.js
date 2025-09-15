@@ -3,7 +3,7 @@ import Cookies from 'js-cookie';
 import toast from 'react-hot-toast';
 import performanceMonitor from './performanceMonitor';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 // Create axios instance
 const api = axios.create({
