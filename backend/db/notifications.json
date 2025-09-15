@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "title": "Database System Online",
+    "message": "JSON database is now operational and serving real data",
+    "type": "success",
+    "read_status": false,
+    "user_id": null,
+    "created_at": "2025-09-15T11:34:22.010Z",
+    "data_source": "json_database"
+  },
+  {
+    "id": 2,
+    "title": "Hotels Data Loaded",
+    "message": "Successfully loaded 3 hotels into the database",
+    "type": "info",
+    "read_status": false,
+    "user_id": null,
+    "created_at": "2025-09-15T11:34:22.010Z",
+    "data_source": "json_database"
+  },
+  {
+    "id": 3,
+    "title": "System Ready",
+    "message": "All systems are operational and ready for bookings",
+    "type": "success",
+    "read_status": false,
+    "user_id": null,
+    "created_at": "2025-09-15T11:34:22.010Z",
+    "data_source": "json_database"
+  }
+]

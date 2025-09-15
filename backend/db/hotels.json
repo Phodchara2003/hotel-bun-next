@@ -1,0 +1,62 @@
+[
+  {
+    "id": 1,
+    "name": "Royal Palace Bangkok",
+    "description": "Luxury 5-star hotel in downtown Bangkok",
+    "location": "Bangkok, Thailand",
+    "amenities": [
+      "WiFi",
+      "Pool",
+      "Spa",
+      "Gym",
+      "Restaurant"
+    ],
+    "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945",
+    "rating": 4.8,
+    "total_rooms": 200,
+    "avg_price": 2500,
+    "is_active": true,
+    "created_at": "2025-09-15T11:34:22.007Z",
+    "data_source": "json_database"
+  },
+  {
+    "id": 2,
+    "name": "Paradise Beach Resort",
+    "description": "Beachfront resort with private beach access",
+    "location": "Phuket, Thailand",
+    "amenities": [
+      "Beach Access",
+      "Pool",
+      "Water Sports",
+      "Bar",
+      "WiFi"
+    ],
+    "image_url": "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4",
+    "rating": 4.9,
+    "total_rooms": 150,
+    "avg_price": 3200,
+    "is_active": true,
+    "created_at": "2025-09-15T11:34:22.008Z",
+    "data_source": "json_database"
+  },
+  {
+    "id": 3,
+    "name": "Mountain View Lodge",
+    "description": "Cozy lodge with stunning mountain views",
+    "location": "Chiang Mai, Thailand",
+    "amenities": [
+      "Mountain View",
+      "Hiking",
+      "WiFi",
+      "Restaurant",
+      "Fireplace"
+    ],
+    "image_url": "https://images.unsplash.com/photo-1571896349842-33c89424de2d",
+    "rating": 4.6,
+    "total_rooms": 80,
+    "avg_price": 1800,
+    "is_active": true,
+    "created_at": "2025-09-15T11:34:22.008Z",
+    "data_source": "json_database"
+  }
+]

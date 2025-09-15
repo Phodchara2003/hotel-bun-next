@@ -1,0 +1,175 @@
+{
+  "timestamp": "2025-09-15T12:42:40.507Z",
+  "summary": {
+    "totalTests": 18,
+    "passedTests": 18,
+    "failedTests": 0,
+    "successRate": "100.0%"
+  },
+  "categories": {
+    "serverHealth": {
+      "passed": 3,
+      "failed": 0,
+      "total": 3
+    },
+    "hotelApi": {
+      "passed": 3,
+      "failed": 0,
+      "total": 3
+    },
+    "customerApi": {
+      "passed": 3,
+      "failed": 0,
+      "total": 3
+    },
+    "paymentProcessing": {
+      "passed": 2,
+      "failed": 0,
+      "total": 2
+    },
+    "databaseOperations": {
+      "passed": 2,
+      "failed": 0,
+      "total": 2
+    },
+    "errorHandling": {
+      "passed": 5,
+      "failed": 0,
+      "total": 5
+    }
+  },
+  "details": [
+    {
+      "name": "Server Health Check",
+      "category": "serverHealth",
+      "status": "PASSED",
+      "result": true
+    },
+    {
+      "name": "Server Root Endpoint",
+      "category": "serverHealth",
+      "status": "PASSED",
+      "result": true
+    },
+    {
+      "name": "Server Uptime",
+      "category": "serverHealth",
+      "status": "PASSED",
+      "result": true
+    },
+    {
+      "name": "Hotels API",
+      "category": "hotelApi",
+      "status": "PASSED",
+      "result": true
+    },
+    {
+      "name": "Notifications API",
+      "category": "hotelApi",
+      "status": "PASSED",
+      "result": true
+    },
+    {
+      "name": "Room Price API",
+      "category": "hotelApi",
+      "status": "PASSED",
+      "result": true
+    },
+    {
+      "name": "Customers API",
+      "category": "customerApi",
+      "status": "PASSED",
+      "result": true
+    },
+    {
+      "name": "Customer Details API",
+      "category": "customerApi",
+      "status": "PASSED",
+      "result": true
+    },
+    {
+      "name": "Customer Bookings API",
+      "category": "customerApi",
+      "status": "PASSED",
+      "result": true
+    },
+    {
+      "name": "Payment Processing",
+      "category": "paymentProcessing",
+      "status": "PASSED",
+      "result": {
+        "id": 3,
+        "paymentReference": "PAY003",
+        "amount": 2500,
+        "status": "completed"
+      }
+    },
+    {
+      "name": "Payment Validation",
+      "category": "paymentProcessing",
+      "status": "PASSED",
+      "result": [
+        "customerFirstName",
+        "customerLastName",
+        "totalAmount",
+        "hotelId",
+        "hotelName",
+        "roomType",
+        "checkInDate",
+        "checkOutDate"
+      ]
+    },
+    {
+      "name": "Database Statistics",
+      "category": "databaseOperations",
+      "status": "PASSED",
+      "result": {
+        "total": 3,
+        "completed": 3,
+        "total_amount": 17038
+      }
+    },
+    {
+      "name": "Customer Creation",
+      "category": "databaseOperations",
+      "status": "PASSED",
+      "result": true
+    },
+    {
+      "name": "Invalid Endpoint Handling",
+      "category": "errorHandling",
+      "status": "PASSED",
+      "result": true
+    },
+    {
+      "name": "Invalid Customer ID Handling",
+      "category": "errorHandling",
+      "status": "PASSED",
+      "result": true
+    },
+    {
+      "name": "Invalid JSON Handling",
+      "category": "errorHandling",
+      "status": "PASSED",
+      "result": true
+    },
+    {
+      "name": "CORS Headers",
+      "category": "errorHandling",
+      "status": "PASSED",
+      "result": "Content-Type, Authorization"
+    },
+    {
+      "name": "OPTIONS Request",
+      "category": "errorHandling",
+      "status": "PASSED",
+      "result": true
+    }
+  ],
+  "environment": {
+    "backendUrl": "http://localhost:3003",
+    "frontendUrl": "http://localhost:3001",
+    "nodeVersion": "v22.16.0",
+    "platform": "win32"
+  }
+}

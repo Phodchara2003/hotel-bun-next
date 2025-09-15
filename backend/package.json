@@ -2,10 +2,15 @@
   "name": "hotel-booking-backend",
   "version": "1.0.0",
   "description": "Hotel booking system backend with Bun and Elysia",
-  "main": "working-server.js",
+  "main": "json-db-server.js",
   "scripts": {
-    "dev": "node --watch working-server.js",
-    "start": "node working-server.js",
+    "dev": "node --watch json-db-server.js",
+    "start": "node json-db-server.js",
+    "test": "node auto-test-suite.js",
+    "test:quick": "node quick-test.js",
+    "test:integration": "node integration-test.js",
+    "test:all": "node master-test.js",
+    "setup-db": "node setup-database.js",
     "db:migrate": "bun src/db/migrate.js"
   },
   "dependencies": {
