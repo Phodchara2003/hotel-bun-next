@@ -42,6 +42,7 @@ export default function RoomsManagement() {
   const [modalType, setModalType] = useState('add'); // 'add', 'edit', 'view'
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
   
   const [stats, setStats] = useState({
     totalRooms: 0,
@@ -117,27 +118,30 @@ export default function RoomsManagement() {
   const fetchRooms = async () => {
     try {
       setLoading(true);
-      console.log('Fetching rooms data...');
+      console.log('🔄 Fetching rooms from database...');
       const response = await roomsAPI.getAllRooms();
-      console.log('Rooms API response:', response);
+      console.log('✅ Rooms API response:', response);
       
-      if (response.rooms) {
-        setRooms(response.rooms);
-        calculateStats(response.rooms);
-        console.log('Rooms loaded:', response.rooms.length);
+      if (response.data && Array.isArray(response.data)) {
+        console.log('� Room count:', response.data.length);
+        console.log('�🔧 Sample room data from API:', response.data[0]);
+        setRooms(response.data);
+        calculateStats(response.data);
+        setLastUpdated(new Date());
+        console.log('✅ Rooms loaded successfully');
       } else {
-        console.error('No rooms data in response:', response);
+        console.error('❌ No rooms data in response:', response);
         toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูลห้องพัก');
       }
     } catch (error) {
-      console.error('Error fetching rooms:', error);
-      console.error('Error code:', error.code);
+      console.error('❌ Error fetching rooms:', error);
+      console.error('❌ Error code:', error.code);
       
       if (error.code === 'ECONNABORTED') {
         toast.error('การเชื่อมต่อล่าช้า กรุณารอสักครู่...');
         // Retry after delay
         setTimeout(() => {
-          console.log('Retrying fetch rooms...');
+          console.log('🔄 Retrying fetch rooms...');
           fetchRooms();
         }, 3000);
       } else {
@@ -215,35 +219,70 @@ export default function RoomsManagement() {
     setModalType(type);
     setSelectedRoom(room);
     if (room) {
-      setFormData({
+      console.log('🔧 Opening modal for room:', room);
+      console.log('🔧 Original room data for edit:', room);
+      
+      // Map database fields to form fields with comprehensive field mapping
+      const mappedFormData = {
         name: room.name || '',
-        type: room.type || '',
-        number: room.number || '',
-        floor: room.floor || '',
-        capacity: room.capacity || '',
-        price: room.price || '',
+        type: room.type || 'standard',
+        number: room.room_number || room.number || `R${room.id || ''}`, // Generate room number if not exists
+        floor: room.floor || '1', // Default floor if not available
+        capacity: room.max_guests || room.capacity || 2, // Map max_guests to capacity
+        price: room.price_per_night || room.price || 1500, // Map price_per_night to price
         description: room.description || '',
-        amenities: room.amenities || [],
-        status: room.status || 'available',
-        size: room.size || '',
-        bed_type: room.bed_type || '',
-        view_type: room.view_type || ''
-      });
+        amenities: (() => {
+          try {
+            if (room.amenities) {
+              if (typeof room.amenities === 'string') {
+                return JSON.parse(room.amenities);
+              } else if (Array.isArray(room.amenities)) {
+                return room.amenities;
+              }
+            }
+            return [];
+          } catch (e) {
+            console.error('Error parsing amenities:', e);
+            return [];
+          }
+        })(), // Safe amenities parsing
+        status: room.status || 'available', // Default status
+        size: room.size_sqm || room.size || 25, // Map size_sqm to size with default
+        bed_type: room.bed_type || 'double', // Default bed type
+        view_type: room.view_type || 'city' // Default view type
+      };
+      
+      console.log('🔧 Mapped form data for edit:', mappedFormData);
+      console.log('🏷️ Key mappings used:');
+      console.log('  - max_guests ➜ capacity:', room.max_guests, '➜', mappedFormData.capacity);
+      console.log('  - price_per_night ➜ price:', room.price_per_night, '➜', mappedFormData.price);
+      console.log('  - size_sqm ➜ size:', room.size_sqm, '➜', mappedFormData.size);
+      console.log('  - Generated defaults:');
+      console.log('    - number:', mappedFormData.number);
+      console.log('    - floor:', mappedFormData.floor);
+      console.log('    - status:', mappedFormData.status);
+      console.log('    - bed_type:', mappedFormData.bed_type);
+      console.log('    - view_type:', mappedFormData.view_type);
+      
+      setFormData(mappedFormData);
     } else {
-      setFormData({
+      // Reset form for new room
+      const emptyFormData = {
         name: '',
-        type: '',
+        type: 'standard',
         number: '',
-        floor: '',
-        capacity: '',
-        price: '',
+        floor: '1',
+        capacity: 2,
+        price: 1500,
         description: '',
         amenities: [],
         status: 'available',
-        size: '',
-        bed_type: '',
-        view_type: ''
-      });
+        size: 25,
+        bed_type: 'double',
+        view_type: 'city'
+      };
+      console.log('🆕 Setting empty form data for new room');
+      setFormData(emptyFormData);
     }
     setShowModal(true);
   };
@@ -287,6 +326,11 @@ export default function RoomsManagement() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    console.log('🚀 Form submission started');
+    console.log('📝 Modal Type:', modalType);
+    console.log('📝 Selected Room:', selectedRoom);
+    console.log('📝 Form Data:', formData);
+    
     if (!formData.name || !formData.type || !formData.number) {
       toast.error('กรุณากรอกข้อมูลที่จำเป็น');
       return;
@@ -297,27 +341,42 @@ export default function RoomsManagement() {
       let response;
 
       if (modalType === 'add') {
-        response = await roomsAPI.create(formData);
+        console.log('➕ Creating new room...');
+        response = await roomsAPI.createRoom(formData);
+        console.log('➕ Create response:', response);
         if (response.success) {
-          toast.success('เพิ่มห้องพักสำเร็จ');
-          fetchRooms();
+          toast.success('เพิ่มห้องพักสำเร็จ - ข้อมูลได้รับการอัปเดต');
           closeModal();
+          // รีเฟรชข้อมูลทันทีหลังเพิ่มห้องใหม่
+          await fetchRooms();
         } else {
+          console.error('❌ Create failed:', response);
           toast.error(response.message || 'เกิดข้อผิดพลาดในการเพิ่มห้องพัก');
         }
       } else if (modalType === 'edit') {
-        response = await roomsAPI.update(selectedRoom.id, formData);
+        console.log('✏️ Updating room with ID:', selectedRoom.id);
+        console.log('✏️ Update data:', formData);
+        response = await roomsAPI.updateRoom(selectedRoom.id, formData);
+        console.log('✏️ Update response:', response);
         if (response.success) {
-          toast.success('แก้ไขห้องพักสำเร็จ');
-          fetchRooms();
+          toast.success('แก้ไขห้องพักสำเร็จ - ข้อมูลได้รับการอัปเดต');
+          
+          // ปิด Modal ก่อน
           closeModal();
+          
+          // รีเฟรชข้อมูลทันทีเพื่อแสดงการเปลี่ยนแปลง
+          console.log('🔄 Refreshing data after successful update...');
+          await fetchRooms();
+          
         } else {
+          console.error('❌ Update failed:', response);
           toast.error(response.message || 'เกิดข้อผิดพลาดในการแก้ไขห้องพัก');
         }
       }
     } catch (error) {
-      console.error('Error saving room:', error);
-      toast.error('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+      console.error('💥 Error saving room:', error);
+      console.error('💥 Error details:', error.response?.data || error.message);
+      toast.error('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + (error.response?.data?.message || error.message));
     } finally {
       setActionLoading(false);
     }
@@ -330,10 +389,11 @@ export default function RoomsManagement() {
 
     try {
       setActionLoading(true);
-      const response = await roomsAPI.delete(roomId);
+      const response = await roomsAPI.deleteRoom(roomId);
       if (response.success) {
-        toast.success('ลบห้องพักสำเร็จ');
-        fetchRooms();
+        toast.success('ลบห้องพักสำเร็จ - ข้อมูลได้รับการอัปเดต');
+        // รีเฟรชข้อมูลทันทีหลังลบ
+        await fetchRooms();
       } else {
         toast.error(response.message || 'เกิดข้อผิดพลาดในการลบห้องพัก');
       }
@@ -410,24 +470,39 @@ export default function RoomsManagement() {
         <div className={`mb-8 transform transition-all duration-700 ease-out ${
           isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
         }`}>
-          <div className="flex items-center justify-end gap-4">
-            <button
-              onClick={fetchRooms}
-              disabled={loading}
-              className="btn-outline flex items-center gap-2"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              รีเฟรช
-            </button>
-            <button
-              onClick={() => openModal('add')}
-              className="btn-primary flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              เพิ่มห้องพัก
-            </button>
+          <div className="flex items-center justify-between">
+            {/* Last Updated Time */}
+            {lastUpdated && (
+              <div className="text-sm text-neutral-600 dark:text-neutral-400">
+                อัปเดตล่าสุด: {lastUpdated.toLocaleString('th-TH', {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit'
+                })}
+              </div>
+            )}
+            
+            <div className="flex items-center gap-4">
+              <button
+                onClick={fetchRooms}
+                disabled={loading}
+                className="btn-outline flex items-center gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                รีเฟรช
+              </button>
+              <button
+                onClick={() => openModal('add')}
+                className="btn-primary flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                เพิ่มห้องพัก
+              </button>
+            </div>
           </div>
-        </div>
 
         {/* Stats Cards */}
         <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8 transform transition-all duration-700 delay-200 ease-out ${
@@ -624,35 +699,26 @@ export default function RoomsManagement() {
                 >
                   {/* Room Image */}
                   <div className="h-48 bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-700 dark:to-neutral-800 flex items-center justify-center relative">
-                    {room.image ? (
-                      <img
-                        src={room.image}
-                        alt={room.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="text-center">
-                        <Bed className="h-16 w-16 text-neutral-400 mx-auto mb-2" />
-                        <p className="text-sm text-neutral-500 dark:text-neutral-400">ไม่มีรูปภาพ</p>
-                      </div>
-                    )}
+                    <img
+                      src={room.images && room.images.length > 0 ? `/images/rooms/${room.images[0]}` : '/images/rooms/placeholder.svg'}
+                      alt={room.name || 'ห้องพัก'}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.src = '/images/rooms/placeholder.svg';
+                      }}
+                    />
                     
                     {/* Status Badge */}
                     <div className="absolute top-4 left-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        getStatusColor(room.status) === 'green' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
-                        getStatusColor(room.status) === 'red' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' :
-                        getStatusColor(room.status) === 'yellow' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300' :
-                        'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
-                      }`}>
-                        {getStatusLabel(room.status)}
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300`}>
+                        {getStatusLabel(room.status) || 'พร้อมใช้งาน'}
                       </span>
                     </div>
 
                     {/* Room Number */}
                     <div className="absolute top-4 right-4 bg-white dark:bg-neutral-800 rounded-lg px-3 py-1 shadow-lg">
                       <span className="text-sm font-bold text-neutral-900 dark:text-white">
-                        {room.number || room.id}
+                        {room.room_number || room.number || `R${room.id}`}
                       </span>
                     </div>
                   </div>
@@ -661,52 +727,89 @@ export default function RoomsManagement() {
                   <div className="p-6">
                     <div className="mb-4">
                       <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-1">
-                        {room.name || `ห้อง ${room.number || room.id}`}
+                        {room.name || `ห้องพัก ${room.room_number || room.number || room.id}`}
                       </h3>
-                      <div className="flex items-center text-sm text-neutral-600 dark:text-neutral-400">
+                      <div className="flex items-center text-sm text-neutral-600 dark:text-neutral-400 mb-2">
                         <MapPin className="h-4 w-4 mr-1" />
-                        {roomTypes.find(t => t.value === room.type)?.label || room.type || 'ไม่ระบุประเภท'}
+                        {roomTypes.find(t => t.value === room.type)?.label || room.type || 'ห้องมาตรฐาน'}
                       </div>
+                      {/* Hotel Name */}
+                      {room.hotel_name && (
+                        <div className="flex items-center text-xs text-neutral-500 dark:text-neutral-400">
+                          <Hotel className="h-3 w-3 mr-1" />
+                          {room.hotel_name}
+                        </div>
+                      )}
                     </div>
 
-                    {/* Room Info */}
+                    {/* Description */}
+                    {room.description && (
+                      <div className="mb-4">
+                        <p className="text-sm text-neutral-600 dark:text-neutral-400" style={{
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden'
+                        }}>
+                          {room.description}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Room Info Grid */}
                     <div className="grid grid-cols-2 gap-4 mb-4">
                       <div className="flex items-center text-sm text-neutral-600 dark:text-neutral-400">
                         <Users className="h-4 w-4 mr-2" />
-                        <span>{room.capacity || '-'} คน</span>
+                        <span>{room.max_guests || room.capacity || '2'} คน</span>
                       </div>
                       <div className="flex items-center text-sm text-neutral-600 dark:text-neutral-400">
                         <Square className="h-4 w-4 mr-2" />
-                        <span>{room.size || '-'} ตร.ม.</span>
+                        <span>{room.size_sqm || room.size || '25'} ตร.ม.</span>
                       </div>
                     </div>
 
                     {/* Amenities */}
-                    {room.amenities && room.amenities.length > 0 && (
-                      <div className="mb-4">
-                        <div className="flex flex-wrap gap-1">
-                          {room.amenities.slice(0, 3).map((amenity, idx) => (
-                            <span
-                              key={idx}
-                              className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-300"
-                            >
-                              {amenity}
-                            </span>
-                          ))}
-                          {room.amenities.length > 3 && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-neutral-100 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-400">
-                              +{room.amenities.length - 3} อื่นๆ
-                            </span>
-                          )}
+                    {(() => {
+                      let amenitiesList = [];
+                      try {
+                        if (room.amenities) {
+                          if (Array.isArray(room.amenities)) {
+                            amenitiesList = room.amenities;
+                          } else if (typeof room.amenities === 'string') {
+                            amenitiesList = JSON.parse(room.amenities);
+                          }
+                        }
+                      } catch (e) {
+                        console.error('Error parsing amenities:', e);
+                        amenitiesList = [];
+                      }
+                      
+                      return amenitiesList.length > 0 && (
+                        <div className="mb-4">
+                          <div className="flex flex-wrap gap-1">
+                            {amenitiesList.slice(0, 3).map((amenity, idx) => (
+                              <span
+                                key={idx}
+                                className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-300"
+                              >
+                                {amenity}
+                              </span>
+                            ))}
+                            {amenitiesList.length > 3 && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-neutral-100 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-400">
+                                +{amenitiesList.length - 3} อื่นๆ
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
 
                     {/* Price */}
                     <div className="flex items-center justify-between mb-4">
                       <div>
                         <span className="text-2xl font-bold text-primary-600 dark:text-primary-400">
-                          {formatPrice(room.price)}
+                          {formatPrice(room.price_per_night || room.price || 1500)}
                         </span>
                         <span className="text-sm text-neutral-500 dark:text-neutral-400 ml-1">
                           /คืน
@@ -771,7 +874,7 @@ export default function RoomsManagement() {
             {/* Modal Content */}
             <div className="p-6">
               {modalType === 'view' ? (
-                // View Mode
+                // View Mode - แสดงข้อมูลจริงจากฐานข้อมูล
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
@@ -787,7 +890,7 @@ export default function RoomsManagement() {
                         หมายเลขห้อง
                       </label>
                       <p className="text-neutral-900 dark:text-white">
-                        {selectedRoom?.number || '-'}
+                        {selectedRoom?.room_number || selectedRoom?.number || `R${selectedRoom?.id}` || '-'}
                       </p>
                     </div>
                     <div>
@@ -795,20 +898,15 @@ export default function RoomsManagement() {
                         ประเภทห้อง
                       </label>
                       <p className="text-neutral-900 dark:text-white">
-                        {roomTypes.find(t => t.value === selectedRoom?.type)?.label || selectedRoom?.type || '-'}
+                        {roomTypes.find(t => t.value === selectedRoom?.type)?.label || selectedRoom?.type || 'ห้องมาตรฐาน'}
                       </p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                         สถานะ
                       </label>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        getStatusColor(selectedRoom?.status) === 'green' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
-                        getStatusColor(selectedRoom?.status) === 'red' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' :
-                        getStatusColor(selectedRoom?.status) === 'yellow' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300' :
-                        'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
-                      }`}>
-                        {getStatusLabel(selectedRoom?.status)}
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300`}>
+                        {selectedRoom?.status ? getStatusLabel(selectedRoom.status) : 'พร้อมใช้งาน'}
                       </span>
                     </div>
                     <div>
@@ -816,7 +914,7 @@ export default function RoomsManagement() {
                         ความจุ
                       </label>
                       <p className="text-neutral-900 dark:text-white">
-                        {selectedRoom?.capacity || '-'} คน
+                        {selectedRoom?.max_guests || selectedRoom?.capacity || '2'} คน
                       </p>
                     </div>
                     <div>
@@ -824,7 +922,23 @@ export default function RoomsManagement() {
                         ราคา
                       </label>
                       <p className="text-neutral-900 dark:text-white">
-                        {formatPrice(selectedRoom?.price)}
+                        {formatPrice(selectedRoom?.price_per_night || selectedRoom?.price || 1500)}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                        ขนาดห้อง
+                      </label>
+                      <p className="text-neutral-900 dark:text-white">
+                        {selectedRoom?.size_sqm || selectedRoom?.size || '25'} ตร.ม.
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                        โรงแรม
+                      </label>
+                      <p className="text-neutral-900 dark:text-white">
+                        {selectedRoom?.hotel_name || '-'}
                       </p>
                     </div>
                   </div>
@@ -846,14 +960,29 @@ export default function RoomsManagement() {
                         สิ่งอำนวยความสะดวก
                       </label>
                       <div className="flex flex-wrap gap-2">
-                        {selectedRoom.amenities.map((amenity, idx) => (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-300"
-                          >
-                            {amenity}
-                          </span>
-                        ))}
+                        {(() => {
+                          // จัดการกับข้อมูล amenities ที่อาจเป็น array หรือ string
+                          let amenitiesList = [];
+                          try {
+                            if (Array.isArray(selectedRoom.amenities)) {
+                              amenitiesList = selectedRoom.amenities;
+                            } else if (typeof selectedRoom.amenities === 'string') {
+                              amenitiesList = JSON.parse(selectedRoom.amenities);
+                            }
+                          } catch (e) {
+                            console.error('Error parsing amenities for view:', e);
+                            amenitiesList = [];
+                          }
+                          
+                          return amenitiesList.map((amenity, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-300"
+                            >
+                              {amenity}
+                            </span>
+                          ));
+                        })()}
                       </div>
                     </div>
                   )}
@@ -1042,6 +1171,7 @@ export default function RoomsManagement() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

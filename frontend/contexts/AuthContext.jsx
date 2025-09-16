@@ -101,35 +101,63 @@ export const AuthProvider = ({ children }) => {
       let token = Cookies.get('auth_token');
       let userData = Cookies.get('user_data');
       
-      // Check for remember me backup if main auth data is missing
-      if (!token || !userData) {
-        const rememberMe = typeof window !== 'undefined' ? localStorage.getItem('remember_me') === 'true' : false;
+      // ตรวจสอบข้อมูลใน localStorage เสมอ (เพื่อเก็บโทเคนไว้ตลอด)
+      if ((!token || !userData) && typeof window !== 'undefined') {
+        console.log('🔍 Checking localStorage for persistent auth data...');
         
-        if (rememberMe && typeof window !== 'undefined') {
-          console.log('🔍 Checking Remember Me backup data...');
+        const localToken = localStorage.getItem('auth_token_persistent');
+        const localUserData = localStorage.getItem('user_data_persistent');
+        const expiresAt = localStorage.getItem('auth_expires_at');
+        
+        // ตรวจสอบว่าข้อมูลยังไม่หมดอายุ
+        if (localToken && localUserData && expiresAt) {
+          const expires = parseInt(expiresAt);
+          const now = Date.now();
           
-          const backupToken = localStorage.getItem('auth_token_backup');
-          const backupUserData = localStorage.getItem('user_data_backup');
-          const backupExpiresAt = localStorage.getItem('backup_expires_at');
-          
-          // Check if backup data exists and hasn't expired
-          if (backupToken && backupUserData && backupExpiresAt) {
-            const expiresAt = parseInt(backupExpiresAt);
-            const now = Date.now();
+          if (now < expires) {
+            console.log('✅ Valid persistent auth data found, restoring session...');
+            token = localToken;
+            userData = localUserData;
             
-            if (now < expiresAt) {
-              console.log('✅ Valid Remember Me backup found, restoring session...');
-              token = backupToken;
-              userData = backupUserData;
+            // กู้คืนข้อมูลไปยัง cookies
+            updateStoredUserData(JSON.parse(userData), token, true);
+          } else {
+            console.log('❌ Persistent auth data expired, clearing...');
+            localStorage.removeItem('auth_token_persistent');
+            localStorage.removeItem('user_data_persistent');
+            localStorage.removeItem('auth_expires_at');
+          }
+        }
+        
+        // ตรวจสอบ Remember Me backup ถ้ายังไม่มีข้อมูล
+        if (!token || !userData) {
+          const rememberMe = localStorage.getItem('remember_me') === 'true';
+          
+          if (rememberMe) {
+            console.log('🔍 Checking Remember Me backup data...');
+            
+            const backupToken = localStorage.getItem('auth_token_backup');
+            const backupUserData = localStorage.getItem('user_data_backup');
+            const backupExpiresAt = localStorage.getItem('backup_expires_at');
+            
+            if (backupToken && backupUserData && backupExpiresAt) {
+              const expiresAt = parseInt(backupExpiresAt);
+              const now = Date.now();
               
-              // Restore to cookies
-              updateStoredUserData(JSON.parse(userData), token, true);
-            } else {
-              console.log('❌ Remember Me backup expired, clearing...');
-              localStorage.removeItem('auth_token_backup');
-              localStorage.removeItem('user_data_backup');
-              localStorage.removeItem('backup_expires_at');
-              localStorage.removeItem('remember_me');
+              if (now < expiresAt) {
+                console.log('✅ Valid Remember Me backup found, restoring session...');
+                token = backupToken;
+                userData = backupUserData;
+                
+                // Restore to cookies and persistent storage
+                updateStoredUserData(JSON.parse(userData), token, true);
+              } else {
+                console.log('❌ Remember Me backup expired, clearing...');
+                localStorage.removeItem('auth_token_backup');
+                localStorage.removeItem('user_data_backup');
+                localStorage.removeItem('backup_expires_at');
+                localStorage.removeItem('remember_me');
+              }
             }
           }
         }
@@ -266,6 +294,10 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem('auth_token_backup');
       localStorage.removeItem('user_data_backup');
       localStorage.removeItem('backup_expires_at');
+      // เพิ่มการล้าง persistent data
+      localStorage.removeItem('auth_token_persistent');
+      localStorage.removeItem('user_data_persistent');
+      localStorage.removeItem('auth_expires_at');
       // Note: We don't remove 'remember_me' so user preference is preserved
     }
     
@@ -310,11 +342,21 @@ export const AuthProvider = ({ children }) => {
       httpOnly: false // Must be false for client-side access
     });
     
-    // For remember me, also store in localStorage as backup
-    if (rememberMe && typeof window !== 'undefined') {
-      localStorage.setItem('user_data_backup', userDataString);
-      localStorage.setItem('auth_token_backup', token);
-      localStorage.setItem('backup_expires_at', (Date.now() + (30 * 24 * 60 * 60 * 1000)).toString());
+    // เก็บข้อมูลใน localStorage เสมอ (สำหรับการกู้คืนเมื่อกลับมา)
+    if (typeof window !== 'undefined') {
+      const expirationTime = Date.now() + (expiresInDays * 24 * 60 * 60 * 1000);
+      
+      // เก็บข้อมูลหลักแบบถาวร
+      localStorage.setItem('auth_token_persistent', token);
+      localStorage.setItem('user_data_persistent', userDataString);
+      localStorage.setItem('auth_expires_at', expirationTime.toString());
+      
+      // For remember me, also store in backup location
+      if (rememberMe) {
+        localStorage.setItem('user_data_backup', userDataString);
+        localStorage.setItem('auth_token_backup', token);
+        localStorage.setItem('backup_expires_at', (Date.now() + (30 * 24 * 60 * 60 * 1000)).toString());
+      }
     }
     
     // Store in sessionStorage as usual
@@ -329,7 +371,7 @@ export const AuthProvider = ({ children }) => {
       }
     }
     
-    console.log('✅ Auth data stored successfully');
+    console.log('✅ Auth data stored successfully in all storage locations');
   };
 
   const login = async (credentials, rememberMe = false) => {
@@ -339,9 +381,10 @@ export const AuthProvider = ({ children }) => {
       
       const response = await authAPI.login(credentials);
       
-      if (response.token && response.user) {
-        const token = response.token;
-        const userData = response.user;
+      // Backend returns {success: true, data: {token, user}}
+      if (response.success && response.data && response.data.token && response.data.user) {
+        const token = response.data.token;
+        const userData = response.data.user;
         
         console.log('✅ Login API successful');
         

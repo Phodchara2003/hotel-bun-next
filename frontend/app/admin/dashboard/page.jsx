@@ -16,6 +16,7 @@ import {
   CreditCard, 
   TrendingUp, 
   Hotel,
+  Bed,
   CheckCircle,
   XCircle,
   Clock,
@@ -306,43 +307,18 @@ export default function AdminDashboard() {
       const recentBookings = dashboardResponse.recentBookings || [];
       const topHotels = dashboardResponse.topHotels || [];
 
-      // Get recent users with error handling
-      let recentUsers = [];
-      try {
-        const usersResponse = await usersAPI.getUsers({ limit: 5 });
-        recentUsers = usersResponse.users || [];
-        console.log('✅ Recent users fetched successfully');
-      } catch (error) {
-        console.log('⚠️ Could not fetch recent users:', error.message);
-        // Continue without recent users data
-      }
-
-      // Get additional analytics data
-      let revenueData = { daily: [], monthly: [] };
-      let userAnalytics = { registrations: [], activeUsers: 0, totalUsers: 0 };
-      
-      try {
-        const [revenueResponse, userAnalyticsResponse] = await Promise.allSettled([
-          dashboardAPI.getRevenueAnalytics({ days: filters.dateRange }),
-          dashboardAPI.getUserAnalytics({ days: filters.dateRange })
-        ]);
-
-        if (revenueResponse.status === 'fulfilled') {
-          revenueData = revenueResponse.value;
-          console.log('✅ Revenue analytics fetched successfully');
-        } else {
-          console.log('⚠️ Revenue analytics failed:', revenueResponse.reason?.message);
-        }
-
-        if (userAnalyticsResponse.status === 'fulfilled') {
-          userAnalytics = userAnalyticsResponse.value;
-          console.log('✅ User analytics fetched successfully');
-        } else {
-          console.log('⚠️ User analytics failed:', userAnalyticsResponse.reason?.message);
-        }
-      } catch (error) {
-        console.log('⚠️ Additional analytics fetch failed:', error.message);
-      }
+      // ใช้ข้อมูลจาก dashboard stats โดยตรง ไม่ต้องเรียก APIs เพิ่ม
+      const recentUsers = dashboardResponse.recentBookings || [];
+      const revenueData = { 
+        daily: [], 
+        monthly: [],
+        totalRevenue: dashboardResponse.overview?.totalRevenue || 0
+      };
+      const userAnalytics = { 
+        registrations: [], 
+        activeUsers: dashboardResponse.overview?.newUsers || 0, 
+        totalUsers: dashboardResponse.overview?.totalBookings || 0 
+      };
 
       // Set comprehensive dashboard data
       setDashboardData({
@@ -774,6 +750,15 @@ function OverviewTab({ data, user }) {
       label: 'รอดำเนินการ'
     },
     {
+      title: 'ข้อมูลการจองแบบละเอียด',
+      description: 'ดูข้อมูลการจองพร้อมรูปภาพและรายละเอียดครบถ้วน',
+      icon: FileText,
+      href: '/admin/bookings/detailed',
+      color: 'indigo',
+      count: data.stats.totalBookings,
+      label: 'การจองทั้งหมด'
+    },
+    {
       title: 'จัดการผู้ใช้',
       description: 'เพิ่ม แก้ไข ลบผู้ใช้งาน',
       icon: Users,
@@ -781,6 +766,15 @@ function OverviewTab({ data, user }) {
       color: 'green',
       count: data.stats.newUsersThisMonth,
       label: 'ใหม่เดือนนี้'
+    },
+    {
+      title: 'จัดการห้องพัก',
+      description: 'เพิ่ม แก้ไข ลบห้องพัก และจัดการประเภทห้อง',
+      icon: Bed,
+      href: '/admin/rooms',
+      color: 'emerald',
+      count: data.stats.totalRooms,
+      label: 'ห้องทั้งหมด'
     },
     {
       title: 'จัดการโรงแรม',
@@ -894,12 +888,20 @@ function OverviewTab({ data, user }) {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-medium text-gray-900">การจองล่าสุด</h3>
-            <Link 
-              href="/admin/bookings"
-              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-            >
-              ดูทั้งหมด →
-            </Link>
+            <div className="flex space-x-3">
+              <Link 
+                href="/admin/bookings/detailed"
+                className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+              >
+                ดูแบบละเอียด
+              </Link>
+              <Link 
+                href="/admin/bookings"
+                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+              >
+                ดูทั้งหมด →
+              </Link>
+            </div>
           </div>
           <div className="space-y-3">
             {data.recentBookings.slice(0, 5).map((booking) => (

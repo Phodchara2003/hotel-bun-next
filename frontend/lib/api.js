@@ -197,28 +197,26 @@ export const hotelAPI = {
   // Get hotel info และ room types ในครั้งเดียว
   getHotelAndRoomTypes: async () => {
     try {
-      // ดึงโรงแรมแรกพร้อมรายละเอียด
+      console.log('🏨 Fetching hotel and room types from database...');
+      
+      // ดึงข้อมูลโรงแรมแรก
       const hotelsResponse = await api.get('/hotels', { params: { limit: 1 } });
       
-      if (hotelsResponse.data && hotelsResponse.data.hotels && hotelsResponse.data.hotels.length > 0) {
-        const hotel = hotelsResponse.data.hotels[0];
-        const hotelId = hotel.id;
-        
-        // ดึงรายละเอียดโรงแรมที่มี room types
-        const hotelResponse = await api.get(`/hotels/${hotelId}`);
-        
-        return {
-          success: true,
-          data: {
-            hotel: hotel,
-            roomTypes: hotelResponse.data?.roomTypes || []
-          }
-        };
-      }
+      // ดึงข้อมูล room types จาก database โดยตรง
+      const roomTypesResponse = await api.get('/room-types');
+      
+      console.log('🏨 Hotels response:', hotelsResponse.data);
+      console.log('🏠 Room types response:', roomTypesResponse.data);
+      
+      const hotel = hotelsResponse.data?.hotels?.[0] || null;
+      const roomTypes = roomTypesResponse.data?.data || [];
       
       return {
-        success: false,
-        error: 'No hotel found'
+        success: true,
+        data: {
+          hotel: hotel,
+          roomTypes: roomTypes
+        }
       };
     } catch (error) {
       console.error('Error fetching hotel and room types:', error);
@@ -331,11 +329,17 @@ export const bookingAPI = {
   getAllBookings: async (params = {}) => {
     return retryRequest(async () => {
       console.log('📞 Fetching all bookings with params:', params);
-      const response = await api.get('/bookings/admin/all', { params });
+      const response = await api.get('/bookings', { params });
       console.log('✅ Get all bookings response:', response.data);
       
-      // Handle both response formats
-      if (response.data.bookings) {
+      // Handle backend response format: {success: true, count: number, data: bookings[]}
+      if (response.data.success && response.data.data) {
+        return {
+          success: true,
+          data: response.data.data,
+          total: response.data.count || response.data.data.length
+        };
+      } else if (response.data.bookings) {
         return {
           success: true,
           data: response.data.bookings,
@@ -347,6 +351,30 @@ export const bookingAPI = {
           success: true,
           data: response.data,
           total: response.data.length
+        };
+      } else {
+        return {
+          success: true,
+          data: response.data.data || [],
+          total: response.data.total || 0
+        };
+      }
+    });
+  },
+
+  // Get detailed bookings for admin (includes payment slips, full room/hotel details)
+  getDetailedBookingsForAdmin: async (params = {}) => {
+    return retryRequest(async () => {
+      console.log('📞 Fetching detailed bookings for admin with params:', params);
+      const response = await api.get('/admin/bookings/detailed', { params });
+      console.log('✅ Get detailed bookings response:', response.data);
+      
+      // Handle backend response format: {success: true, count: number, data: bookings[]}
+      if (response.data.success && response.data.data) {
+        return {
+          success: true,
+          data: response.data.data,
+          total: response.data.count || response.data.data.length
         };
       } else {
         return {
@@ -446,8 +474,17 @@ export const roomsAPI = {
 
   // Update room (Admin)
   updateRoom: async (id, roomData) => {
-    const response = await api.put(`/admin/rooms/${id}`, roomData);
-    return response.data;
+    try {
+      console.log('🔧 API: Updating room ID:', id);
+      console.log('🔧 API: Room data:', roomData);
+      const response = await api.put(`/admin/rooms/${id}`, roomData);
+      console.log('🔧 API: Update response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ API: Update room error:', error);
+      console.error('❌ API: Error response:', error.response?.data);
+      throw error;
+    }
   },
 
   // Delete room (Admin)

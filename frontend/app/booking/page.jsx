@@ -64,7 +64,7 @@ export default function BookingPage() {
   const fetchPaymentSettings = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:3003/api/simple-payment-settings');
+      const response = await fetch('http://localhost:3001/api/simple-payment-settings');
       
       if (response.ok) {
         const data = await response.json();
@@ -147,7 +147,7 @@ export default function BookingPage() {
       formData.append('bookingId', 'TEMP_' + Date.now()); // Temporary booking ID
       formData.append('amount', bookingData.totalAmount.toString());
 
-      const response = await fetch('http://localhost:3003/api/payment-slip/upload', {
+      const response = await fetch('http://localhost:3001/api/payment-slip/upload', {
         method: 'POST',
         body: formData,
       });
@@ -185,7 +185,7 @@ export default function BookingPage() {
         userId: user?.id
       };
 
-      const response = await fetch('http://localhost:3003/api/bookings', {
+      const response = await fetch('http://localhost:3001/api/bookings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -388,7 +388,7 @@ export default function BookingPage() {
                 <div className="text-center mb-4">
                   <div className="bg-white p-4 rounded-lg border inline-block">
                     <img
-                      src={`http://localhost:3003${paymentSettings.qrCodeUrl}`}
+                      src={`http://localhost:3001${paymentSettings.qrCodeUrl}`}
                       alt="QR Code สำหรับชำระเงิน"
                       className="w-48 h-48 object-contain mx-auto"
                       onError={(e) => {

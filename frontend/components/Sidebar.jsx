@@ -69,15 +69,8 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }) {
       key: 'bookings',
       label: 'การจองของฉัน',
       icon: Calendar,
-      href: '/bookings',
-      active: pathname === '/bookings'
-    },
-    {
-      key: 'dashboard',
-      label: 'แดชบอร์ด',
-      icon: User,
-      href: '/dashboard',
-      active: pathname === '/dashboard'
+      href: '/my-bookings',
+      active: pathname === '/my-bookings'
     },
     {
       key: 'notifications',

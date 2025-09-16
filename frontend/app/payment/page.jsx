@@ -51,8 +51,12 @@ export default function PaymentPage() {
     try {
       const response = await fetch('http://localhost:3001/api/simple-payment-settings');
       if (response.ok) {
-        const data = await response.json();
-        setLegacySettings(data);
+        const result = await response.json();
+        console.log('Payment settings loaded:', result);
+        // Extract the data from the response
+        if (result.success && result.data) {
+          setLegacySettings(result.data);
+        }
       }
     } catch (err) {
       console.error('Error fetching legacy settings:', err);
@@ -276,6 +280,7 @@ export default function PaymentPage() {
 
 // Legacy Bank Transfer Component with Payment Slip Upload
 function LegacyBankTransfer({ settings, bookingId, amount, language }) {
+  const { user } = useAuth(); // Get user data for upload
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('pending'); // pending, uploading, completed, failed
@@ -315,9 +320,10 @@ function LegacyBankTransfer({ settings, bookingId, amount, language }) {
       const formData = new FormData();
       formData.append('paymentSlip', selectedFile);
       formData.append('bookingId', bookingId);
+      formData.append('user_id', user?.id || 1); // Add user_id from auth context
       formData.append('amount', amount);
 
-      const response = await fetch('http://localhost:3003/api/payment-slip/upload', {
+      const response = await fetch('http://localhost:3001/api/payment-slip/upload', {
         method: 'POST',
         body: formData
       });
@@ -362,10 +368,12 @@ function LegacyBankTransfer({ settings, bookingId, amount, language }) {
               <h3 className="text-lg font-medium text-gray-800 mb-3">สแกน QR Code เพื่อชำระเงิน</h3>
               <div className="bg-white p-6 rounded-lg border-2 border-gray-200 shadow-sm">
                 <img
-                  src={`http://localhost:3003${settings.qrCodeUrl}`}
+                  src={`http://localhost:3001${settings.qrCodeUrl}`}
                   alt="QR Code สำหรับชำระเงิน"
                   className="w-64 h-64 object-contain"
+                  onLoad={() => console.log('QR Code loaded successfully')}
                   onError={(e) => {
+                    console.error('QR Code failed to load:', `http://localhost:3001${settings.qrCodeUrl}`);
                     e.target.style.display = 'none';
                     e.target.nextSibling.style.display = 'block';
                   }}
@@ -374,6 +382,7 @@ function LegacyBankTransfer({ settings, bookingId, amount, language }) {
                   <div className="text-center">
                     <div className="text-4xl mb-2">📱</div>
                     <p className="text-sm">ไม่สามารถโหลด QR Code ได้</p>
+                    <p className="text-xs text-gray-400 mt-1">{settings.qrCodeUrl}</p>
                   </div>
                 </div>
               </div>
@@ -391,6 +400,9 @@ function LegacyBankTransfer({ settings, bookingId, amount, language }) {
               <div className="text-6xl mb-2">📱</div>
               <p>ยังไม่มี QR Code สำหรับชำระเงิน</p>
               <p className="text-sm mt-1">กรุณาติดต่อเจ้าหน้าที่โรงแรม</p>
+              <div className="text-xs mt-2 text-red-500">
+                Debug: {JSON.stringify(settings, null, 2)}
+              </div>
             </div>
           )}      {/* Bank Details */}
       <div className="bg-gray-50 rounded-lg p-4 mb-6">
@@ -408,13 +420,13 @@ function LegacyBankTransfer({ settings, bookingId, amount, language }) {
             <span className="font-medium text-gray-600">
               {language === 'en' ? 'Account Number:' : 'เลขที่บัญชี:'}
             </span>
-            <span className="font-mono">{settings.accountNumber || '123-4-56789-0'}</span>
+            <span className="font-mono">{settings.bankAccount || '123-4-56789-0'}</span>
           </div>
           <div className="flex justify-between">
             <span className="font-medium text-gray-600">
               {language === 'en' ? 'Account Name:' : 'ชื่อบัญชี:'}
             </span>
-            <span>{settings.accountName || 'Royal Garden Hotel'}</span>
+            <span>{settings.accountName || 'Hotel Booking System'}</span>
           </div>
           <div className="flex justify-between border-t pt-2 mt-3">
             <span className="font-medium text-gray-600">

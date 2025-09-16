@@ -12,7 +12,7 @@ export default function LoginPage() {
   const { login, user, getRememberMePreference } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true); // ตั้งค่าเริ่มต้นเป็น true เพื่อเก็บโทเคนไว้ตลอด
   const [formData, setFormData] = useState({
     email: '',
     password: ''

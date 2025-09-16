@@ -13,6 +13,33 @@ export default function HomePage() {
   const [roomTypes, setRoomTypes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // แสดงสถานะ authentication ใน console
+  useEffect(() => {
+    if (user) {
+      console.log('🔐 Authentication Status: Logged in as', user.email, '(' + user.role + ')');
+      
+      // ตรวจสอบข้อมูลโทเคนใน localStorage
+      if (typeof window !== 'undefined') {
+        const persistentToken = localStorage.getItem('auth_token_persistent');
+        const persistentUser = localStorage.getItem('user_data_persistent');
+        const authExpires = localStorage.getItem('auth_expires_at');
+        const rememberMe = localStorage.getItem('remember_me');
+        
+        console.log('💾 Token Storage Status:');
+        console.log('  - Persistent Token:', persistentToken ? 'Stored ✅' : 'Missing ❌');
+        console.log('  - Persistent User Data:', persistentUser ? 'Stored ✅' : 'Missing ❌');
+        console.log('  - Remember Me:', rememberMe === 'true' ? 'Enabled ✅' : 'Disabled ❌');
+        
+        if (authExpires) {
+          const expiresDate = new Date(parseInt(authExpires));
+          console.log('  - Expires At:', expiresDate.toLocaleString('th-TH'));
+        }
+      }
+    } else {
+      console.log('🔐 Authentication Status: Not logged in');
+    }
+  }, [user]);
+
   // Fallback data ในกรณีที่ API ไม่ได้
   const fallbackHotel = {
     name: "โรงแรมสวยงาม",
@@ -69,6 +96,11 @@ export default function HomePage() {
     }
   ];
 
+  // Helper function to get price from room object
+  const getPrice = (room) => {
+    return room.price_per_night || room.pricePerNight || room.price || 1500;
+  };
+
   const fetchHotelAndRooms = async () => {
     try {
       setIsLoading(true);
@@ -98,16 +130,39 @@ export default function HomePage() {
         setRoomTypes(roomTypesWithUniformPricing);
         console.log('✅ Homepage: Data loaded successfully with uniform pricing');
       } else {
-        // ใช้ fallback data with uniform pricing
-        console.log('⚠️ Homepage: Using fallback data due to API response issue');
-        setHotel(fallbackHotel);
-        
-        const fallbackRoomsWithUniformPricing = fallbackRooms.map(room => ({
-          ...room,
-          price: uniformPrice
-        }));
-        
-        setRoomTypes(fallbackRoomsWithUniformPricing);
+        // Try direct API call to hotels endpoint
+        try {
+          const hotelsResponse = await fetch('http://localhost:3001/api/hotels');
+          const hotelsData = await hotelsResponse.json();
+          
+          const roomTypesResponse = await fetch('http://localhost:3001/api/room-types');
+          const roomTypesData = await roomTypesResponse.json();
+          
+          if (hotelsData.success && roomTypesData.success) {
+            // Use first hotel from database
+            setHotel(hotelsData.data[0]);
+            
+            const roomTypesWithUniformPricing = roomTypesData.data.map(room => ({
+              ...room,
+              price: uniformPrice
+            }));
+            
+            setRoomTypes(roomTypesWithUniformPricing);
+            console.log('✅ Homepage: Data loaded directly from MySQL API');
+          } else {
+            throw new Error('API response failed');
+          }
+        } catch (directApiError) {
+          console.log('⚠️ Homepage: Using fallback data due to API connection issue');
+          setHotel(fallbackHotel);
+          
+          const fallbackRoomsWithUniformPricing = fallbackRooms.map(room => ({
+            ...room,
+            price: uniformPrice
+          }));
+          
+          setRoomTypes(fallbackRoomsWithUniformPricing);
+        }
       }
       
     } catch (error) {
@@ -170,7 +225,7 @@ export default function HomePage() {
               <p className="text-2xl font-bold text-blue-600">
                 ห้องพักพร้อม {roomTypes.length} ประเภท
               </p>
-              <p className="text-sm text-gray-500">ราคาเริ่มต้น ฿{roomTypes.length > 0 ? Math.min(...roomTypes.map(r => r.pricePerNight)).toLocaleString() : '1,200'}</p>
+              <p className="text-sm text-gray-500">ราคาเริ่มต้น ฿{roomTypes.length > 0 ? Math.min(...roomTypes.map(r => getPrice(r))).toLocaleString() : '1,500'}</p>
             </div>
           </div>
         </div>
@@ -203,7 +258,7 @@ export default function HomePage() {
             </div>
             <div className="flex items-end">
               <Link 
-                href="/booking" 
+                href="/booking-step" 
                 className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-center font-semibold"
               >
                 ค้นหาห้องพัก
@@ -218,7 +273,9 @@ export default function HomePage() {
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold text-gray-900">ประเภทห้องพัก</h3>
               <div className="text-sm text-gray-600">
-                ราคาเริ่มต้น ฿{Math.min(...roomTypes.map(r => r.pricePerNight)).toLocaleString()} - ฿{Math.max(...roomTypes.map(r => r.pricePerNight)).toLocaleString()}
+                              <p className="text-gray-600 mb-4">
+                ราคาเริ่มต้น ฿{roomTypes.length > 0 ? Math.min(...roomTypes.map(r => getPrice(r))).toLocaleString() : '1,500'} - ฿{roomTypes.length > 0 ? Math.max(...roomTypes.map(r => getPrice(r))).toLocaleString() : '2,500'}
+              </p>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -233,7 +290,7 @@ export default function HomePage() {
                     </div>
                     {/* Price Badge */}
                     <div className="absolute top-3 right-3 bg-blue-600 text-white px-2 py-1 rounded-lg text-sm font-semibold">
-                      ฿{room.pricePerNight.toLocaleString()}
+                      ฿{getPrice(room).toLocaleString()}
                     </div>
                   </div>
                   
@@ -269,7 +326,7 @@ export default function HomePage() {
 
                     <div className="flex space-x-2">
                       <Link 
-                        href="/booking"
+                        href={`/booking-step?roomId=${room.id}&hotelId=${room.hotel_id || hotel?.id || 1}`}
                         className="flex-1 bg-blue-600 text-white text-center py-2 px-2 rounded text-xs font-semibold hover:bg-blue-700 transition-colors"
                       >
                         จองเลย
@@ -307,15 +364,19 @@ export default function HomePage() {
               <div className="text-sm text-gray-600">ประเภทห้องพัก</div>
             </div>
             <div className="bg-white rounded-lg shadow-sm p-4 text-center">
-              <div className="text-2xl font-bold text-green-600">฿{Math.min(...roomTypes.map(r => r.pricePerNight)).toLocaleString()}</div>
+              <div className="text-2xl font-bold text-green-600">฿{roomTypes.length > 0 ? Math.min(...roomTypes.map(r => getPrice(r))).toLocaleString() : '1,500'}</div>
               <div className="text-sm text-gray-600">ราคาเริ่มต้น</div>
             </div>
             <div className="bg-white rounded-lg shadow-sm p-4 text-center">
-              <div className="text-2xl font-bold text-purple-600">{Math.max(...roomTypes.map(r => r.maxGuests))}</div>
+              <div className="text-2xl font-bold text-purple-600">
+                {roomTypes.length > 0 ? Math.max(...roomTypes.map(r => r.maxGuests || 2)) : '2'}
+              </div>
               <div className="text-sm text-gray-600">รองรับสูงสุด (คน)</div>
             </div>
             <div className="bg-white rounded-lg shadow-sm p-4 text-center">
-              <div className="text-2xl font-bold text-orange-600">{Math.max(...roomTypes.map(r => r.sizeSqm || 0))}</div>
+              <div className="text-2xl font-bold text-orange-600">
+                {roomTypes.length > 0 ? Math.max(...roomTypes.map(r => r.sizeSqm || 30)) : '30'}
+              </div>
               <div className="text-sm text-gray-600">ขนาดใหญ่สุด (ตร.ม.)</div>
             </div>
           </div>
@@ -328,21 +389,21 @@ export default function HomePage() {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div className="text-center p-4 bg-blue-50 rounded-lg">
                 <div className="text-lg font-bold text-blue-600">
-                  {roomTypes.filter(r => r.pricePerNight <= 2000).length}
+                  {roomTypes.filter(r => getPrice(r) <= 2000).length}
                 </div>
                 <div className="text-sm text-blue-800">ห้องราคาประหยัด</div>
                 <div className="text-xs text-blue-600">≤ ฿2,000</div>
               </div>
               <div className="text-center p-4 bg-green-50 rounded-lg">
                 <div className="text-lg font-bold text-green-600">
-                  {roomTypes.filter(r => r.pricePerNight > 2000 && r.pricePerNight <= 5000).length}
+                  {roomTypes.filter(r => getPrice(r) > 2000 && getPrice(r) <= 5000).length}
                 </div>
                 <div className="text-sm text-green-800">ห้องระดับกลาง</div>
                 <div className="text-xs text-green-600">฿2,001 - ฿5,000</div>
               </div>
               <div className="text-center p-4 bg-purple-50 rounded-lg">
                 <div className="text-lg font-bold text-purple-600">
-                  {roomTypes.filter(r => r.pricePerNight > 5000).length}
+                  {roomTypes.filter(r => getPrice(r) > 5000).length}
                 </div>
                 <div className="text-sm text-purple-800">ห้องหรูหรา</div>
                 <div className="text-xs text-purple-600">&gt; ฿5,000</div>
