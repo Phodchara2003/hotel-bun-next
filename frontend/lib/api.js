@@ -457,6 +457,12 @@ export const roomsAPI = {
     return response.data;
   },
 
+  // Get single room by ID (Admin) - alias for getRoom
+  getRoomById: async (id) => {
+    const response = await api.get(`/admin/rooms/${id}`);
+    return response.data;
+  },
+
   // Create new room (Admin)
   createRoom: async (roomData) => {
     try {

@@ -26,6 +26,22 @@ const storage = multer.diskStorage({
   }
 });
 
+// Multer configuration for room images
+const roomImageStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadPath = path.join(__dirname, '..', 'frontend', 'public', 'images', 'rooms');
+    // Ensure directory exists
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'room-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
 const upload = multer({ 
   storage: storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
@@ -38,6 +54,22 @@ const upload = multer({
       return cb(null, true);
     } else {
       cb(new Error('Only images (jpeg, jpg, png) and PDF files are allowed!'));
+    }
+  }
+});
+
+const uploadRoomImage = multer({ 
+  storage: roomImageStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit for room images
+  fileFilter: function (req, file, cb) {
+    const allowedTypes = /jpeg|jpg|png|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only image files (jpeg, jpg, png, webp) are allowed for room images!'));
     }
   }
 });
@@ -1391,6 +1423,44 @@ async function updateRoom(roomId, roomData) {
   }
 }
 
+async function updateRoomImages(roomId, images) {
+  try {
+    console.log(`🖼️ Updating images for room ${roomId}:`, images);
+    
+    // Check if room exists
+    const existingRoom = await getRoomById(roomId);
+    if (!existingRoom) {
+      return {
+        success: false,
+        message: 'ไม่พบห้องพักที่ระบุ'
+      };
+    }
+    
+    // Update only the images field
+    const imagesJson = JSON.stringify(images);
+    await connection.execute(`
+      UPDATE room_types SET
+        images = ?,
+        updated_at = NOW()
+      WHERE id = ?
+    `, [imagesJson, roomId]);
+    
+    console.log(`✅ Successfully updated images for room ${roomId}`);
+    
+    return {
+      success: true,
+      message: 'อัปเดตรูปภาพสำเร็จ',
+      data: { images }
+    };
+  } catch (error) {
+    console.error('❌ Error updating room images:', error);
+    return {
+      success: false,
+      message: 'เกิดข้อผิดพลาดในการอัปเดตรูปภาพ'
+    };
+  }
+}
+
 async function deleteRoom(roomId) {
   try {
     console.log(`🏠 Deleting room ${roomId}`);
@@ -2061,6 +2131,114 @@ const server = createServer(async (req, res) => {
                 });
               }
             });
+          } else if (req.method === 'POST' && pathname.includes('/upload-images')) {
+            // POST /api/admin/rooms/{id}/upload-images
+            try {
+              console.log(`🖼️ Uploading images for room ${roomId}`);
+              
+              uploadRoomImage.array('roomImages', 10)(req, res, async (err) => {
+                if (err) {
+                  console.error('❌ Upload error:', err);
+                  sendJSON(res, 400, {
+                    success: false,
+                    message: err.message
+                  });
+                  return;
+                }
+                
+                if (!req.files || req.files.length === 0) {
+                  sendJSON(res, 400, {
+                    success: false,
+                    message: 'ไม่พบไฟล์รูปภาพ'
+                  });
+                  return;
+                }
+                
+                // Get existing room images
+                const existingRoom = await getRoomById(parseInt(roomId));
+                const existingImages = existingRoom?.images ? JSON.parse(existingRoom.images) : [];
+                
+                // Add new image filenames
+                const newImages = req.files.map(file => file.filename);
+                const allImages = [...existingImages, ...newImages];
+                
+                // Update room with new images
+                const updateResult = await updateRoomImages(parseInt(roomId), allImages);
+                
+                if (updateResult.success) {
+                  sendJSON(res, 200, {
+                    success: true,
+                    message: `อัปโหลดรูปภาพสำเร็จ ${newImages.length} รูป`,
+                    data: {
+                      uploadedFiles: newImages,
+                      allImages: allImages
+                    }
+                  });
+                } else {
+                  sendJSON(res, 500, {
+                    success: false,
+                    message: 'อัปโหลดไฟล์สำเร็จ แต่ไม่สามารถอัปเดตฐานข้อมูลได้'
+                  });
+                }
+              });
+            } catch (error) {
+              console.error('❌ Error uploading room images:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ'
+              });
+            }
+          } else if (req.method === 'DELETE' && pathname.includes('/delete-image')) {
+            // DELETE /api/admin/rooms/{id}/delete-image
+            let body = '';
+            req.on('data', chunk => {
+              body += chunk.toString();
+            });
+            
+            req.on('end', async () => {
+              try {
+                const { filename } = JSON.parse(body);
+                console.log(`🗑️ Deleting image ${filename} from room ${roomId}`);
+                
+                // Get existing room images
+                const existingRoom = await getRoomById(parseInt(roomId));
+                const existingImages = existingRoom?.images ? JSON.parse(existingRoom.images) : [];
+                
+                // Remove the image from array
+                const updatedImages = existingImages.filter(img => img !== filename);
+                
+                // Delete physical file
+                const imagePath = path.join(__dirname, '..', 'frontend', 'public', 'images', 'rooms', filename);
+                if (fs.existsSync(imagePath)) {
+                  fs.unlinkSync(imagePath);
+                }
+                
+                // Update room with remaining images
+                const updateResult = await updateRoomImages(parseInt(roomId), updatedImages);
+                
+                if (updateResult.success) {
+                  sendJSON(res, 200, {
+                    success: true,
+                    message: 'ลบรูปภาพสำเร็จ',
+                    data: {
+                      deletedFile: filename,
+                      remainingImages: updatedImages
+                    }
+                  });
+                } else {
+                  sendJSON(res, 500, {
+                    success: false,
+                    message: 'ลบไฟล์สำเร็จ แต่ไม่สามารถอัปเดตฐานข้อมูลได้'
+                  });
+                }
+              } catch (error) {
+                console.error('❌ Error deleting room image:', error);
+                sendJSON(res, 500, {
+                  success: false,
+                  message: 'เกิดข้อผิดพลาดในการลบรูปภาพ'
+                });
+              }
+            });
           } else if (req.method === 'DELETE' && roomId && !action) {
             // DELETE /api/admin/rooms/{id}
             try {
@@ -2257,6 +2435,8 @@ async function startServer() {
     console.log(`   POST /api/admin/rooms        - Create new room`);
     console.log(`   GET /api/admin/rooms/{id}    - Get room by ID`);
     console.log(`   PUT /api/admin/rooms/{id}    - Update room`);
+    console.log(`   POST /api/admin/rooms/{id}/upload-images - Upload room images`);
+    console.log(`   DELETE /api/admin/rooms/{id}/delete-image - Delete room image`);
     console.log(`   DELETE /api/admin/rooms/{id} - Delete room`);
     console.log(`   PATCH /api/admin/rooms/{id}/toggle-availability - Toggle room availability`);
     console.log(`   GET /api/cancellation-requests - Cancellation requests`);

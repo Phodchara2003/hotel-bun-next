@@ -43,6 +43,8 @@ export default function RoomsManagement() {
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
   
   const [stats, setStats] = useState({
     totalRooms: 0,
@@ -290,6 +292,8 @@ export default function RoomsManagement() {
   const closeModal = () => {
     setShowModal(false);
     setSelectedRoom(null);
+    setSelectedImages([]);
+    setUploadingImages(false);
     setFormData({
       name: '',
       type: '',
@@ -422,6 +426,167 @@ export default function RoomsManagement() {
   const getStatusLabel = (status) => {
     const statusObj = roomStatuses.find(s => s.value === status);
     return statusObj ? statusObj.label : status;
+  };
+
+  // Helper function to safely parse room images
+  const parseRoomImages = (images) => {
+    if (!images) return [];
+    
+    try {
+      if (typeof images === 'string') {
+        // Try to parse as JSON first
+        try {
+          const parsed = JSON.parse(images);
+          return Array.isArray(parsed) ? parsed : [images];
+        } catch {
+          // If it fails, treat as single image string
+          return [images];
+        }
+      } else if (Array.isArray(images)) {
+        return images;
+      }
+    } catch (e) {
+      console.error('Error parsing room images:', e);
+    }
+    
+    return [];
+  };
+
+  // Image handling functions
+  const handleImageSelect = (e) => {
+    const files = Array.from(e.target.files);
+    
+    // Validate file sizes (max 10MB per file)
+    const validFiles = files.filter(file => {
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`ไฟล์ ${file.name} มีขนาดใหญ่เกิน 10MB`);
+        return false;
+      }
+      return true;
+    });
+    
+    if (validFiles.length !== files.length) {
+      toast.warning(`เลือกได้เฉพาะไฟล์ที่มีขนาดไม่เกิน 10MB (เลือกได้ ${validFiles.length}/${files.length} ไฟล์)`);
+    }
+    
+    setSelectedImages(prev => [...prev, ...validFiles]);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const files = Array.from(e.dataTransfer.files).filter(file => 
+      file.type.startsWith('image/')
+    );
+    
+    if (files.length === 0) {
+      toast.error('กรุณาวางเฉพาะไฟล์รูปภาพ');
+      return;
+    }
+    
+    // Validate file sizes
+    const validFiles = files.filter(file => {
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`ไฟล์ ${file.name} มีขนาดใหญ่เกิน 10MB`);
+        return false;
+      }
+      return true;
+    });
+    
+    setSelectedImages(prev => [...prev, ...validFiles]);
+  };
+
+  const removeSelectedImage = (index) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUploadImages = async () => {
+    if (!selectedRoom?.id || selectedImages.length === 0) {
+      toast.error('กรุณาเลือกรูปภาพก่อนอัปโหลด');
+      return;
+    }
+
+    try {
+      setUploadingImages(true);
+      
+      const formData = new FormData();
+      selectedImages.forEach(file => {
+        formData.append('roomImages', file);
+      });
+
+      const response = await fetch(`http://localhost:3001/api/admin/rooms/${selectedRoom.id}/upload-images`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(result.message);
+        setSelectedImages([]);
+        // Refresh room data
+        await fetchRooms();
+        // Update selected room with new images
+        const updatedRoom = await roomsAPI.getRoomById(selectedRoom.id);
+        if (updatedRoom.success) {
+          setSelectedRoom(updatedRoom.data);
+        }
+      } else {
+        toast.error(result.message || 'เกิดข้อผิดพลาดในการอัปโหลด');
+      }
+    } catch (error) {
+      console.error('Error uploading images:', error);
+      toast.error('เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ');
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  const handleDeleteImage = async (filename) => {
+    if (!selectedRoom?.id) return;
+    
+    if (!confirm(`คุณต้องการลบรูปภาพ "${filename}" หรือไม่?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:3001/api/admin/rooms/${selectedRoom.id}/delete-image`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ filename }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(result.message);
+        // Refresh room data
+        await fetchRooms();
+        // Update selected room with remaining images
+        const updatedRoom = await roomsAPI.getRoomById(selectedRoom.id);
+        if (updatedRoom.success) {
+          setSelectedRoom(updatedRoom.data);
+        }
+      } else {
+        toast.error(result.message || 'เกิดข้อผิดพลาดในการลบรูปภาพ');
+      }
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      toast.error('เกิดข้อผิดพลาดในการลบรูปภาพ');
+    }
   };
 
   if (!isAuthenticated || !user) {
@@ -699,14 +864,33 @@ export default function RoomsManagement() {
                 >
                   {/* Room Image */}
                   <div className="h-48 bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-700 dark:to-neutral-800 flex items-center justify-center relative">
-                    <img
-                      src={room.images && room.images.length > 0 ? `/images/rooms/${room.images[0]}` : '/images/rooms/placeholder.svg'}
-                      alt={room.name || 'ห้องพัก'}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.src = '/images/rooms/placeholder.svg';
-                      }}
-                    />
+                    {(() => {
+                      const roomImages = parseRoomImages(room.images);
+                      const firstImage = roomImages.length > 0 ? roomImages[0] : null;
+                      
+                      return (
+                        <>
+                          <img
+                            src={firstImage ? `/images/rooms/${firstImage}` : '/images/rooms/placeholder.svg'}
+                            alt={room.name || 'ห้องพัก'}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.src = '/images/rooms/placeholder.svg';
+                            }}
+                          />
+                          
+                          {/* Image Count Badge */}
+                          {roomImages.length > 1 && (
+                            <div className="absolute bottom-4 right-4 bg-black bg-opacity-70 text-white rounded-full px-2 py-1 text-xs flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                              </svg>
+                              {roomImages.length}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                     
                     {/* Status Badge */}
                     <div className="absolute top-4 left-4">
@@ -954,6 +1138,42 @@ export default function RoomsManagement() {
                     </div>
                   )}
 
+                  {/* Image Gallery Section for View Mode */}
+                  {selectedRoom && (() => {
+                    const roomImages = parseRoomImages(selectedRoom.images);
+                    
+                    if (roomImages.length > 0) {
+                      return (
+                        <div>
+                          <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                            รูปภาพห้องพัก ({roomImages.length} รูป)
+                          </label>
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                            {roomImages.map((image, index) => (
+                              <div key={index} className="relative group">
+                                <img
+                                  src={`/images/rooms/${image}`}
+                                  alt={`Room ${index + 1}`}
+                                  className="w-full h-24 object-cover rounded-lg border border-neutral-200 dark:border-neutral-600 cursor-pointer hover:opacity-80 transition-opacity"
+                                  onError={(e) => {
+                                    e.target.src = '/images/rooms/placeholder.svg';
+                                  }}
+                                  onClick={() => window.open(`/images/rooms/${image}`, '_blank')}
+                                />
+                                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 rounded-lg transition-all flex items-center justify-center">
+                                  <svg className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                  </svg>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+
                   {selectedRoom?.amenities && selectedRoom.amenities.length > 0 && (
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
@@ -1136,6 +1356,125 @@ export default function RoomsManagement() {
                         </label>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Room Images Section */}
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                      รูปภาพห้องพัก
+                    </label>
+                    
+                    {/* Current Images Display */}
+                    {modalType === 'edit' && selectedRoom?.images && parseRoomImages(selectedRoom.images).length > 0 && (
+                      <div className="mb-4">
+                        <h4 className="text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-2">รูปภาพปัจจุบัน:</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                          {parseRoomImages(selectedRoom.images).map((image, index) => (
+                            <div key={index} className="relative group">
+                              <img
+                                src={`/images/rooms/${image}`}
+                                alt={`Room ${index + 1}`}
+                                className="w-full h-20 object-cover rounded-lg border border-neutral-200 dark:border-neutral-600"
+                                onError={(e) => {
+                                  e.target.src = '/images/rooms/placeholder.svg';
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteImage(image)}
+                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="ลบรูปภาพ"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Upload New Images */}
+                    <div 
+                      className="border-2 border-dashed border-neutral-300 dark:border-neutral-600 rounded-lg p-6 text-center hover:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/10 transition-colors"
+                      onDragOver={handleDragOver}
+                      onDragEnter={handleDragEnter}
+                      onDrop={handleDrop}
+                    >
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={handleImageSelect}
+                        className="hidden"
+                        id="roomImages"
+                      />
+                      <label 
+                        htmlFor="roomImages" 
+                        className="cursor-pointer flex flex-col items-center space-y-2"
+                      >
+                        <div className="w-12 h-12 bg-neutral-100 dark:bg-neutral-700 rounded-full flex items-center justify-center">
+                          <Upload className="w-6 h-6 text-neutral-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                            คลิกเพื่อเลือกรูปภาพ หรือลากไฟล์มาวาง
+                          </p>
+                          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                            รองรับ JPG, PNG, WebP (สูงสุด 10MB ต่อรูป)
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                    
+                    {/* Selected Images Preview */}
+                    {selectedImages.length > 0 && (
+                      <div className="mt-4">
+                        <h4 className="text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-2">
+                          รูปภาพที่เลือก ({selectedImages.length} รูป):
+                        </h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                          {selectedImages.map((file, index) => (
+                            <div key={index} className="relative group">
+                              <img
+                                src={URL.createObjectURL(file)}
+                                alt={`Preview ${index + 1}`}
+                                className="w-full h-20 object-cover rounded-lg border border-neutral-200 dark:border-neutral-600"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeSelectedImage(index)}
+                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="ลบรูปภาพ"
+                              >
+                                ×
+                              </button>
+                              <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                                {(file.size / 1024 / 1024).toFixed(1)}MB
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {/* Upload Button for Selected Images */}
+                        {modalType === 'edit' && selectedImages.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleUploadImages}
+                            disabled={uploadingImages}
+                            className="mt-3 btn-outline flex items-center gap-2 text-sm"
+                          >
+                            {uploadingImages ? (
+                              <RefreshCw className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                              </svg>
+                            )}
+                            {uploadingImages ? 'กำลังอัปโหลด...' : `อัปโหลด ${selectedImages.length} รูป`}
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Submit Button */}
