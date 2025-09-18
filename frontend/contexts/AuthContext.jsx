@@ -438,9 +438,12 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       const response = await authAPI.register(userData);
       
-      if (response.token && response.user) {
-        const token = response.token;
-        const user = response.user;
+      // Backend returns {success: true, data: {token, user}}
+      if (response.success && response.data && response.data.token && response.data.user) {
+        const token = response.data.token;
+        const user = response.data.user;
+        
+        console.log('✅ Registration API successful');
         
         // Store auth data
         Cookies.set('auth_token', token, { 

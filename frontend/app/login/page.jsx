@@ -90,7 +90,7 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Test Accounts Info */}
+          {/* Test Accounts Info - Hidden for production 
           <div className="mb-6 p-4 bg-amber-50/80 backdrop-blur-sm rounded-2xl border border-amber-200">
             <div className="text-center mb-3">
               <h3 className="text-sm font-semibold text-amber-800 mb-2">🧪 บัญชีทดสอบ</h3>
@@ -125,6 +125,7 @@ export default function LoginPage() {
               </p>
             </div>
           </div>
+          */}
 
           {/* Login Form */}
           <div className="relative">
@@ -263,13 +264,14 @@ export default function LoginPage() {
                 </p>
               </div>
 
-              {/* Test Accounts */}
+              {/* Test Accounts - Hidden for production 
               <div className="mt-6 text-center text-sm text-gray-500">
                 <p>บัญชีทดสอบ:</p>
                 <p>Admin: admin@hotel.com / admin123</p>
                 <p>Customer: user@hotel.com / user123</p>
                 <p>Staff: staff@hotel.com / staff123</p>
               </div>
+              */}
             </div>
           </div>
 

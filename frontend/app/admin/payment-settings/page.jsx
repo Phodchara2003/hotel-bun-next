@@ -32,8 +32,7 @@ export default function PaymentSettingsPage() {
       enabled: true,
       bankName: 'ธนาคารกสิกรไทย',
       accountName: 'โรงแรมตัวอย่าง จำกัด',
-      accountNumber: '123-4-56789-0',
-      branchName: 'สาขาสยามพารากอน'
+      accountNumber: '123-4-56789-0'
     },
     promptPay: {
       enabled: true,
@@ -79,7 +78,7 @@ export default function PaymentSettingsPage() {
 
       console.log('🔄 Loading payment settings with token:', token.substring(0, 20) + '...');
       
-      const response = await fetch('http://localhost:3003/api/admin/payment-settings', {
+      const response = await fetch('http://localhost:3001/api/admin/payment-settings', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -91,8 +90,25 @@ export default function PaymentSettingsPage() {
       if (response.ok) {
         const data = await response.json();
         console.log('✅ Payment settings loaded:', data);
-        if (data.settings) {
-          setSettings(prev => ({ ...prev, ...data.settings }));
+        
+        // แปลง API response ให้เข้ากับ component state structure
+        if (data.success && data.data) {
+          const mappedSettings = {
+            bankTransfer: {
+              enabled: data.data.bankTransfer?.enabled || true,
+              bankName: data.data.bankTransfer?.bankName || 'ธนาคารกสิกรไทย',
+              accountName: data.data.bankTransfer?.accountName || 'โรงแรมตัวอย่าง จำกัด',
+              accountNumber: data.data.bankTransfer?.accountNumber || '123-4-56789-0'
+            },
+            promptPay: {
+              enabled: data.data.promptPay?.enabled || true,
+              phoneNumber: data.data.promptPay?.phoneNumber || '081-234-5678',
+              qrCodeUrl: data.data.promptPay?.qrCodeUrl || '/qr-codes/promptpay-qr.png'
+            }
+          };
+          
+          console.log('🔄 Mapped settings for form:', mappedSettings);
+          setSettings(mappedSettings);
         }
       } else {
         console.log('⚠️ API failed, using default settings');
@@ -112,7 +128,7 @@ export default function PaymentSettingsPage() {
 
     try {
       const token = Cookies.get('auth_token');
-      const response = await fetch('http://localhost:3003/api/admin/payment-settings', {
+      const response = await fetch('http://localhost:3001/api/admin/payment-settings', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -169,22 +185,27 @@ export default function PaymentSettingsPage() {
       setSaving(true);
       setMessage({ type: 'info', content: 'กำลังอัปโหลด QR Code...' });
 
-      const response = await fetch('http://localhost:3003/api/simple-payment-settings/qr-upload', {
+      const response = await fetch('http://localhost:3001/api/simple-payment-settings/qr-upload', {
         method: 'POST',
         body: formData
+        // ไม่ระบุ Content-Type ให้ browser จัดการ multipart/form-data boundary เอง
       });
 
       if (response.ok) {
         const data = await response.json();
         
         // อัปเดต settings ใน state
-        setSettings(prev => ({
-          ...prev,
-          promptPay: {
-            ...prev.promptPay,
-            qrCodeUrl: data.qrCodeUrl
-          }
-        }));
+        setSettings(prev => {
+          const newSettings = {
+            ...prev,
+            promptPay: {
+              ...prev.promptPay,
+              qrCodeUrl: data.data.qrCodeUrl
+            }
+          };
+          console.log('🔄 Updated settings:', newSettings);
+          return newSettings;
+        });
 
         setMessage({ 
           type: 'success', 
@@ -339,19 +360,6 @@ export default function PaymentSettingsPage() {
                     disabled={!settings.bankTransfer.enabled}
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">สาขา</label>
-                  <input
-                    type="text"
-                    value={settings.bankTransfer.branchName}
-                    onChange={(e) => setSettings(prev => ({
-                      ...prev,
-                      bankTransfer: { ...prev.bankTransfer, branchName: e.target.value }
-                    }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    disabled={!settings.bankTransfer.enabled}
-                  />
-                </div>
               </div>
             </div>
           </div>
@@ -416,12 +424,13 @@ export default function PaymentSettingsPage() {
                           {showQRPreview ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
                           {showQRPreview ? 'ซ่อน' : 'ดู'} QR Code
                         </button>
+                        {console.log('🖼️ QR Code URL:', settings.promptPay.qrCodeUrl)}
                         {showQRPreview && (
                           <div className="mt-4">
                             <img 
                               src={settings.promptPay.qrCodeUrl.startsWith('http') 
                                 ? settings.promptPay.qrCodeUrl 
-                                : `http://localhost:3003${settings.promptPay.qrCodeUrl}`} 
+                                : `http://localhost:3001${settings.promptPay.qrCodeUrl}`} 
                               alt="PromptPay QR Code" 
                               className="w-48 h-48 object-contain border border-gray-300 rounded-lg"
                               onError={(e) => {
@@ -438,18 +447,6 @@ export default function PaymentSettingsPage() {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Save Button */}
-        <div className="mt-8 flex justify-end">
-          <button
-            onClick={handleSaveSettings}
-            disabled={saving}
-            className="inline-flex items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-          >
-            <Save className="h-5 w-5 mr-2" />
-            {saving ? 'กำลังบันทึก...' : 'บันทึกการตั้งค่าทั้งหมด'}
-          </button>
         </div>
       </div>
     </div>

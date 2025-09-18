@@ -52,17 +52,46 @@ export default function PaymentPage() {
   const fetchPaymentSettings = async () => {
     try {
       console.log('🔍 Fetching payment settings for user...');
-      const response = await fetch('http://localhost:3001/api/simple-payment-settings');
+      // เพิ่ม timestamp เพื่อป้องกัน cache
+      const timestamp = new Date().getTime();
+      // เรียก admin payment settings เพื่อใช้ข้อมูลที่แอดมินตั้งค่า
+      const response = await fetch(`http://localhost:3001/api/admin/payment-settings?t=${timestamp}`, {
+        method: 'GET'
+      });
       console.log('📡 Response status:', response.status);
       
       if (response.ok) {
-        const data = await response.json();
-        console.log('💳 Payment settings loaded:', data);
-        setPaymentSettings(data);
+        const result = await response.json();
+        console.log('📋 Admin payment settings loaded for booking payment:', result);
+        
+        if (result.success && result.data) {
+          // แปลงข้อมูลให้เข้ากับรูปแบบเดิม
+          const legacyFormat = {
+            success: true,
+            data: {
+              qrCodeUrl: result.data.promptPay.qrCodeUrl,
+              bankName: result.data.bankTransfer.bankName,
+              bankAccount: result.data.bankTransfer.accountNumber,
+              accountName: result.data.bankTransfer.accountName,
+              phoneNumber: result.data.promptPay.phoneNumber
+            }
+          };
+          setPaymentSettings(legacyFormat);
+          console.log('💾 Booking payment settings:', legacyFormat);
+        }
       } else {
-        console.error('❌ Failed to fetch payment settings:', response.status);
-        const errorText = await response.text();
-        console.error('❌ Error response:', errorText);
+        console.warn('❌ Failed to load admin settings for booking payment, falling back to simple settings');
+        // Fallback เรียก simple settings
+        const fallbackResponse = await fetch('http://localhost:3001/api/simple-payment-settings');
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json();
+          console.log('💳 Fallback payment settings loaded:', fallbackData);
+          setPaymentSettings(fallbackData);
+        } else {
+          console.error('❌ Failed to fetch fallback payment settings:', fallbackResponse.status);
+          const errorText = await fallbackResponse.text();
+          console.error('❌ Error response:', errorText);
+        }
       }
     } catch (error) {
       console.error('❌ Error fetching payment settings:', error);

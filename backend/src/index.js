@@ -228,11 +228,11 @@ const app = new Elysia()
   
   .listen({
     hostname: '0.0.0.0',
-    port: 3003
+    port: 3001
   });
 
-console.log(`🚀 Hotel Booking API is running at 0.0.0.0:3003`);
-console.log(`📚 API Documentation available at http://localhost:3003/swagger`);
-console.log(`Started development server: http://localhost:3003`);
+console.log(`🚀 Hotel Booking API is running at 0.0.0.0:3001`);
+console.log(`📚 API Documentation available at http://localhost:3001/swagger`);
+console.log(`Started development server: http://localhost:3001`);
 
 export default app;

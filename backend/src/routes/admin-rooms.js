@@ -1,7 +1,13 @@
 import { Elysia } from 'elysia';
 import { sql } from '../db/database.js';
 import { authMiddleware, requireAdmin, requireStaff } from '../middleware/auth.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import 'dotenv/config';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Admin Rooms API
 export const adminRoomsRoutes = new Elysia({ prefix: '/admin/rooms' })
@@ -360,6 +366,183 @@ export const adminRoomsRoutes = new Elysia({ prefix: '/admin/rooms' })
       console.error('Error toggling room availability:', error);
       set.status = 500;
       return { error: 'Internal server error' };
+    }
+  })
+
+  // Upload room images (Admin)
+  .post('/:id/upload-images', async ({ params, request, headers, set }) => {
+    try {
+      console.log('🖼️ Upload images request received for room ID:', params.id);
+      
+      // Authenticate admin
+      const user = await authMiddleware({ headers, set });
+      if (user.error) {
+        console.log('Authentication failed:', user.error);
+        return user;
+      }
+      
+      if (user.role !== 'admin') {
+        console.log('Access denied: user is not admin');
+        set.status = 403;
+        return { error: 'Admin access required' };
+      }
+
+      // Check if room exists
+      const checkResult = await sql`SELECT id, images FROM room_types WHERE id = ${params.id}`;
+      if (checkResult.length === 0) {
+        set.status = 404;
+        return { error: 'Room not found' };
+      }
+
+      // Parse form data
+      const formData = await request.formData();
+      const files = formData.getAll('roomImages');
+      
+      if (!files || files.length === 0) {
+        set.status = 400;
+        return { error: 'No images provided' };
+      }
+
+      console.log('📁 Processing', files.length, 'files');
+
+      // Create uploads directory if it doesn't exist
+      const uploadsDir = path.join(process.cwd(), 'frontend', 'public', 'images', 'rooms');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+        console.log('📁 Created uploads directory:', uploadsDir);
+      }
+
+      const uploadedFiles = [];
+      const currentImages = checkResult[0].images || [];
+
+      for (const file of files) {
+        if (file.size === 0) continue; // Skip empty files
+        
+        // Generate unique filename
+        const timestamp = Date.now();
+        const randomString = Math.random().toString(36).substring(2, 8);
+        const extension = path.extname(file.name);
+        const filename = `room_${params.id}_${timestamp}_${randomString}${extension}`;
+        const filepath = path.join(uploadsDir, filename);
+
+        try {
+          // Convert file to buffer and save
+          const arrayBuffer = await file.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          
+          fs.writeFileSync(filepath, buffer);
+          uploadedFiles.push(filename);
+          
+          console.log('✅ Saved file:', filename, 'Size:', file.size, 'bytes');
+        } catch (fileError) {
+          console.error('❌ Error saving file:', file.name, fileError);
+        }
+      }
+
+      if (uploadedFiles.length === 0) {
+        set.status = 400;
+        return { error: 'Failed to upload any images' };
+      }
+
+      // Update database with new images
+      const updatedImages = [...currentImages, ...uploadedFiles];
+      
+      await sql`
+        UPDATE room_types 
+        SET images = ${updatedImages}, updated_at = NOW()
+        WHERE id = ${params.id}
+      `;
+
+      console.log('🎉 Successfully uploaded', uploadedFiles.length, 'images for room', params.id);
+
+      return {
+        success: true,
+        message: `อัปโหลดรูปภาพเรียบร้อยแล้ว (${uploadedFiles.length} ไฟล์)`,
+        data: {
+          uploadedFiles,
+          totalImages: updatedImages.length
+        }
+      };
+
+    } catch (error) {
+      console.error('❌ Error uploading images:', error);
+      set.status = 500;
+      return { 
+        success: false,
+        error: 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ',
+        details: error.message 
+      };
+    }
+  })
+
+  // Delete room image (Admin)
+  .delete('/:id/delete-image', async ({ params, body, headers, set }) => {
+    try {
+      console.log('🗑️ Delete image request received for room ID:', params.id);
+      
+      // Authenticate admin
+      const user = await authMiddleware({ headers, set });
+      if (user.error) {
+        console.log('Authentication failed:', user.error);
+        return user;
+      }
+      
+      if (user.role !== 'admin') {
+        console.log('Access denied: user is not admin');
+        set.status = 403;
+        return { error: 'Admin access required' };
+      }
+
+      const { filename } = body;
+      
+      if (!filename) {
+        set.status = 400;
+        return { error: 'Filename is required' };
+      }
+
+      // Check if room exists
+      const checkResult = await sql`SELECT id, images FROM room_types WHERE id = ${params.id}`;
+      if (checkResult.length === 0) {
+        set.status = 404;
+        return { error: 'Room not found' };
+      }
+
+      const currentImages = checkResult[0].images || [];
+      
+      // Remove filename from images array
+      const updatedImages = currentImages.filter(img => img !== filename);
+      
+      // Update database
+      await sql`
+        UPDATE room_types 
+        SET images = ${updatedImages}, updated_at = NOW()
+        WHERE id = ${params.id}
+      `;
+
+      // Delete physical file
+      const filepath = path.join(process.cwd(), 'frontend', 'public', 'images', 'rooms', filename);
+      if (fs.existsSync(filepath)) {
+        fs.unlinkSync(filepath);
+        console.log('🗑️ Deleted file:', filepath);
+      }
+
+      return {
+        success: true,
+        message: 'ลบรูปภาพเรียบร้อยแล้ว',
+        data: {
+          deletedFile: filename,
+          remainingImages: updatedImages.length
+        }
+      };
+
+    } catch (error) {
+      console.error('❌ Error deleting image:', error);
+      set.status = 500;
+      return { 
+        success: false,
+        error: 'เกิดข้อผิดพลาดในการลบรูปภาพ',
+        details: error.message 
+      };
     }
   });
 

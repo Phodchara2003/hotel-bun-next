@@ -2,7 +2,7 @@
 // Handle guest information submission and retrieval
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createGuestInformation, getAllGuests, getGuestById, getGuestByReference, updateGuestInformation, processCheckIn, getGuestStatistics } from '../../../../../guest-information.cjs';
+import { createGuestInformation, getAllGuests, getGuestById, getGuestByReference, updateGuestInformation, processCheckIn, getGuestStatistics } from '../../../../guest-information.cjs';
 
 export async function POST(request) {
   try {

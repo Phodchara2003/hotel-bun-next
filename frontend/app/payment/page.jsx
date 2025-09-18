@@ -18,6 +18,8 @@ export default function PaymentPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [legacySettings, setLegacySettings] = useState(null);
+  const [paymentChanges, setPaymentChanges] = useState([]);
+  const [showChangeNotification, setShowChangeNotification] = useState(false);
 
   // Get booking details from URL params
   const bookingId = searchParams.get('bookingId');
@@ -29,6 +31,7 @@ export default function PaymentPage() {
       fetchBookingDetails();
     }
     fetchLegacySettings();
+    fetchRecentPaymentChanges();
   }, [bookingId]);
 
   const fetchBookingDetails = async () => {
@@ -49,17 +52,78 @@ export default function PaymentPage() {
 
   const fetchLegacySettings = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/simple-payment-settings');
+      // เพิ่ม timestamp เพื่อป้องกัน cache
+      const timestamp = new Date().getTime();
+      // เรียก admin payment settings เพื่อใช้ข้อมูลที่แอดมินตั้งค่า
+      const response = await fetch(`http://localhost:3001/api/admin/payment-settings?t=${timestamp}`, {
+        method: 'GET'
+      });
       if (response.ok) {
         const result = await response.json();
-        console.log('Payment settings loaded:', result);
-        // Extract the data from the response
+        console.log('📋 Admin payment settings loaded:', result);
+        console.log('🔍 Account name from API:', result.data?.bankTransfer?.accountName);
+        
         if (result.success && result.data) {
-          setLegacySettings(result.data);
+          // แปลงข้อมูลให้เข้ากับรูปแบบเดิม
+          const legacyFormat = {
+            qrCodeUrl: result.data.promptPay.qrCodeUrl,
+            bankName: result.data.bankTransfer.bankName,
+            bankAccount: result.data.bankTransfer.accountNumber,
+            accountName: result.data.bankTransfer.accountName,
+            phoneNumber: result.data.promptPay.phoneNumber
+          };
+          setLegacySettings(legacyFormat);
+          console.log('💾 Legacy format settings:', legacyFormat);
+          console.log('🔍 Account name in legacy format:', legacyFormat.accountName);
+          console.log('🏦 Bank account number:', legacyFormat.bankAccount);
+          console.log('🏛️ Bank name:', legacyFormat.bankName);
+          console.log('📞 Phone number:', legacyFormat.phoneNumber);
+          
+          // Debug: แสดงข้อมูลปัจจุบันในหน้าเว็บ
+          if (typeof window !== 'undefined') {
+            console.log('🌐 Current window location:', window.location.href);
+            console.log('📊 Payment settings data for debugging:', {
+              bankName: legacyFormat.bankName,
+              accountName: legacyFormat.accountName,
+              bankAccount: legacyFormat.bankAccount,
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+      } else {
+        console.warn('❌ Failed to load admin settings, falling back to simple settings');
+        // Fallback เรียก simple settings
+        const fallbackResponse = await fetch('http://localhost:3001/api/simple-payment-settings');
+        if (fallbackResponse.ok) {
+          const fallbackResult = await fallbackResponse.json();
+          if (fallbackResult.success && fallbackResult.data) {
+            setLegacySettings(fallbackResult.data);
+          }
         }
       }
     } catch (err) {
-      console.error('Error fetching legacy settings:', err);
+      console.error('Error fetching payment settings:', err);
+    }
+  };
+
+  const fetchRecentPaymentChanges = async () => {
+    try {
+      // ดึง payment changes ย้อนหลัง 24 ชั่วโมง
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const since = yesterday.toISOString().split('T')[0];
+      
+      const response = await fetch(`http://localhost:3001/api/payment-settings-changes?limit=5&since=${since}`);
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data && result.data.length > 0) {
+          setPaymentChanges(result.data);
+          setShowChangeNotification(true);
+          console.log('📋 Recent payment changes:', result.data);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching payment changes:', err);
     }
   };
 
@@ -153,6 +217,52 @@ export default function PaymentPage() {
           </p>
         </div>
 
+        {/* Payment Changes Notification */}
+        {showChangeNotification && paymentChanges.length > 0 && (
+          <div className="mb-6 mx-auto max-w-4xl">
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-lg">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3 flex-1">
+                  <h3 className="text-sm font-medium text-blue-800">
+                    ข้อมูลการชำระเงินมีการปรับปรุงล่าสุด
+                  </h3>
+                  <div className="mt-2 text-sm text-blue-700">
+                    <div className="space-y-1">
+                      {paymentChanges.slice(0, 3).map((change, index) => (
+                        <div key={change.id} className="flex justify-between items-center">
+                          <span>{change.change_description}</span>
+                          <span className="text-xs text-blue-500">
+                            {new Date(change.created_at).toLocaleDateString('th-TH', {
+                              year: 'numeric',
+                              month: 'short', 
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <button 
+                      onClick={() => setShowChangeNotification(false)}
+                      className="text-xs text-blue-600 hover:text-blue-500 font-medium"
+                    >
+                      ปิดการแจ้งเตือน
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Booking Summary */}
         <div className="max-w-4xl mx-auto mb-8">
           <div className="bg-white rounded-lg shadow-md p-6">
@@ -181,6 +291,23 @@ export default function PaymentPage() {
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Debug Info - แสดงข้อมูลปัจจุบัน */}
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+          <h4 className="font-semibold text-yellow-800 mb-2">Debug Info:</h4>
+          <div className="text-sm text-yellow-700">
+            <p><strong>Payment Method:</strong> {paymentMethod}</p>
+            <p><strong>Legacy Settings Available:</strong> {legacySettings ? 'Yes' : 'No'}</p>
+            {legacySettings && (
+              <div className="mt-2">
+                <p><strong>Bank Name:</strong> {legacySettings.bankName}</p>
+                <p><strong>Account Number:</strong> {legacySettings.bankAccount}</p>
+                <p><strong>Account Name:</strong> {legacySettings.accountName}</p>
+                <p><strong>Phone Number:</strong> {legacySettings.phoneNumber}</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -271,6 +398,48 @@ export default function PaymentPage() {
               amount={amount}
               language={language}
             />
+          )}
+
+          {/* แสดงรายละเอียดธนาคารสำหรับทุก payment method */}
+          {legacySettings && (
+            <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+              <h3 className="text-xl font-semibold text-gray-800 mb-6 text-center">
+                {language === 'en' ? 'Bank Information for Reference' : 'ข้อมูลธนาคารสำหรับอ้างอิง'}
+              </h3>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="font-semibold text-gray-800 mb-3">
+                  {language === 'en' ? 'Bank Details' : 'รายละเอียดบัญชี'}
+                </h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-600">
+                      {language === 'en' ? 'Bank:' : 'ธนาคาร:'}
+                    </span>
+                    <span>{legacySettings.bankName || 'ธนาคารกสิกรไทย'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-600">
+                      {language === 'en' ? 'Account Number:' : 'เลขที่บัญชี:'}
+                    </span>
+                    <span className="font-mono">{legacySettings.bankAccount || '123-4-56789-0'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-600">
+                      {language === 'en' ? 'Account Name:' : 'ชื่อบัญชี:'}
+                    </span>
+                    <span>{legacySettings.accountName || 'Hotel Booking System'}</span>
+                  </div>
+                  {legacySettings.phoneNumber && (
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">
+                        {language === 'en' ? 'PromptPay ID:' : 'หมายเลขพร้อมเพย์:'}
+                      </span>
+                      <span className="font-mono">{legacySettings.phoneNumber}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -393,6 +562,15 @@ function LegacyBankTransfer({ settings, bookingId, amount, language }) {
                 <p className="text-2xl font-bold text-green-600">
                   จำนวนเงิน: ฿{parseFloat(amount).toLocaleString()}
                 </p>
+                {settings.phoneNumber && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    หมายเลขพร้อมเพย์: {settings.phoneNumber}
+                  </p>
+                )}
+                <div className="text-xs text-gray-400 mt-3 bg-green-50 p-2 rounded">
+                  <p>✅ ใช้ข้อมูลล่าสุดจากการตั้งค่าของแอดมิน</p>
+                  <p>📋 QR Code และข้อมูลธนาคารได้รับการอัปเดตแล้ว</p>
+                </div>
               </div>
             </div>
           ) : (
@@ -428,6 +606,14 @@ function LegacyBankTransfer({ settings, bookingId, amount, language }) {
             </span>
             <span>{settings.accountName || 'Hotel Booking System'}</span>
           </div>
+          {settings.phoneNumber && (
+            <div className="flex justify-between">
+              <span className="font-medium text-gray-600">
+                {language === 'en' ? 'PromptPay ID:' : 'หมายเลขพร้อมเพย์:'}
+              </span>
+              <span className="font-mono">{settings.phoneNumber}</span>
+            </div>
+          )}
           <div className="flex justify-between border-t pt-2 mt-3">
             <span className="font-medium text-gray-600">
               {language === 'en' ? 'Amount:' : 'จำนวนเงิน:'}

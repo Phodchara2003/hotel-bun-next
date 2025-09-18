@@ -3,6 +3,7 @@ const { parse } = require('url');
 require('dotenv').config();
 const mysql = require('mysql2/promise');
 const multer = require('multer');
+const busboy = require('busboy');
 const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcrypt');
@@ -58,6 +59,22 @@ const upload = multer({
   }
 });
 
+// QR Code storage configuration
+const qrStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadPath = path.join(__dirname, 'uploads', 'qr-codes');
+    
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: function (req, file, cb) {
+    const fileExtension = path.extname(file.originalname);
+    cb(null, 'qr-code' + fileExtension);
+  }
+});
+
 const uploadRoomImage = multer({ 
   storage: roomImageStorage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit for room images
@@ -70,6 +87,22 @@ const uploadRoomImage = multer({
       return cb(null, true);
     } else {
       cb(new Error('Only image files (jpeg, jpg, png, webp) are allowed for room images!'));
+    }
+  }
+});
+
+const uploadQRCode = multer({ 
+  storage: qrStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: function (req, file, cb) {
+    const allowedTypes = /jpeg|jpg|png/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only image files (jpeg, jpg, png) are allowed for QR codes!'));
     }
   }
 });
@@ -115,7 +148,7 @@ async function connectToDatabase() {
 const setCorsHeaders = (res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cache-Control, Pragma, Expires');
 };
 
 // Send JSON response
@@ -124,6 +157,27 @@ const sendJSON = (res, statusCode, data) => {
   res.setHeader('Content-Type', 'application/json');
   res.writeHead(statusCode);
   res.end(JSON.stringify(data, null, 2));
+};
+
+// Get request body as JSON
+const getRequestBody = (req) => {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+    req.on('end', () => {
+      try {
+        const data = body ? JSON.parse(body) : {};
+        resolve(data);
+      } catch (error) {
+        reject(new Error('Invalid JSON in request body'));
+      }
+    });
+    req.on('error', (error) => {
+      reject(error);
+    });
+  });
 };
 
 // Database query functions
@@ -1023,6 +1077,67 @@ async function loginUser(email, password) {
   }
 }
 
+async function registerUser(userData) {
+  try {
+    const { email, password, firstName, lastName, phone } = userData;
+    
+    console.log(`📝 Registration attempt for email: ${email}`);
+    
+    // Check if user already exists
+    const [existingUsers] = await connection.execute(
+      'SELECT id FROM users WHERE email = ?',
+      [email]
+    );
+    
+    if (existingUsers.length > 0) {
+      return { success: false, message: 'อีเมลนี้ถูกใช้งานแล้ว' };
+    }
+    
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Insert new user
+    const [result] = await connection.execute(`
+      INSERT INTO users (email, password, first_name, last_name, phone, role)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [email, hashedPassword, firstName, lastName, phone, 'guest']);
+    
+    const userId = result.insertId;
+    
+    // Generate JWT token for auto-login
+    const token = jwt.sign(
+      { 
+        id: userId, 
+        email: email, 
+        role: 'guest' 
+      },
+      process.env.JWT_SECRET || 'hotel-booking-secret',
+      { expiresIn: '24h' }
+    );
+    
+    console.log(`✅ Registration successful for user: ${email}`);
+    
+    return {
+      success: true,
+      message: 'สมัครสมาชิกสำเร็จ',
+      data: {
+        user: {
+          id: userId,
+          email: email,
+          name: `${firstName} ${lastName}`,
+          role: 'guest',
+          phone: phone
+        },
+        token: token
+      }
+    };
+    
+  } catch (error) {
+    console.error('❌ Registration error:', error);
+    return { success: false, message: 'เกิดข้อผิดพลาดในระบบ' };
+  }
+}
+
 async function verifyToken(token) {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'hotel-booking-secret');
@@ -1079,6 +1194,104 @@ async function getPaymentSettings() {
       bank_account: '123-456-7890',
       account_name: 'Hotel Booking System'
     };
+  }
+}
+
+async function updatePaymentSettings(updates) {
+  try {
+    for (const [key, value] of Object.entries(updates)) {
+      await connection.execute(`
+        INSERT INTO payment_settings (setting_key, setting_value) 
+        VALUES (?, ?)
+        ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)
+      `, [key, value]);
+    }
+    console.log('✅ Payment settings updated:', updates);
+    return true;
+  } catch (error) {
+    console.error('Error updating payment settings:', error.message);
+    throw error;
+  }
+}
+
+// Change log functions
+async function logPaymentSettingsChange(adminUserId, adminEmail, adminName, changeType, fieldChanged, oldValue, newValue, description, ipAddress = null, userAgent = null) {
+  try {
+    await connection.execute(`
+      INSERT INTO payment_settings_change_log 
+      (admin_user_id, admin_email, admin_name, change_type, field_changed, old_value, new_value, change_description, ip_address, user_agent)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [adminUserId, adminEmail, adminName, changeType, fieldChanged, oldValue, newValue, description, ipAddress, userAgent]);
+    
+    console.log('✅ Payment settings change logged:', {
+      changeType,
+      fieldChanged,
+      oldValue: oldValue?.substring(0, 50),
+      newValue: newValue?.substring(0, 50)
+    });
+    return true;
+  } catch (error) {
+    console.error('Error logging payment settings change:', error.message);
+    // Don't throw error - logging failure shouldn't break the main operation
+    return false;
+  }
+}
+
+async function getPaymentSettingsChangeLogs(limit = 10, offset = 0) {
+  try {
+    const [rows] = await connection.execute(`
+      SELECT 
+        id,
+        admin_user_id,
+        admin_email,
+        admin_name,
+        change_type,
+        field_changed,
+        old_value,
+        new_value,
+        change_description,
+        created_at,
+        ip_address
+      FROM payment_settings_change_log 
+      ORDER BY created_at DESC 
+      LIMIT ? OFFSET ?
+    `, [limit, offset]);
+    
+    return rows;
+  } catch (error) {
+    console.error('Error fetching payment settings change logs:', error.message);
+    return [];
+  }
+}
+
+async function getLatestPaymentSettingsChanges(sinceDate = null) {
+  try {
+    let query = `
+      SELECT 
+        id,
+        admin_email,
+        admin_name,
+        change_type,
+        field_changed,
+        new_value,
+        change_description,
+        created_at
+      FROM payment_settings_change_log 
+    `;
+    
+    let params = [];
+    if (sinceDate) {
+      query += ' WHERE created_at > ?';
+      params.push(sinceDate);
+    }
+    
+    query += ' ORDER BY created_at DESC LIMIT 5';
+    
+    const [rows] = await connection.execute(query, params);
+    return rows;
+  } catch (error) {
+    console.error('Error fetching latest payment settings changes:', error.message);
+    return [];
   }
 }
 
@@ -1634,6 +1847,50 @@ const server = createServer(async (req, res) => {
         }
         break;
 
+      case '/api/auth/register':
+        setCorsHeaders(res);
+        
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => {
+            body += chunk.toString();
+          });
+          
+          req.on('end', async () => {
+            try {
+              const { email, password, firstName, lastName, phone } = JSON.parse(body);
+              
+              if (!email || !password || !firstName || !lastName) {
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'กรุณากรอกข้อมูลให้ครบถ้วน'
+                });
+                return;
+              }
+              
+              const result = await registerUser({
+                email,
+                password,
+                firstName,
+                lastName,
+                phone: phone || null
+              });
+              
+              sendJSON(res, result.success ? 201 : 400, result);
+              
+            } catch (error) {
+              console.error('❌ Register endpoint error:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในระบบ'
+              });
+            }
+          });
+        } else {
+          sendJSON(res, 405, { success: false, message: 'Method not allowed' });
+        }
+        break;
+
       case '/api/auth/verify':
         if (req.method === 'POST') {
           let body = '';
@@ -1712,6 +1969,168 @@ const server = createServer(async (req, res) => {
         });
         break;
 
+      case '/api/admin/payment-settings':
+        setCorsHeaders(res);
+        // Add no-cache headers to prevent caching of payment settings
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        
+        if (req.method === 'GET') {
+          try {
+            const paymentSettings = await getPaymentSettings();
+            sendJSON(res, 200, {
+              success: true,
+              data: {
+                bankTransfer: {
+                  enabled: true,
+                  bankName: paymentSettings.bank_name || 'ธนาคารกสิกรไทย',
+                  accountNumber: paymentSettings.bank_account || '123-456-7890',
+                  accountName: paymentSettings.account_name || 'Hotel Booking System'
+                },
+                promptPay: {
+                  enabled: true,
+                  phoneNumber: paymentSettings.phone_number || '081-234-5678',
+                  qrCodeUrl: paymentSettings.qr_code_url || '/uploads/qr-code.jpg'
+                }
+              }
+            });
+          } catch (error) {
+            console.error('Error fetching admin payment settings:', error);
+            sendJSON(res, 500, {
+              success: false,
+              message: 'Failed to fetch payment settings'
+            });
+          }
+        } else if (req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => {
+            body += chunk.toString();
+          });
+          
+          req.on('end', async () => {
+            try {
+              console.log('📝 Payment settings POST body:', body);
+              const { settings } = JSON.parse(body);
+              console.log('🔧 Parsed settings:', settings);
+              
+              // Get current settings for comparison
+              const currentSettings = await getPaymentSettings();
+              
+              // Update payment settings in database
+              const updates = {};
+              const changes = [];
+              
+              // Bank Transfer Settings
+              if (settings.bankTransfer && settings.bankTransfer.bankName !== undefined) {
+                const oldValue = currentSettings.bank_name;
+                const newValue = settings.bankTransfer.bankName;
+                if (oldValue !== newValue) {
+                  updates.bank_name = newValue;
+                  changes.push({
+                    type: 'bank_transfer',
+                    field: 'bank_name',
+                    oldValue,
+                    newValue,
+                    description: `เปลี่ยนชื่อธนาคารจาก "${oldValue}" เป็น "${newValue}"`
+                  });
+                }
+              }
+              if (settings.bankTransfer && settings.bankTransfer.accountNumber !== undefined) {
+                const oldValue = currentSettings.bank_account;
+                const newValue = settings.bankTransfer.accountNumber;
+                if (oldValue !== newValue) {
+                  updates.bank_account = newValue;
+                  changes.push({
+                    type: 'bank_transfer',
+                    field: 'bank_account',
+                    oldValue,
+                    newValue,
+                    description: `เปลี่ยนเลขบัญชีจาก "${oldValue}" เป็น "${newValue}"`
+                  });
+                }
+              }
+              if (settings.bankTransfer && settings.bankTransfer.accountName !== undefined) {
+                const oldValue = currentSettings.account_name;
+                const newValue = settings.bankTransfer.accountName;
+                if (oldValue !== newValue) {
+                  updates.account_name = newValue;
+                  changes.push({
+                    type: 'bank_transfer',
+                    field: 'account_name',
+                    oldValue,
+                    newValue,
+                    description: `เปลี่ยนชื่อบัญชีจาก "${oldValue}" เป็น "${newValue}"`
+                  });
+                }
+              }
+              
+              // PromptPay Settings
+              if (settings.promptPay && settings.promptPay.phoneNumber !== undefined) {
+                const oldValue = currentSettings.phone_number;
+                const newValue = settings.promptPay.phoneNumber;
+                if (oldValue !== newValue) {
+                  updates.phone_number = newValue;
+                  changes.push({
+                    type: 'promptpay',
+                    field: 'phone_number',
+                    oldValue,
+                    newValue,
+                    description: `เปลี่ยนเบอร์ PromptPay จาก "${oldValue}" เป็น "${newValue}"`
+                  });
+                }
+              }
+              
+              console.log('💾 Updates to apply:', updates);
+              console.log('📋 Changes detected:', changes.length);
+              
+              if (Object.keys(updates).length > 0) {
+                await updatePaymentSettings(updates);
+                
+                // Log each change
+                const ipAddress = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+                const userAgent = req.headers['user-agent'];
+                
+                for (const change of changes) {
+                  await logPaymentSettingsChange(
+                    1, // admin_user_id - should get from auth token in real app
+                    'admin@hotel.com', // admin_email - should get from auth token
+                    'Admin User', // admin_name - should get from auth token
+                    change.type,
+                    change.field,
+                    change.oldValue,
+                    change.newValue,
+                    change.description,
+                    ipAddress,
+                    userAgent
+                  );
+                }
+                
+                console.log(`✅ Logged ${changes.length} payment settings changes`);
+              }
+              
+              sendJSON(res, 200, {
+                success: true,
+                message: 'Payment settings updated successfully',
+                changesLogged: changes.length
+              });
+              
+            } catch (error) {
+              console.error('Error updating admin payment settings:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'Failed to update payment settings'
+              });
+            }
+          });
+        } else {
+          sendJSON(res, 405, {
+            success: false,
+            message: 'Method not allowed'
+          });
+        }
+        break;
+
       case '/api/notifications':
         // Return empty notifications for now
         sendJSON(res, 200, {
@@ -1719,6 +2138,42 @@ const server = createServer(async (req, res) => {
           count: 0,
           data: []
         });
+        break;
+
+      case '/api/payment-settings-changes':
+        setCorsHeaders(res);
+        
+        if (req.method === 'GET') {
+          try {
+            const limit = parseInt(query.limit) || 10;
+            const offset = parseInt(query.offset) || 0;
+            const sinceDate = query.since || null;
+            
+            let changes;
+            if (sinceDate) {
+              changes = await getLatestPaymentSettingsChanges(sinceDate);
+            } else {
+              changes = await getPaymentSettingsChangeLogs(limit, offset);
+            }
+            
+            sendJSON(res, 200, {
+              success: true,
+              count: changes.length,
+              data: changes
+            });
+          } catch (error) {
+            console.error('Error fetching payment settings changes:', error);
+            sendJSON(res, 500, {
+              success: false,
+              message: 'Failed to fetch payment settings changes'
+            });
+          }
+        } else {
+          sendJSON(res, 405, {
+            success: false,
+            message: 'Method not allowed'
+          });
+        }
         break;
 
       case '/api/notifications/unread-count':
@@ -1779,6 +2234,110 @@ const server = createServer(async (req, res) => {
             accountName: paymentSettings.account_name
           }
         });
+        break;
+
+      case '/api/simple-payment-settings/qr-upload':
+        setCorsHeaders(res);
+        
+        if (req.method === 'POST') {
+          console.log('📸 QR upload request received');
+          console.log('Content-Type:', req.headers['content-type']);
+          
+          try {
+            const bb = busboy({ headers: req.headers });
+            let fileBuffer = null;
+            let filename = null;
+            let fieldName = null;
+
+            bb.on('file', (name, file, info) => {
+              console.log('📁 File received:', { name, filename: info.filename, mimetype: info.mimeType });
+              fieldName = name;
+              filename = info.filename;
+              
+              const chunks = [];
+              file.on('data', (chunk) => {
+                chunks.push(chunk);
+              });
+              
+              file.on('end', () => {
+                fileBuffer = Buffer.concat(chunks);
+                console.log('📦 File buffer size:', fileBuffer.length);
+              });
+            });
+
+            bb.on('finish', async () => {
+              console.log('✅ Busboy parsing complete');
+              
+              if (!fileBuffer || !filename) {
+                return sendJSON(res, 400, {
+                  success: false,
+                  message: 'No file uploaded'
+                });
+              }
+
+              try {
+                // Save file manually
+                const uploadDir = path.join(__dirname, 'uploads', 'qr-codes');
+                if (!fs.existsSync(uploadDir)) {
+                  fs.mkdirSync(uploadDir, { recursive: true });
+                }
+
+                const fileExtension = path.extname(filename);
+                const savedFilename = 'qr-code' + fileExtension;
+                const filePath = path.join(uploadDir, savedFilename);
+                
+                fs.writeFileSync(filePath, fileBuffer);
+                console.log('💾 File saved:', filePath);
+
+                // Update database
+                const qrUrl = `/uploads/qr-codes/${savedFilename}`;
+                await updatePaymentSettings({
+                  qr_code_url: qrUrl
+                });
+
+                console.log('✅ QR Code uploaded successfully:', qrUrl);
+
+                sendJSON(res, 200, {
+                  success: true,
+                  message: 'QR Code uploaded successfully',
+                  data: {
+                    qrCodeUrl: qrUrl,
+                    filename: savedFilename
+                  }
+                });
+
+              } catch (error) {
+                console.error('💥 Save/DB error:', error);
+                sendJSON(res, 500, {
+                  success: false,
+                  message: 'Failed to save QR code'
+                });
+              }
+            });
+
+            bb.on('error', (err) => {
+              console.error('🚫 Busboy error:', err);
+              sendJSON(res, 400, {
+                success: false,
+                message: 'Failed to parse upload data'
+              });
+            });
+
+            req.pipe(bb);
+
+          } catch (error) {
+            console.error('💥 QR upload setup error:', error);
+            sendJSON(res, 500, {
+              success: false,
+              message: 'Failed to setup upload handler'
+            });
+          }
+        } else {
+          sendJSON(res, 405, {
+            success: false,
+            message: 'Method not allowed'
+          });
+        }
         break;
 
       case '/api/payment-slips':
@@ -1967,6 +2526,155 @@ const server = createServer(async (req, res) => {
         }
         break;
 
+      case '/api/admin/users':
+        setCorsHeaders(res);
+        
+        if (req.method === 'GET') {
+          try {
+            console.log('🔍 Admin users GET request received');
+            
+            // Get query parameters for pagination and search
+            const page = parseInt(query.page) || 1;
+            const limit = parseInt(query.limit) || 10;
+            const search = query.search || '';
+            const offset = (page - 1) * limit;
+            
+            console.log(`👥 Fetching users - Page: ${page}, Limit: ${limit}, Search: "${search}"`);
+            console.log('🔧 About to execute MySQL queries...');
+            
+            // Build search query
+            let whereClause = '';
+            let searchParams = [];
+            
+            if (search.trim()) {
+              whereClause = 'WHERE first_name LIKE ? OR last_name LIKE ? OR email LIKE ?';
+              const searchTerm = `%${search.trim()}%`;
+              searchParams = [searchTerm, searchTerm, searchTerm];
+            }
+            
+            console.log('🔍 Count query:', `SELECT COUNT(*) as total FROM users ${whereClause}`);
+            console.log('🔍 Search params:', searchParams);
+            
+            // Get total count
+            const countQuery = `SELECT COUNT(*) as total FROM users ${whereClause}`;
+            const [countResult] = await connection.execute(countQuery, searchParams);
+            const total = countResult[0].total;
+            
+            console.log('✅ Count result:', total);
+            
+            // Get users with pagination
+            const usersQuery = `
+              SELECT 
+                id, 
+                email, 
+                first_name, 
+                last_name, 
+                phone, 
+                role, 
+                created_at, 
+                updated_at 
+              FROM users 
+              ${whereClause}
+              ORDER BY created_at DESC 
+              LIMIT ${limit} OFFSET ${offset}
+            `;
+            
+            console.log('🔍 Users query:', usersQuery);
+            console.log('🔍 Query params:', [...searchParams]);
+            
+            const [users] = await connection.execute(usersQuery, searchParams);
+            
+            console.log('✅ Users result count:', users.length);
+            
+            // Calculate pagination info
+            const totalPages = Math.ceil(total / limit);
+            const hasNext = page < totalPages;
+            const hasPrev = page > 1;
+            
+            sendJSON(res, 200, {
+              success: true,
+              users: users,
+              pagination: {
+                page,
+                limit,
+                total,
+                totalPages,
+                hasNext,
+                hasPrev
+              },
+              search: search
+            });
+            
+          } catch (error) {
+            console.error('❌ Error fetching users:', error);
+            sendJSON(res, 500, {
+              success: false,
+              message: 'เกิดข้อผิดพลาดในการดึงข้อมูลผู้ใช้'
+            });
+          }
+        } else if (req.method === 'POST') {
+          // Create new user
+          try {
+            const body = await getRequestBody(req);
+            const { email, password, first_name, last_name, phone, role = 'user' } = body;
+            
+            console.log(`👤 Creating new user: ${email}`);
+            
+            // Validate required fields
+            if (!email || !password || !first_name || !last_name) {
+              return sendJSON(res, 400, {
+                success: false,
+                message: 'กรุณากรอกข้อมูลที่จำเป็น: อีเมล, รหัสผ่าน, ชื่อ, นามสกุล'
+              });
+            }
+            
+            // Hash password
+            const hashedPassword = await bcrypt.hash(password, 10);
+            
+            // Insert new user
+            const insertQuery = `
+              INSERT INTO users (email, password, first_name, last_name, phone, role, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+            `;
+            
+            const [result] = await connection.execute(insertQuery, [
+              email, hashedPassword, first_name, last_name, phone || null, role
+            ]);
+            
+            // Get the created user
+            const [newUser] = await connection.execute(
+              'SELECT id, email, first_name, last_name, phone, role, created_at FROM users WHERE id = ?',
+              [result.insertId]
+            );
+            
+            sendJSON(res, 201, {
+              success: true,
+              message: 'สร้างผู้ใช้ใหม่เรียบร้อยแล้ว',
+              data: newUser[0]
+            });
+            
+          } catch (error) {
+            console.error('❌ Error creating user:', error);
+            if (error.code === 'ER_DUP_ENTRY') {
+              sendJSON(res, 409, {
+                success: false,
+                message: 'อีเมลนี้มีอยู่ในระบบแล้ว'
+              });
+            } else {
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในการสร้างผู้ใช้ใหม่'
+              });
+            }
+          }
+        } else {
+          sendJSON(res, 405, {
+            success: false,
+            message: 'Method not allowed'
+          });
+        }
+        break;
+
       case '/api/admin/rooms':
         setCorsHeaders(res);
         if (req.method === 'GET') {
@@ -2135,6 +2843,7 @@ const server = createServer(async (req, res) => {
             // POST /api/admin/rooms/{id}/upload-images
             try {
               console.log(`🖼️ Uploading images for room ${roomId}`);
+              console.log('📄 Request Content-Type:', req.headers['content-type']);
               
               uploadRoomImage.array('roomImages', 10)(req, res, async (err) => {
                 if (err) {
@@ -2146,6 +2855,8 @@ const server = createServer(async (req, res) => {
                   return;
                 }
                 
+                console.log(`📸 Received ${req.files.length} files:`, req.files.map(f => f.filename));
+                
                 if (!req.files || req.files.length === 0) {
                   sendJSON(res, 400, {
                     success: false,
@@ -2156,7 +2867,20 @@ const server = createServer(async (req, res) => {
                 
                 // Get existing room images
                 const existingRoom = await getRoomById(parseInt(roomId));
-                const existingImages = existingRoom?.images ? JSON.parse(existingRoom.images) : [];
+                let existingImages = [];
+                
+                if (existingRoom?.images) {
+                  try {
+                    // Try to parse as JSON array first
+                    existingImages = JSON.parse(existingRoom.images);
+                    if (!Array.isArray(existingImages)) {
+                      existingImages = [existingRoom.images];
+                    }
+                  } catch (error) {
+                    // If parsing fails, treat as single image string
+                    existingImages = [existingRoom.images];
+                  }
+                }
                 
                 // Add new image filenames
                 const newImages = req.files.map(file => file.filename);
@@ -2202,19 +2926,59 @@ const server = createServer(async (req, res) => {
                 
                 // Get existing room images
                 const existingRoom = await getRoomById(parseInt(roomId));
-                const existingImages = existingRoom?.images ? JSON.parse(existingRoom.images) : [];
+                let existingImages = [];
                 
-                // Remove the image from array
-                const updatedImages = existingImages.filter(img => img !== filename);
+                if (existingRoom?.images) {
+                  try {
+                    existingImages = JSON.parse(existingRoom.images);
+                    if (!Array.isArray(existingImages)) {
+                      existingImages = [existingRoom.images];
+                    }
+                  } catch (error) {
+                    existingImages = [existingRoom.images];
+                  }
+                }
+                
+                console.log('📁 Existing images before delete:', JSON.stringify(existingImages, null, 2));
+                
+                // Function to recursively remove filename from nested arrays
+                function removeFromNestedArray(arr, targetFilename) {
+                  const result = [];
+                  
+                  for (let item of arr) {
+                    if (Array.isArray(item)) {
+                      const filtered = removeFromNestedArray(item, targetFilename);
+                      if (filtered.length > 0) {
+                        result.push(filtered);
+                      }
+                    } else if (typeof item === 'string' && item !== targetFilename) {
+                      result.push(item);
+                    }
+                  }
+                  
+                  return result;
+                }
+                
+                // Remove the image from nested array structure
+                const updatedImages = removeFromNestedArray(existingImages, filename);
+                
+                console.log('📁 Updated images after delete:', JSON.stringify(updatedImages, null, 2));
                 
                 // Delete physical file
                 const imagePath = path.join(__dirname, '..', 'frontend', 'public', 'images', 'rooms', filename);
+                console.log('🗂️ Attempting to delete file:', imagePath);
+                
                 if (fs.existsSync(imagePath)) {
                   fs.unlinkSync(imagePath);
+                  console.log('✅ Physical file deleted successfully');
+                } else {
+                  console.log('⚠️ Physical file not found');
                 }
                 
                 // Update room with remaining images
+                console.log('🔄 Calling updateRoomImages with:', JSON.stringify(updatedImages, null, 2));
                 const updateResult = await updateRoomImages(parseInt(roomId), updatedImages);
+                console.log('📤 updateRoomImages result:', updateResult);
                 
                 if (updateResult.success) {
                   sendJSON(res, 200, {
@@ -2226,6 +2990,7 @@ const server = createServer(async (req, res) => {
                     }
                   });
                 } else {
+                  console.log('❌ updateRoomImages failed:', updateResult);
                   sendJSON(res, 500, {
                     success: false,
                     message: 'ลบไฟล์สำเร็จ แต่ไม่สามารถอัปเดตฐานข้อมูลได้'
@@ -2233,6 +2998,12 @@ const server = createServer(async (req, res) => {
                 }
               } catch (error) {
                 console.error('❌ Error deleting room image:', error);
+                console.error('❌ Error stack:', error.stack);
+                console.error('❌ Error details:', {
+                  name: error.name,
+                  message: error.message,
+                  code: error.code
+                });
                 sendJSON(res, 500, {
                   success: false,
                   message: 'เกิดข้อผิดพลาดในการลบรูปภาพ'
@@ -2263,6 +3034,139 @@ const server = createServer(async (req, res) => {
               sendJSON(res, 500, {
                 success: false,
                 message: 'เกิดข้อผิดพลาดในการเปลี่ยนสถานะห้องพัก'
+              });
+            }
+          } else {
+            sendJSON(res, 405, {
+              success: false,
+              message: 'Method not allowed'
+            });
+          }
+          break;
+        }
+        
+        if (normalizedPathname.startsWith('/api/admin/users/')) {
+          const pathParts = normalizedPathname.split('/');
+          const userId = pathParts[4]; // /api/admin/users/{id}
+          
+          setCorsHeaders(res);
+          
+          if (req.method === 'GET' && userId) {
+            // GET /api/admin/users/{id}
+            try {
+              console.log(`👤 Fetching user: ${userId}`);
+              const [users] = await connection.execute(
+                'SELECT id, email, first_name, last_name, phone, role, created_at, updated_at FROM users WHERE id = ?',
+                [parseInt(userId)]
+              );
+              
+              if (users.length > 0) {
+                sendJSON(res, 200, {
+                  success: true,
+                  data: users[0]
+                });
+              } else {
+                sendJSON(res, 404, {
+                  success: false,
+                  message: 'ไม่พบผู้ใช้ที่ระบุ'
+                });
+              }
+            } catch (error) {
+              console.error('❌ Error fetching user:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในการดึงข้อมูลผู้ใช้'
+              });
+            }
+          } else if (req.method === 'PUT' && userId) {
+            // PUT /api/admin/users/{id}
+            try {
+              const body = await getRequestBody(req);
+              const { email, first_name, last_name, phone, role } = body;
+              
+              console.log(`👤 Updating user: ${userId}`);
+              
+              // Check if user exists
+              const [existingUsers] = await connection.execute('SELECT id FROM users WHERE id = ?', [parseInt(userId)]);
+              if (existingUsers.length === 0) {
+                return sendJSON(res, 404, {
+                  success: false,
+                  message: 'ไม่พบผู้ใช้ที่ระบุ'
+                });
+              }
+              
+              // Update user
+              const updateQuery = `
+                UPDATE users 
+                SET email = ?, first_name = ?, last_name = ?, phone = ?, role = ?, updated_at = NOW()
+                WHERE id = ?
+              `;
+              
+              await connection.execute(updateQuery, [
+                email, first_name, last_name, phone || null, role, parseInt(userId)
+              ]);
+              
+              // Get updated user
+              const [updatedUsers] = await connection.execute(
+                'SELECT id, email, first_name, last_name, phone, role, created_at, updated_at FROM users WHERE id = ?',
+                [parseInt(userId)]
+              );
+              
+              sendJSON(res, 200, {
+                success: true,
+                message: 'อัปเดตข้อมูลผู้ใช้เรียบร้อยแล้ว',
+                data: updatedUsers[0]
+              });
+              
+            } catch (error) {
+              console.error('❌ Error updating user:', error);
+              if (error.code === 'ER_DUP_ENTRY') {
+                sendJSON(res, 409, {
+                  success: false,
+                  message: 'อีเมลนี้มีอยู่ในระบบแล้ว'
+                });
+              } else {
+                sendJSON(res, 500, {
+                  success: false,
+                  message: 'เกิดข้อผิดพลาดในการอัปเดตข้อมูลผู้ใช้'
+                });
+              }
+            }
+          } else if (req.method === 'DELETE' && userId) {
+            // DELETE /api/admin/users/{id}
+            try {
+              console.log(`👤 Deleting user: ${userId}`);
+              
+              // Check if user exists
+              const [existingUsers] = await connection.execute('SELECT id, role FROM users WHERE id = ?', [parseInt(userId)]);
+              if (existingUsers.length === 0) {
+                return sendJSON(res, 404, {
+                  success: false,
+                  message: 'ไม่พบผู้ใช้ที่ระบุ'
+                });
+              }
+              
+              // Prevent deleting super_admin
+              if (existingUsers[0].role === 'super_admin') {
+                return sendJSON(res, 403, {
+                  success: false,
+                  message: 'ไม่สามารถลบผู้ใช้ Super Admin ได้'
+                });
+              }
+              
+              // Delete user
+              await connection.execute('DELETE FROM users WHERE id = ?', [parseInt(userId)]);
+              
+              sendJSON(res, 200, {
+                success: true,
+                message: 'ลบผู้ใช้เรียบร้อยแล้ว'
+              });
+              
+            } catch (error) {
+              console.error('❌ Error deleting user:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในการลบผู้ใช้'
               });
             }
           } else {
@@ -2373,6 +3277,41 @@ const server = createServer(async (req, res) => {
           break;
         }
         
+        // Handle QR code files serving
+        if (normalizedPathname.startsWith('/uploads/qr-codes/') && req.method === 'GET') {
+          const fileName = normalizedPathname.split('/').pop();
+          const filePath = path.join(__dirname, 'uploads', 'qr-codes', fileName);
+          
+          if (fs.existsSync(filePath)) {
+            const ext = path.extname(filePath).toLowerCase();
+            let contentType = 'application/octet-stream';
+            
+            switch (ext) {
+              case '.jpg':
+              case '.jpeg':
+                contentType = 'image/jpeg';
+                break;
+              case '.png':
+                contentType = 'image/png';
+                break;
+            }
+            
+            res.writeHead(200, { 
+              'Content-Type': contentType,
+              'Cache-Control': 'public, max-age=86400'
+            });
+            
+            const fileStream = fs.createReadStream(filePath);
+            fileStream.pipe(res);
+          } else {
+            sendJSON(res, 404, {
+              success: false,
+              error: 'QR code file not found'
+            });
+          }
+          break;
+        }
+        
         // Default 404 response
         sendJSON(res, 404, {
           success: false,
@@ -2381,6 +3320,7 @@ const server = createServer(async (req, res) => {
             'GET /',
             'GET /health',
             'POST /api/auth/login',
+            'POST /api/auth/register',
             'POST /api/auth/verify',
             'GET /api/test',
             'GET /api/hotels',
@@ -2391,13 +3331,22 @@ const server = createServer(async (req, res) => {
             'GET /api/cancellation-requests',
             'PUT /api/cancellation-requests',
             'GET /api/admin/dashboard/stats',
+            'GET /api/admin/users',
+            'POST /api/admin/users',
+            'GET /api/admin/users/{id}',
+            'PUT /api/admin/users/{id}',
+            'DELETE /api/admin/users/{id}',
+            'GET /api/admin/payment-settings',
+            'POST /api/admin/payment-settings',
             'GET /api/notifications',
             'GET /api/global-settings',
             'GET /api/database/status',
             'GET /api/simple-payment-settings',
+            'POST /api/simple-payment-settings/qr-upload',
             'GET /api/payment-slips',
             'POST /api/payment-slip/upload',
             'GET /uploads/qr-code.svg',
+            'GET /uploads/qr-codes/{filename}',
             'GET /uploads/payment-slips/{filename}'
           ]
         });
@@ -2442,6 +3391,11 @@ async function startServer() {
     console.log(`   GET /api/cancellation-requests - Cancellation requests`);
     console.log(`   PUT /api/cancellation-requests - Process cancellation requests`);
     console.log(`   GET /api/admin/dashboard/stats - Admin dashboard statistics`);
+    console.log(`   GET /api/admin/users         - Get all users (admin)`);
+    console.log(`   POST /api/admin/users        - Create new user (admin)`);
+    console.log(`   GET /api/admin/users/{id}    - Get user by ID (admin)`);
+    console.log(`   PUT /api/admin/users/{id}    - Update user (admin)`);
+    console.log(`   DELETE /api/admin/users/{id} - Delete user (admin)`);
     console.log(`   GET /api/notifications       - Notifications (empty)`);
     console.log(`   GET /api/global-settings     - Global settings`);
     console.log(`   GET /api/database/status     - Database statistics`);

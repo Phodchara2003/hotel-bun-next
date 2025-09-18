@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ทดสอบการอัปโหลดรูปภาพห้อง</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .result { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+    </style>
+</head>
+<body>
+    <h1>ทดสอบการอัปโหลดรูปภาพห้อง</h1>
+    
+    <div>
+        <label>เลือกห้อง ID:</label>
+        <select id="roomId">
+            <option value="1">Room 1 (Test Update Room)</option>
+            <option value="2">Room 2 (Superior Room)</option>
+            <option value="3">Room 3 (Executive Suite)</option>
+            <option value="4">Room 4 (Garden View Room)</option>
+            <option value="5">Room 5 (Riverside Villa)</option>
+            <option value="6">Room 6 (Ocean View Room)</option>
+            <option value="7">Room 7 (Test Update)</option>
+        </select>
+    </div>
+    
+    <div style="margin: 10px 0;">
+        <label>เลือกไฟล์รูปภาพ:</label>
+        <input type="file" id="imageFiles" multiple accept="image/*">
+    </div>
+    
+    <button onclick="uploadImages()">อัปโหลดรูปภาพ</button>
+    <button onclick="getRoomImages()">ดูรูปภาพห้อง</button>
+    
+    <div id="results"></div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:3001';
+        
+        async function uploadImages() {
+            const roomId = document.getElementById('roomId').value;
+            const files = document.getElementById('imageFiles').files;
+            
+            if (files.length === 0) {
+                showResult('กรุณาเลือกไฟล์รูปภาพ', 'error');
+                return;
+            }
+            
+            try {
+                showResult('กำลังอัปโหลด...', 'info');
+                
+                const formData = new FormData();
+                for (let i = 0; i < files.length; i++) {
+                    formData.append('roomImages', files[i]);
+                }
+                
+                const response = await fetch(`${API_BASE_URL}/api/admin/rooms/${roomId}/upload-images`, {
+                    method: 'POST',
+                    body: formData,
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showResult(`✅ อัปโหลดสำเร็จ: ${JSON.stringify(result, null, 2)}`, 'success');
+                } else {
+                    showResult(`❌ อัปโหลดล้มเหลว: ${JSON.stringify(result, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                showResult(`❌ เกิดข้อผิดพลาด: ${error.message}`, 'error');
+            }
+        }
+        
+        async function getRoomImages() {
+            const roomId = document.getElementById('roomId').value;
+            
+            try {
+                showResult('กำลังดึงข้อมูล...', 'info');
+                
+                const response = await fetch(`${API_BASE_URL}/api/admin/rooms`);
+                const result = await response.json();
+                
+                if (response.ok) {
+                    const room = result.data.find(r => r.id === parseInt(roomId));
+                    if (room) {
+                        showResult(`🖼️ รูปภาพห้อง ${roomId}: ${JSON.stringify(room.images, null, 2)}`, 'success');
+                    } else {
+                        showResult(`❌ ไม่พบห้อง ID ${roomId}`, 'error');
+                    }
+                } else {
+                    showResult(`❌ ดึงข้อมูลล้มเหลว: ${JSON.stringify(result, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                showResult(`❌ เกิดข้อผิดพลาด: ${error.message}`, 'error');
+            }
+        }
+        
+        function showResult(message, type) {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = `<pre>${message}</pre>`;
+            results.insertBefore(div, results.firstChild);
+        }
+        
+        // แสดงข้อมูลห้องทั้งหมดเมื่อโหลดหน้า
+        window.onload = async function() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/admin/rooms`);
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showResult(`🏨 ข้อมูลห้องทั้งหมด: ${result.count} ห้อง`, 'success');
+                    result.data.forEach(room => {
+                        showResult(`Room ${room.id}: ${room.name} - Images: ${JSON.stringify(room.images)}`, 'info');
+                    });
+                }
+            } catch (error) {
+                showResult(`❌ ไม่สามารถดึงข้อมูลห้องได้: ${error.message}`, 'error');
+            }
+        };
+    </script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from '../../../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { 
   User, 
   Users, 
@@ -10,7 +10,7 @@ import {
   Mail, 
   MapPin, 
   Calendar,
-  IdCard,
+  CreditCard,
   Globe,
   Bed,
   Utensils,
@@ -399,7 +399,7 @@ export default function GuestInformationPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <IdCard className="h-4 w-4 inline mr-1" />
+                  <CreditCard className="h-4 w-4 inline mr-1" />
                   ประเภทบัตร
                 </label>
                 <select

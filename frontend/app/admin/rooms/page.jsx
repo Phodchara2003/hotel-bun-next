@@ -433,23 +433,48 @@ export default function RoomsManagement() {
     if (!images) return [];
     
     try {
+      let result = [];
+      
       if (typeof images === 'string') {
-        // Try to parse as JSON first
+        // First try to parse as JSON array
         try {
           const parsed = JSON.parse(images);
-          return Array.isArray(parsed) ? parsed : [images];
+          if (Array.isArray(parsed)) {
+            result = parsed;
+          }
         } catch {
-          // If it fails, treat as single image string
-          return [images];
+          // If JSON parsing fails, check if it's a comma-separated string
+          if (images.includes(',')) {
+            const split = images.split(',').map(img => img.trim()).filter(img => img);
+            result = split;
+          } else {
+            // Single image string
+            result = [images];
+          }
         }
       } else if (Array.isArray(images)) {
-        return images;
+        result = images;
       }
-    } catch (e) {
-      console.error('Error parsing room images:', e);
+      
+      // Recursively flatten all nested arrays and extract strings
+      const deepFlatten = (arr) => {
+        const flattened = [];
+        for (const item of arr) {
+          if (Array.isArray(item)) {
+            // Recursively flatten nested arrays
+            flattened.push(...deepFlatten(item));
+          } else if (typeof item === 'string' && item.trim() !== '') {
+            flattened.push(item.trim());
+          }
+        }
+        return flattened;
+      };
+      
+      return deepFlatten(result);
+    } catch (error) {
+      console.error('❌ Error parsing room images:', error);
+      return [];
     }
-    
-    return [];
   };
 
   // Image handling functions
@@ -520,17 +545,11 @@ export default function RoomsManagement() {
     try {
       setUploadingImages(true);
       
-      const formData = new FormData();
-      selectedImages.forEach(file => {
-        formData.append('roomImages', file);
-      });
-
-      const response = await fetch(`http://localhost:3001/api/admin/rooms/${selectedRoom.id}/upload-images`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      const result = await response.json();
+      console.log('📸 Uploading images for room ID:', selectedRoom.id);
+      console.log('� Files to upload:', selectedImages.map(f => ({ name: f.name, size: f.size, type: f.type })));
+      
+      const result = await roomsAPI.uploadImages(selectedRoom.id, selectedImages);
+      console.log('📸 Upload result:', result);
 
       if (result.success) {
         toast.success(result.message);
@@ -561,15 +580,7 @@ export default function RoomsManagement() {
     }
 
     try {
-      const response = await fetch(`http://localhost:3001/api/admin/rooms/${selectedRoom.id}/delete-image`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ filename }),
-      });
-
-      const result = await response.json();
+      const result = await roomsAPI.deleteImage(selectedRoom.id, filename);
 
       if (result.success) {
         toast.success(result.message);

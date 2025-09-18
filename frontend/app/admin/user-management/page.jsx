@@ -45,7 +45,7 @@ export default function UserManagement() {
   });
 
   const roles = [
-    { value: 'user', label: 'ผู้ใช้ทั่วไป', color: 'bg-blue-500' },
+    { value: 'guest', label: 'ผู้ใช้ทั่วไป', color: 'bg-blue-500' },
     { value: 'staff', label: 'พนักงาน', color: 'bg-green-500' },
     { value: 'admin', label: 'ผู้ดูแล', color: 'bg-purple-500' },
     { value: 'super_admin', label: 'ผู้ดูแลระบบ', color: 'bg-red-500' }
@@ -382,7 +382,7 @@ export default function UserManagement() {
                               </div>
                               <div className="ml-4">
                                 <div className="text-sm font-medium text-gray-900">
-                                  {userItem.fullName || 'ไม่ระบุ'}
+                                  {`${userItem.first_name || ''} ${userItem.last_name || ''}`.trim() || userItem.fullName || 'ไม่ระบุ'}
                                 </div>
                                 <div className="text-sm text-gray-500 flex items-center">
                                   <Mail className="w-4 h-4 mr-1" />

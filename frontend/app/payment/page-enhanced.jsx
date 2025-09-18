@@ -47,13 +47,55 @@ export default function PaymentPage() {
 
   const fetchLegacySettings = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/payment-settings');
+      // เพิ่ม timestamp เพื่อป้องกัน cache
+      const timestamp = new Date().getTime();
+      // เรียก admin payment settings เพื่อใช้ข้อมูลที่แอดมินตั้งค่า
+      const response = await fetch(`http://localhost:3001/api/admin/payment-settings?t=${timestamp}`, {
+        method: 'GET',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
       if (response.ok) {
-        const data = await response.json();
-        setLegacySettings(data);
+        const result = await response.json();
+        console.log('📋 Admin payment settings loaded:', result);
+        
+        if (result.success && result.data) {
+          // แปลงข้อมูลให้เข้ากับรูปแบบเดิม
+          const legacyFormat = {
+            qrCodeUrl: result.data.promptPay.qrCodeUrl,
+            bankName: result.data.bankTransfer.bankName,
+            bankAccount: result.data.bankTransfer.accountNumber,
+            accountName: result.data.bankTransfer.accountName,
+            phoneNumber: result.data.promptPay.phoneNumber
+          };
+          
+          console.log('🔄 Legacy format for enhanced page:', legacyFormat);
+          setLegacySettings(legacyFormat);
+        }
+      } else {
+        console.log('⚠️ Admin API failed, trying fallback...');
+        // ลองใช้ API ธรรมดา (ถ้ามี)
+        const fallbackResponse = await fetch('http://localhost:3001/api/simple-payment-settings');
+        if (fallbackResponse.ok) {
+          const fallbackResult = await fallbackResponse.json();
+          if (fallbackResult.success) {
+            setLegacySettings(fallbackResult.data);
+          }
+        }
       }
-    } catch (err) {
-      console.error('Error fetching legacy settings:', err);
+    } catch (error) {
+      console.error('Error fetching legacy settings:', error);
+      // ใช้ค่าเริ่มต้นถ้าไม่สามารถดึงข้อมูลได้
+      setLegacySettings({
+        qrCodeUrl: '/uploads/qr-code.svg',
+        bankName: 'ธนาคารกสิกรไทย',
+        bankAccount: '123-4-56789-0',
+        accountName: 'Hotel Booking System',
+        phoneNumber: '081-234-5678'
+      });
     }
   };
 

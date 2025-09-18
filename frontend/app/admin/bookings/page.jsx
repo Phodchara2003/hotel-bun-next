@@ -102,6 +102,7 @@ export default function BookingManagement() {
         calculateStats(response.data);
       } else if (response.bookings) {
         // Handle alternative response format
+        console.log('Alternative booking data:', response.bookings[0]); // Debug log
         setBookings(response.bookings);
         calculateStats(response.bookings);
       }
@@ -359,7 +360,7 @@ export default function BookingManagement() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-900 dark:to-neutral-800">
-      <div className="container mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Admin Navigation */}
         <AdminNavigation 
           title="จัดการการจอง"
@@ -387,89 +388,89 @@ export default function BookingManagement() {
         </div>
 
         {/* Stats Cards */}
-        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-6 mb-8 transform transition-all duration-700 delay-200 ease-out ${
+        <div className={`grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4 lg:gap-6 mb-8 transform transition-all duration-700 delay-200 ease-out ${
           isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
         }`}>
-          <div className="bg-white dark:bg-neutral-800 rounded-xl p-6 shadow-lg border border-neutral-200 dark:border-neutral-700">
+          <div className="bg-white dark:bg-neutral-800 rounded-xl p-3 sm:p-6 shadow-lg border border-neutral-200 dark:border-neutral-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">การจองทั้งหมด</p>
-                <p className="text-2xl font-bold text-neutral-900 dark:text-white">{stats.totalBookings}</p>
+                <p className="text-xs sm:text-sm font-medium text-neutral-600 dark:text-neutral-400">การจองทั้งหมด</p>
+                <p className="text-lg sm:text-2xl font-bold text-neutral-900 dark:text-white">{stats.totalBookings}</p>
               </div>
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              <div className="w-8 h-8 sm:w-12 sm:h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                <Calendar className="h-4 w-4 sm:h-6 sm:w-6 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-neutral-800 rounded-xl p-6 shadow-lg border border-neutral-200 dark:border-neutral-700">
+          <div className="bg-white dark:bg-neutral-800 rounded-xl p-3 sm:p-6 shadow-lg border border-neutral-200 dark:border-neutral-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">รอการยืนยัน</p>
-                <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.pendingBookings}</p>
+                <p className="text-xs sm:text-sm font-medium text-neutral-600 dark:text-neutral-400">รอการยืนยัน</p>
+                <p className="text-lg sm:text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.pendingBookings}</p>
               </div>
-              <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900 rounded-lg flex items-center justify-center">
-                <Clock className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
+              <div className="w-8 h-8 sm:w-12 sm:h-12 bg-yellow-100 dark:bg-yellow-900 rounded-lg flex items-center justify-center">
+                <Clock className="h-4 w-4 sm:h-6 sm:w-6 text-yellow-600 dark:text-yellow-400" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-neutral-800 rounded-xl p-6 shadow-lg border border-neutral-200 dark:border-neutral-700">
+          <div className="bg-white dark:bg-neutral-800 rounded-xl p-3 sm:p-6 shadow-lg border border-neutral-200 dark:border-neutral-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">ยืนยันแล้ว</p>
-                <p className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.confirmedBookings}</p>
+                <p className="text-xs sm:text-sm font-medium text-neutral-600 dark:text-neutral-400">ยืนยันแล้ว</p>
+                <p className="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400">{stats.confirmedBookings}</p>
               </div>
-              <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
-                <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+              <div className="w-8 h-8 sm:w-12 sm:h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                <CheckCircle className="h-4 w-4 sm:h-6 sm:w-6 text-green-600 dark:text-green-400" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-neutral-800 rounded-xl p-6 shadow-lg border border-neutral-200 dark:border-neutral-700">
+          <div className="bg-white dark:bg-neutral-800 rounded-xl p-3 sm:p-6 shadow-lg border border-neutral-200 dark:border-neutral-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">สำเร็จแล้ว</p>
-                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.completedBookings}</p>
+                <p className="text-xs sm:text-sm font-medium text-neutral-600 dark:text-neutral-400">สำเร็จแล้ว</p>
+                <p className="text-lg sm:text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.completedBookings}</p>
               </div>
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                <CheckCircle className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              <div className="w-8 h-8 sm:w-12 sm:h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                <CheckCircle className="h-4 w-4 sm:h-6 sm:w-6 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-neutral-800 rounded-xl p-6 shadow-lg border border-neutral-200 dark:border-neutral-700">
+          <div className="bg-white dark:bg-neutral-800 rounded-xl p-3 sm:p-6 shadow-lg border border-neutral-200 dark:border-neutral-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">ยกเลิกแล้ว</p>
-                <p className="text-2xl font-bold text-red-600 dark:text-red-400">{stats.cancelledBookings}</p>
+                <p className="text-xs sm:text-sm font-medium text-neutral-600 dark:text-neutral-400">ยกเลิกแล้ว</p>
+                <p className="text-lg sm:text-2xl font-bold text-red-600 dark:text-red-400">{stats.cancelledBookings}</p>
               </div>
-              <div className="w-12 h-12 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center">
-                <XCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+              <div className="w-8 h-8 sm:w-12 sm:h-12 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center">
+                <XCircle className="h-4 w-4 sm:h-6 sm:w-6 text-red-600 dark:text-red-400" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-neutral-800 rounded-xl p-6 shadow-lg border border-neutral-200 dark:border-neutral-700">
+          <div className="bg-white dark:bg-neutral-800 rounded-xl p-3 sm:p-6 shadow-lg border border-neutral-200 dark:border-neutral-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">วันนี้</p>
-                <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.todayBookings}</p>
+                <p className="text-xs sm:text-sm font-medium text-neutral-600 dark:text-neutral-400">วันนี้</p>
+                <p className="text-lg sm:text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.todayBookings}</p>
               </div>
-              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
-                <Users className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+              <div className="w-8 h-8 sm:w-12 sm:h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
+                <Users className="h-4 w-4 sm:h-6 sm:w-6 text-purple-600 dark:text-purple-400" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-neutral-800 rounded-xl p-6 shadow-lg border border-neutral-200 dark:border-neutral-700">
+          <div className="bg-white dark:bg-neutral-800 rounded-xl p-3 sm:p-6 shadow-lg border border-neutral-200 dark:border-neutral-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">รายได้รวม</p>
-                <p className="text-2xl font-bold text-green-600 dark:text-green-400">{formatPrice(stats.totalRevenue)}</p>
+                <p className="text-xs sm:text-sm font-medium text-neutral-600 dark:text-neutral-400">รายได้รวม</p>
+                <p className="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400">{formatPrice(stats.totalRevenue)}</p>
               </div>
-              <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
-                <Receipt className="h-6 w-6 text-green-600 dark:text-green-400" />
+              <div className="w-8 h-8 sm:w-12 sm:h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                <Receipt className="h-4 w-4 sm:h-6 sm:w-6 text-green-600 dark:text-green-400" />
               </div>
             </div>
           </div>
@@ -486,7 +487,7 @@ export default function BookingManagement() {
             ค้นหาและกรองข้อมูล
           </h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
             {/* Search */}
             <div>
               <label className="block text-sm font-semibold text-neutral-800 dark:text-neutral-200 mb-3">
@@ -603,37 +604,39 @@ export default function BookingManagement() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-neutral-50 dark:bg-neutral-900">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                      รหัสจอง
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                      ผู้เข้าพัก
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                      ห้องพัก
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                      วันที่เข้าพัก
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                      วันที่ออก
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                      จำนวนเงิน
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                      สถานะ
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                      จัดการ
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden lg:block overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-neutral-50 dark:bg-neutral-900">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                        รหัสจอง
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                        ผู้เข้าพัก
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                        ห้องพัก
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                        วันที่เข้าพัก
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                        วันที่ออก
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                        จำนวนเงิน
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                        สถานะ
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                        จัดการ
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
                   {filteredBookings.map((booking) => (
                     <tr key={booking.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -663,8 +666,13 @@ export default function BookingManagement() {
                           {booking.room_number || 'ไม่ระบุ'}
                         </div>
                         <div className="text-sm text-neutral-500 dark:text-neutral-400">
-                          {booking.room_type || 'ไม่ระบุ'}
+                          {booking.room_type_name || booking.room_type || 'ไม่ระบุประเภทห้อง'}
                         </div>
+                        {booking.hotel_name && (
+                          <div className="text-xs text-neutral-400">
+                            {booking.hotel_name}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 dark:text-white">
                         {formatDate(booking.check_in_date)}
@@ -673,7 +681,7 @@ export default function BookingManagement() {
                         {formatDate(booking.check_out_date)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900 dark:text-white">
-                        {formatPrice(booking.total_amount)}
+                        {formatPrice(booking.total_amount || booking.total_price || booking.totalAmount || booking.totalPrice || 0)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getStatusBadge(booking.status)}
@@ -745,6 +753,124 @@ export default function BookingManagement() {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile/Tablet Card View */}
+            <div className="block lg:hidden space-y-4">
+              {filteredBookings.map((booking) => (
+                <div key={booking.id} className="bg-white dark:bg-neutral-800 rounded-xl p-4 shadow-lg border border-neutral-200 dark:border-neutral-700">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-12 h-12 bg-primary-100 dark:bg-primary-900 rounded-full flex items-center justify-center">
+                        <User className="h-6 w-6 text-primary-600 dark:text-primary-400" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-neutral-900 dark:text-white">
+                          {booking.guest_name || 'ไม่ระบุ'}
+                        </h3>
+                        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                          {booking.booking_id || `BK${booking.id}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {getStatusBadge(booking.status)}
+                      <button
+                        onClick={() => {
+                          setSelectedBooking(booking);
+                          setShowBookingModal(true);
+                        }}
+                        className="p-2 text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-neutral-500 dark:text-neutral-400">ห้องพัก:</span>
+                      <p className="font-medium text-neutral-900 dark:text-white">
+                        {booking.room_type_name || booking.room_type || 'ไม่ระบุประเภทห้อง'}
+                      </p>
+                      {booking.hotel_name && (
+                        <p className="text-xs text-neutral-400">{booking.hotel_name}</p>
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-neutral-500 dark:text-neutral-400">จำนวนเงิน:</span>
+                      <p className="font-bold text-green-600 dark:text-green-400">
+                        {formatPrice(booking.total_amount || booking.total_price || booking.totalAmount || booking.totalPrice || 0)}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-neutral-500 dark:text-neutral-400">เข้าพัก:</span>
+                      <p className="font-medium text-neutral-900 dark:text-white">
+                        {formatDate(booking.check_in_date)}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-neutral-500 dark:text-neutral-400">ออก:</span>
+                      <p className="font-medium text-neutral-900 dark:text-white">
+                        {formatDate(booking.check_out_date)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                    <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                      {booking.guest_email || 'ไม่ระบุอีเมล'}
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {canEdit(user) && (
+                        <button
+                          onClick={() => openEditModal(booking)}
+                          className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                      )}
+                      
+                      {canManageBookings(user) && booking.status === 'pending' && (
+                        <button
+                          onClick={() => {
+                            setConfirmAction(() => () => handleStatusUpdate(booking.id, 'confirmed'));
+                            setShowConfirmModal(true);
+                          }}
+                          className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                        </button>
+                      )}
+
+                      {canManageBookings(user) && booking.status !== 'cancelled' && (
+                        <button
+                          onClick={() => {
+                            setConfirmAction(() => () => handleStatusUpdate(booking.id, 'cancelled'));
+                            setShowConfirmModal(true);
+                          }}
+                          className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </button>
+                      )}
+
+                      {canDelete(user) && (
+                        <button
+                          onClick={() => {
+                            setConfirmAction(() => () => handleDeleteBooking(booking.id));
+                            setShowConfirmModal(true);
+                          }}
+                          className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            </>
           )}
         </div>
       </div>
@@ -824,7 +950,7 @@ export default function BookingManagement() {
                       ห้องพัก
                     </label>
                     <p className="text-neutral-900 dark:text-white">
-                      {selectedBooking.room_number || 'ไม่ระบุ'} ({selectedBooking.room_type || 'ไม่ระบุ'})
+                      {selectedBooking.room_number || 'ไม่ระบุ'} ({selectedBooking.room_type_name || selectedBooking.room_type || 'ไม่ระบุ'})
                     </p>
                   </div>
                   <div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { bookingsAPI } from '@/lib/api';
+import api from '@/lib/api';
 import { toast } from 'react-hot-toast';
 import Image from 'next/image';
 
@@ -58,7 +58,7 @@ export default function DetailedBookingsPage() {
   const fetchDetailedBookings = async () => {
     try {
       setLoading(true);
-      const response = await bookingsAPI.getDetailedBookingsForAdmin();
+      const response = await api.getDetailedBookingsForAdmin();
       console.log('📊 Detailed bookings response:', response);
       
       if (response.success) {

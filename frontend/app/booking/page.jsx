@@ -64,12 +64,37 @@ export default function BookingPage() {
   const fetchPaymentSettings = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:3001/api/simple-payment-settings');
+      // เรียก admin payment settings เพื่อใช้ข้อมูลที่แอดมินตั้งค่า
+      const response = await fetch('http://localhost:3001/api/admin/payment-settings');
       
       if (response.ok) {
-        const data = await response.json();
-        setPaymentSettings(data);
-        console.log('Payment settings loaded:', data);
+        const result = await response.json();
+        console.log('📋 Admin payment settings loaded for booking:', result);
+        
+        if (result.success && result.data) {
+          // แปลงข้อมูลให้เข้ากับรูปแบบเดิม
+          const legacyFormat = {
+            success: true,
+            data: {
+              qrCodeUrl: result.data.promptPay.qrCodeUrl,
+              bankName: result.data.bankTransfer.bankName,
+              bankAccount: result.data.bankTransfer.accountNumber,
+              accountName: result.data.bankTransfer.accountName,
+              phoneNumber: result.data.promptPay.phoneNumber
+            }
+          };
+          setPaymentSettings(legacyFormat);
+          console.log('💾 Booking payment settings:', legacyFormat);
+        }
+      } else {
+        console.warn('❌ Failed to load admin settings for booking, falling back to simple settings');
+        // Fallback เรียก simple settings
+        const fallbackResponse = await fetch('http://localhost:3001/api/simple-payment-settings');
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json();
+          setPaymentSettings(fallbackData);
+          console.log('💳 Fallback booking payment settings loaded:', fallbackData);
+        }
       }
     } catch (error) {
       console.error('Error fetching payment settings:', error);

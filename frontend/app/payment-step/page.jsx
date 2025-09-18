@@ -15,6 +15,8 @@ export default function PaymentStepPage() {
   const [uploadStatus, setUploadStatus] = useState('pending');
   const [uploadMessage, setUploadMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [paymentChanges, setPaymentChanges] = useState([]);
+  const [showChangeNotification, setShowChangeNotification] = useState(false);
 
   // รับข้อมูลจาก URL
   const bookingData = {
@@ -32,23 +34,70 @@ export default function PaymentStepPage() {
 
   useEffect(() => {
     fetchPaymentSettings();
+    fetchRecentPaymentChanges();
   }, []);
 
   const fetchPaymentSettings = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:3001/api/simple-payment-settings');
+      // เพิ่ม timestamp เพื่อป้องกัน cache
+      const timestamp = new Date().getTime();
+      // เรียก admin payment settings เพื่อใช้ข้อมูลที่แอดมินตั้งค่า
+      const response = await fetch(`http://localhost:3001/api/admin/payment-settings?t=${timestamp}`, {
+        method: 'GET'
+      });
       if (response.ok) {
         const result = await response.json();
-        console.log('Payment settings loaded:', result);
+        console.log('📋 Admin payment settings loaded for payment step:', result);
+        
         if (result.success && result.data) {
-          setPaymentSettings(result.data);
+          // แปลงข้อมูลให้เข้ากับรูปแบบเดิม
+          const legacyFormat = {
+            qrCodeUrl: result.data.promptPay.qrCodeUrl,
+            bankName: result.data.bankTransfer.bankName,
+            bankAccount: result.data.bankTransfer.accountNumber,
+            accountName: result.data.bankTransfer.accountName,
+            phoneNumber: result.data.promptPay.phoneNumber
+          };
+          setPaymentSettings(legacyFormat);
+          console.log('💾 Payment step settings:', legacyFormat);
+        }
+      } else {
+        console.warn('❌ Failed to load admin settings for payment step, falling back to simple settings');
+        // Fallback เรียก simple settings
+        const fallbackResponse = await fetch('http://localhost:3001/api/simple-payment-settings');
+        if (fallbackResponse.ok) {
+          const fallbackResult = await fallbackResponse.json();
+          if (fallbackResult.success && fallbackResult.data) {
+            setPaymentSettings(fallbackResult.data);
+          }
         }
       }
     } catch (err) {
       console.error('Error fetching payment settings:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchRecentPaymentChanges = async () => {
+    try {
+      // ดึง payment changes ย้อนหลัง 24 ชั่วโมง
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const since = yesterday.toISOString().split('T')[0];
+      
+      const response = await fetch(`http://localhost:3001/api/payment-settings-changes?limit=5&since=${since}`);
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data && result.data.length > 0) {
+          setPaymentChanges(result.data);
+          setShowChangeNotification(true);
+          console.log('📋 Recent payment changes:', result.data);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching payment changes:', err);
     }
   };
 

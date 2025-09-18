@@ -504,6 +504,72 @@ export const roomsAPI = {
     const response = await api.patch(`/admin/rooms/${id}/toggle-availability`);
     return response.data;
   },
+
+  // Upload room images (Admin) - ใช้ axios instance แทน fetch
+  uploadImages: async (roomId, files) => {
+    try {
+      console.log('📸 API: Uploading images for room:', roomId);
+      console.log('📸 API: Files count:', files.length);
+      console.log('📸 API: Files details:', files.map(f => ({ name: f.name, size: f.size, type: f.type })));
+      
+      const formData = new FormData();
+      files.forEach((file, index) => {
+        console.log(`📸 API: Appending file ${index + 1}:`, file.name);
+        formData.append('roomImages', file);
+      });
+
+      console.log('📸 API: Making request with axios...');
+      const response = await api.post(`/admin/rooms/${roomId}/upload-images`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      console.log('📸 API: Upload response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ API: Upload images error:', error);
+      console.error('❌ API: Error response:', error.response?.data);
+      console.error('❌ API: Error status:', error.response?.status);
+      throw error;
+    }
+  },
+
+  // Delete room image (Admin) - ใช้ axios instance แทน fetch
+  deleteImage: async (roomId, filename) => {
+    try {
+      console.log('🗑️ API: Deleting image:', filename, 'from room:', roomId);
+      
+      const response = await api.delete(`/admin/rooms/${roomId}/delete-image`, {
+        data: { filename }
+      });
+
+      console.log('🗑️ API: Delete response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ API: Delete image error:', error);
+      console.error('❌ API: Error response:', error.response?.data);
+      throw error;
+    }
+  },
+
+  // Get room images (Admin) - API ใหม่
+  getRoomImages: async (roomId) => {
+    try {
+      console.log('🖼️ API: Getting images for room:', roomId);
+      
+      const response = await api.get(`/admin/rooms`);
+
+      const result = response.data;
+      console.log('�️ API: Get images response:', result);
+      // ค้นหาห้องที่ต้องการและคืน images
+      const room = result.data?.find(r => r.id === parseInt(roomId));
+      return { success: true, images: room?.images || [] };
+    } catch (error) {
+      console.error('❌ API: Get images error:', error);
+      throw error;
+    }
+  },
 };
 
 // Users Management API (Admin)
