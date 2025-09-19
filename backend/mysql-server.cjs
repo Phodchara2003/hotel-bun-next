@@ -2795,6 +2795,13 @@ const server = createServer(async (req, res) => {
           
           setCorsHeaders(res);
           
+          // Handle OPTIONS for preflight
+          if (req.method === 'OPTIONS') {
+            res.writeHead(200);
+            res.end();
+            return;
+          }
+          
           if (req.method === 'GET' && roomId && !action) {
             // GET /api/admin/rooms/{id}
             try {
@@ -2820,23 +2827,57 @@ const server = createServer(async (req, res) => {
           } else if (req.method === 'PUT' && roomId && !action) {
             // PUT /api/admin/rooms/{id}
             let body = '';
+            
             req.on('data', chunk => {
               body += chunk.toString();
             });
             
+            req.on('error', (error) => {
+              console.error('❌ Error reading request body:', error);
+              sendJSON(res, 400, {
+                success: false,
+                error: 'Invalid request body'
+              });
+            });
+            
             req.on('end', async () => {
               try {
+                if (!body.trim()) {
+                  sendJSON(res, 400, {
+                    success: false,
+                    error: 'Request body is empty'
+                  });
+                  return;
+                }
+                
                 const roomData = JSON.parse(body);
                 console.log(`🏠 Updating room ${roomId}:`, roomData);
+                
+                if (!roomId || isNaN(parseInt(roomId))) {
+                  sendJSON(res, 400, {
+                    success: false,
+                    error: 'Invalid room ID'
+                  });
+                  return;
+                }
                 
                 const result = await updateRoom(parseInt(roomId), roomData);
                 sendJSON(res, result.success ? 200 : 400, result);
               } catch (error) {
-                console.error('❌ Error updating room:', error);
-                sendJSON(res, 500, {
-                  success: false,
-                  message: 'เกิดข้อผิดพลาดในการอัพเดทห้องพัก'
-                });
+                if (error instanceof SyntaxError) {
+                  console.error('❌ JSON parsing error:', error);
+                  sendJSON(res, 400, {
+                    success: false,
+                    error: 'Invalid JSON format'
+                  });
+                } else {
+                  console.error('❌ Error updating room:', error);
+                  sendJSON(res, 500, {
+                    success: false,
+                    error: 'Internal server error',
+                    message: 'เกิดข้อผิดพลาดในการอัพเดทห้องพัก'
+                  });
+                }
               }
             });
           } else if (req.method === 'POST' && pathname.includes('/upload-images')) {
@@ -3416,6 +3457,24 @@ process.on('SIGINT', async () => {
     console.log('✅ Server stopped successfully');
     process.exit(0);
   });
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('💥 Uncaught Exception:', error);
+  console.error('Stack:', error.stack);
+  // Don't exit the process, just log the error
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit the process, just log the error
+});
+
+// Handle warning events
+process.on('warning', (warning) => {
+  console.warn('⚠️  Warning:', warning.name, warning.message);
 });
 
 // Start the server

@@ -86,7 +86,6 @@ export default function AdminDashboard() {
     bookingChart: [],
   });
 
-  const [activeTab, setActiveTab] = useState('overview');
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState({
     dateRange: '30', // 7, 30, 90 days
@@ -108,66 +107,6 @@ export default function AdminDashboard() {
     status: 'pending'
   });
   const [isUpdating, setIsUpdating] = useState(false);
-
-  // Define main navigation tabs
-  const mainTabs = [
-    { 
-      id: 'overview', 
-      label: 'ภาพรวม', 
-      icon: BarChart3, 
-      color: 'bg-blue-500',
-      description: 'สถิติและข้อมูลสำคัญ'
-    },
-    { 
-      id: 'bookings', 
-      label: 'การจอง', 
-      icon: Calendar, 
-      color: 'bg-green-500',
-      description: 'จัดการการจองห้องพัก'
-    },
-    { 
-      id: 'users', 
-      label: 'ผู้ใช้งาน', 
-      icon: Users, 
-      color: 'bg-purple-500',
-      description: 'จัดการข้อมูลผู้ใช้และสิทธิ์'
-    },
-    { 
-      id: 'hotels', 
-      label: 'โรงแรม', 
-      icon: Building, 
-      color: 'bg-orange-500',
-      description: 'จัดการข้อมูลโรงแรมและห้องพัก'
-    },
-    { 
-      id: 'reviews', 
-      label: 'รีวิว', 
-      icon: Star, 
-      color: 'bg-yellow-500',
-      description: 'จัดการรีวิวและคะแนน'
-    },
-    { 
-      id: 'payment-settings', 
-      label: 'ตั้งค่าการชำระเงิน', 
-      icon: CreditCard, 
-      color: 'bg-green-600',
-      description: 'จัดการช่องทางการชำระเงิน'
-    },
-    { 
-      id: 'reports', 
-      label: 'รายงาน', 
-      icon: FileText, 
-      color: 'bg-indigo-500',
-      description: 'รายงานและสถิติละเอียด'
-    },
-    { 
-      id: 'settings', 
-      label: 'ตั้งค่า', 
-      icon: Settings, 
-      color: 'bg-gray-500',
-      description: 'ตั้งค่าระบบและการแจ้งเตือน'
-    }
-  ];
 
   // Define fetchUsers with useCallback to prevent dependency issues
   const fetchUsers = useCallback(async () => {
@@ -257,17 +196,6 @@ export default function AdminDashboard() {
       return () => clearTimeout(timeoutId);
     }
   }, [filters.dateRange]);
-
-  // Call fetchUsers when activeTab is 'users' - with debouncing
-  useEffect(() => {
-    if (activeTab === 'users' && isAuthenticated && isStaffOrAdmin(user)) {
-      const timeoutId = setTimeout(() => {
-        fetchUsers();
-      }, 100);
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [activeTab, isAuthenticated, user]);
 
   const fetchDashboardData = async () => {
     try {
@@ -649,86 +577,20 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex space-x-8 overflow-x-auto">
-            {mainTabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center whitespace-nowrap ${
-                    activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <Icon className="h-4 w-4 mr-2" />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {activeTab === 'overview' && (
-          <OverviewTab 
-            data={dashboardData} 
-            user={user}
-          />
-        )}
-        
-        {activeTab === 'bookings' && (
-          <BookingsTab 
-            bookings={dashboardData.recentBookings}
-            stats={dashboardData.stats}
-            user={user}
-          />
-        )}
-        
-        {activeTab === 'users' && (
-          <UsersTab 
-            users={dashboardData.recentUsers}
-            stats={dashboardData.stats}
-            user={user}
-          />
-        )}
-        
-        {activeTab === 'hotels' && (
-          <HotelsTab 
-            hotels={dashboardData.topHotels}
-            stats={dashboardData.stats}
-            user={user}
-          />
-        )}
+        <OverviewTab 
+          data={dashboardData} 
+          user={user}
+        />
 
-        {activeTab === 'reviews' && (
-          <ReviewsTab 
-            reviews={dashboardData.recentReviews}
-            stats={dashboardData.stats}
-            user={user}
-          />
-        )}
 
-        {activeTab === 'payment-settings' && (
-          <PaymentSettingsTab user={user} />
-        )}
-        
-        {activeTab === 'reports' && (
-          <ReportsTab 
-            data={dashboardData}
-            user={user}
-          />
-        )}
-        
-        {activeTab === 'settings' && (
-          <SettingsTab user={user} />
-        )}
+
+
+
+
+
+
       </div>
 
       {/* Performance Dashboard Component */}
