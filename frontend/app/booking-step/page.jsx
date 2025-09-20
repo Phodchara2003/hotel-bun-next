@@ -3,12 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, MapPin, Star } from 'lucide-react';
+import { Calendar, Users, MapPin, Star, User } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 export default function BookingStepPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
 
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [hotels, setHotels] = useState([]);
@@ -32,9 +33,18 @@ export default function BookingStepPage() {
     fetchHotelsAndRooms();
   }, []);
 
+  // Auto-fill profile data when user is authenticated
+  useEffect(() => {
+    if (user && isAuthenticated) {
+      loadUserProfile();
+    }
+  }, [user, isAuthenticated]);
+
   useEffect(() => {
     if (roomId && roomTypes.length > 0) {
       const room = roomTypes.find(r => r.id === parseInt(roomId));
+      console.log('🏠 Selected room in booking-step:', room);
+      console.log('🖼️ Room images:', room?.images);
       setSelectedRoom(room);
     }
   }, [roomId, roomTypes]);
@@ -46,7 +56,7 @@ export default function BookingStepPage() {
       const hotelsRes = await fetch('http://localhost:3001/api/hotels');
       const hotelsData = await hotelsRes.json();
       
-      const roomsRes = await fetch('http://localhost:3001/api/room-types');
+      const roomsRes = await fetch('http://localhost:3001/api/room-types-with-images');
       const roomsData = await roomsRes.json();
       
       if (hotelsData.success) {
@@ -60,6 +70,93 @@ export default function BookingStepPage() {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load profile data for autofill
+  const loadUserProfile = async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      // ตรวจสอบ token จากหลายแหล่ง
+      let token = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('auth_token='))
+        ?.split('=')[1];
+      
+      // ถ้าไม่มี token ใน cookie ให้ลองหาใน localStorage
+      if (!token && typeof window !== 'undefined') {
+        token = localStorage.getItem('auth_token_persistent') || 
+                localStorage.getItem('auth_token_backup');
+      }
+
+      if (!token) {
+        console.warn('No token found for profile loading');
+        toast.error('ไม่พบข้อมูลการยืนยันตัวตน กรุณาเข้าสู่ระบบใหม่');
+        return;
+      }
+
+      const response = await fetch('/api/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const profile = data?.profile || {};
+        
+        console.log('📝 Loading profile data for booking-step form:', profile);
+        
+        // อัปเดตข้อมูลฟอร์มจากโปรไฟล์
+        const updatedFormData = {
+          ...bookingForm,
+          guestName: `${profile?.firstName || profile?.first_name || ''} ${profile?.lastName || profile?.last_name || ''}`.trim() || user?.name || '',
+          guestEmail: profile?.email || user?.email || '',
+          guestPhone: profile?.phone || user?.phone || ''
+        };
+        
+        setBookingForm(updatedFormData);
+        
+        console.log('✅ Booking-step auto-fill completed with data:', updatedFormData);
+
+        toast.success('ดึงข้อมูลจากโปรไฟล์เรียบร้อย', {
+          duration: 2000,
+          icon: '👤'
+        });
+      } else if (response.status === 401) {
+        // Token หมดอายุ
+        toast.error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+        router.push('/login');
+      } else {
+        // Fallback to user context data
+        console.log('📝 Using user context data for booking-step form');
+        const fallbackData = {
+          ...bookingForm,
+          guestName: user?.name || '',
+          guestEmail: user?.email || '',
+          guestPhone: user?.phone || ''
+        };
+        
+        setBookingForm(fallbackData);
+        toast.success('ใช้ข้อมูลผู้ใช้พื้นฐาน', {
+          duration: 2000,
+          icon: '👤'
+        });
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+      // Fallback to user context data
+      const fallbackData = {
+        ...bookingForm,
+        guestName: user?.name || '',
+        guestEmail: user?.email || '',
+        guestPhone: user?.phone || ''
+      };
+      
+      setBookingForm(fallbackData);
+      toast.error('เกิดข้อผิดพลาดในการดึงข้อมูลโปรไฟล์');
     }
   };
 
@@ -291,9 +388,20 @@ export default function BookingStepPage() {
               
               <div className="mb-4">
                 <img
-                  src={selectedRoom.image_url || "/api/placeholder/400/250"}
+                  src={
+                    selectedRoom.images && Array.isArray(selectedRoom.images) && selectedRoom.images.length > 0
+                      ? `/images/rooms/${selectedRoom.images[0]}`
+                      : "/images/rooms/placeholder.svg"
+                  }
                   alt={selectedRoom.name}
                   className="w-full h-48 object-cover rounded-lg"
+                  onLoad={() => {
+                    console.log('✅ Booking step image loaded:', selectedRoom.images?.[0]);
+                  }}
+                  onError={(e) => {
+                    console.log('❌ Booking step image failed:', selectedRoom.images?.[0]);
+                    e.target.src = "/images/rooms/placeholder.svg";
+                  }}
                 />
               </div>
 
@@ -399,6 +507,22 @@ export default function BookingStepPage() {
                 </div>
 
                 {/* Guest Information */}
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-medium text-gray-900">ข้อมูลผู้เข้าพัก</h4>
+                    {isAuthenticated && (
+                      <button
+                        type="button"
+                        onClick={loadUserProfile}
+                        className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                      >
+                        <User className="h-4 w-4" />
+                        ดึงข้อมูลจากโปรไฟล์
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     ชื่อผู้เข้าพัก <span className="text-red-500">*</span>

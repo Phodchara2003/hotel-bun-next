@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import NotificationCenter from '../../components/NotificationCenter';
 
 export default function ProfilePage() {
   const { user, updateUser, loading: authLoading } = useAuth();
@@ -23,7 +24,18 @@ export default function ProfilePage() {
     lastName: '',
     phone: '',
     email: '',
-    address: ''
+    address: '',
+    nationalId: ''
+  });
+
+  // เก็บข้อมูลสำรองสำหรับการยกเลิกการแก้ไข
+  const [originalData, setOriginalData] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    email: '',
+    address: '',
+    nationalId: ''
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -55,33 +67,43 @@ export default function ProfilePage() {
 
       if (response.ok) {
         const data = await response.json();
-        setFormData({
-          firstName: data.profile.firstName || '',
-          lastName: data.profile.lastName || '',
+        // โหลดข้อมูลที่มีอยู่แล้ว รวมทั้งข้อมูลที่เคยกรอกไว้
+        const initialData = {
+          firstName: data.profile.firstName || data.profile.first_name || '',
+          lastName: data.profile.lastName || data.profile.last_name || '',
           phone: data.profile.phone || '',
-          email: data.profile.email || '',
-          address: data.profile.address || ''
-        });
+          email: data.profile.email || user.email || '',
+          address: data.profile.address || '',
+          nationalId: data.profile.nationalId || data.profile.national_id || ''
+        };
+        setFormData(initialData);
+        setOriginalData(initialData); // เก็บข้อมูลสำรอง
       } else {
-        // Fallback to user data from context
-        setFormData({
+        // โหลดข้อมูลจาก user context ที่มีอยู่
+        const initialData = {
           firstName: user.first_name || user.firstName || '',
           lastName: user.last_name || user.lastName || '',
           phone: user.phone || '',
           email: user.email || '',
-          address: user.address || ''
-        });
+          address: user.address || '',
+          nationalId: user.national_id || user.nationalId || ''
+        };
+        setFormData(initialData);
+        setOriginalData(initialData); // เก็บข้อมูลสำรอง
       }
     } catch (error) {
       console.error('Error loading profile:', error);
-      // Fallback to user data from context
-      setFormData({
+      // โหลดข้อมูลจาก user context ที่มีอยู่
+      const initialData = {
         firstName: user.first_name || user.firstName || '',
         lastName: user.last_name || user.lastName || '',
         phone: user.phone || '',
         email: user.email || '',
-        address: user.address || ''
-      });
+        address: user.address || '',
+        nationalId: user.national_id || user.nationalId || ''
+      };
+      setFormData(initialData);
+      setOriginalData(initialData); // เก็บข้อมูลสำรอง
     }
   };
 
@@ -108,17 +130,54 @@ export default function ProfilePage() {
     );
   }
 
+  // Format National ID (14 digits)
+  const formatNationalId = (value) => {
+    const digits = value.replace(/\D/g, '');
+    const limitedDigits = digits.substring(0, 14);
+    
+    if (limitedDigits.length >= 14) {
+      return limitedDigits.replace(/(\d{1})(\d{4})(\d{5})(\d{2})(\d{2})/, '$1-$2-$3-$4-$5');
+    } else if (limitedDigits.length >= 12) {
+      return limitedDigits.replace(/(\d{1})(\d{4})(\d{5})(\d{2})(\d{0,2})/, '$1-$2-$3-$4-$5');
+    } else if (limitedDigits.length >= 10) {
+      return limitedDigits.replace(/(\d{1})(\d{4})(\d{5})(\d{0,2})/, '$1-$2-$3-$4');
+    } else if (limitedDigits.length >= 5) {
+      return limitedDigits.replace(/(\d{1})(\d{4})(\d{0,5})/, '$1-$2-$3');
+    } else if (limitedDigits.length >= 1) {
+      return limitedDigits.replace(/(\d{1})(\d{0,4})/, '$1-$2');
+    }
+    
+    return limitedDigits;
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    let processedValue = value;
+    
+    if (name === 'nationalId') {
+      processedValue = formatNationalId(value);
+    }
+    
+    const newData = {
+      ...formData,
+      [name]: processedValue
+    };
+    
+    setFormData(newData);
+    // อัปเดตข้อมูลสำรองด้วยเมื่อผู้ใช้กรอกข้อมูล
+    setOriginalData(newData);
   };
 
   const handleSave = async () => {
-    if (!formData.firstName || !formData.lastName || !formData.email) {
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.nationalId) {
       toast.error('กรุณากรอกข้อมูลให้ครบถ้วน');
+      return;
+    }
+
+    // Validate National ID format
+    const nationalIdDigits = formData.nationalId.replace(/\D/g, '');
+    if (nationalIdDigits.length !== 14) {
+      toast.error('รหัสบัตรประชาชนต้องมี 14 หลัก');
       return;
     }
 
@@ -143,7 +202,8 @@ export default function ProfilePage() {
             lastName: formData.lastName,
             phone: formData.phone,
             email: formData.email,
-            address: formData.address
+            address: formData.address,
+            nationalId: formData.nationalId
           }
         })
       });
@@ -153,6 +213,8 @@ export default function ProfilePage() {
       if (response.ok) {
         setMessage({ type: 'success', content: 'อัปเดตโปรไฟล์สำเร็จ' });
         setIsEditing(false);
+        // อัปเดตข้อมูลสำรองด้วยข้อมูลใหม่ที่บันทึกแล้ว
+        setOriginalData(formData);
         // อัปเดตข้อมูลใน AuthContext
         updateUser({
           ...user,
@@ -160,7 +222,8 @@ export default function ProfilePage() {
           last_name: formData.lastName,
           phone: formData.phone,
           email: formData.email,
-          address: formData.address
+          address: formData.address,
+          national_id: formData.nationalId
         });
         toast.success('อัปเดตโปรไฟล์สำเร็จ');
       } else {
@@ -253,14 +316,15 @@ export default function ProfilePage() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header with Back Button */}
         <div className="mb-8">
-          <div className="flex items-center mb-4">
+          <div className="flex items-center justify-between mb-4">
             <Link 
               href={getBackLink()}
-              className="inline-flex items-center text-gray-600 hover:text-gray-900 mr-4"
+              className="inline-flex items-center text-gray-600 hover:text-gray-900"
             >
               <ArrowLeft className="h-5 w-5 mr-1" />
               กลับ
             </Link>
+            <NotificationCenter />
           </div>
           <h1 className="text-3xl font-bold text-gray-900">โปรไฟล์ของฉัน</h1>
           <p className="mt-2 text-gray-600">จัดการข้อมูลส่วนตัวและรหัสผ่าน</p>
@@ -292,10 +356,21 @@ export default function ProfilePage() {
                     ข้อมูลส่วนตัว
                   </h3>
                   <button
-                    onClick={() => setIsEditing(!isEditing)}
-                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                    onClick={() => {
+                      if (isEditing) {
+                        // ยกเลิกการแก้ไข - คืนค่าเดิม
+                        setFormData(originalData);
+                      }
+                      setIsEditing(!isEditing);
+                    }}
+                    className={`inline-flex items-center px-4 py-2 border rounded-md text-sm font-medium transition-colors ${
+                      isEditing 
+                        ? 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50' 
+                        : 'border-emerald-500 text-white bg-emerald-600 hover:bg-emerald-700'
+                    }`}
                   >
-                    {isEditing ? 'ยกเลิก' : 'แก้ไข'}
+                    <Edit className="h-4 w-4 mr-2" />
+                    {isEditing ? 'ยกเลิก' : 'แก้ไขข้อมูล'}
                   </button>
                 </div>
               </div>
@@ -309,6 +384,7 @@ export default function ProfilePage() {
                       value={formData.firstName}
                       onChange={handleInputChange}
                       disabled={!isEditing}
+                      placeholder=""
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
                     />
                   </div>
@@ -320,6 +396,7 @@ export default function ProfilePage() {
                       value={formData.lastName}
                       onChange={handleInputChange}
                       disabled={!isEditing}
+                      placeholder=""
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
                     />
                   </div>
@@ -335,6 +412,7 @@ export default function ProfilePage() {
                       value={formData.email}
                       onChange={handleInputChange}
                       disabled={!isEditing}
+                      placeholder=""
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
                     />
                   </div>
@@ -350,6 +428,26 @@ export default function ProfilePage() {
                       value={formData.phone}
                       onChange={handleInputChange}
                       disabled={!isEditing}
+                      placeholder=""
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    รหัสบัตรประชาชน <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      name="nationalId"
+                      value={formData.nationalId}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      placeholder=""
+                      required
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
                     />
                   </div>
@@ -365,6 +463,7 @@ export default function ProfilePage() {
                       value={formData.address}
                       onChange={handleInputChange}
                       disabled={!isEditing}
+                      placeholder=""
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
                     />
                   </div>
@@ -373,7 +472,11 @@ export default function ProfilePage() {
                 {isEditing && (
                   <div className="mt-8 flex justify-end space-x-3">
                     <button
-                      onClick={() => setIsEditing(false)}
+                      onClick={() => {
+                        // ยกเลิกการแก้ไข - คืนค่าเดิม
+                        setFormData(originalData);
+                        setIsEditing(false);
+                      }}
                       className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                     >
                       ยกเลิก

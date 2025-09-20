@@ -45,6 +45,21 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
 
+    // Basic validation
+    if (!formData.email || !formData.password) {
+      toast.error('กรุณากรอกอีเมลและรหัสผ่าน');
+      setLoading(false);
+      return;
+    }
+
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast.error('รูปแบบอีเมลไม่ถูกต้อง');
+      setLoading(false);
+      return;
+    }
+
     try {
       // Pass both credentials and rememberMe preference
       const result = await login(
@@ -55,10 +70,37 @@ export default function LoginPage() {
       if (result.success) {
         toast.success('เข้าสู่ระบบสำเร็จ!');
         router.push('/');
+      } else {
+        // Handle specific login errors
+        if (result.error) {
+          if (result.error.includes('email') || result.error.includes('ไม่พบผู้ใช้')) {
+            toast.error('ไม่พบอีเมลนี้ในระบบ กรุณาตรวจสอบอีเมลอีกครั้ง');
+          } else if (result.error.includes('password') || result.error.includes('รหัสผ่าน')) {
+            toast.error('รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง');
+          } else if (result.error.includes('Invalid credentials') || result.error.includes('Unauthorized')) {
+            toast.error('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+          } else {
+            toast.error(result.error || 'เข้าสู่ระบบไม่สำเร็จ');
+          }
+        } else {
+          toast.error('เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+        }
       }
     } catch (error) {
       console.error('Login error:', error);
-      toast.error('เข้าสู่ระบบไม่สำเร็จ');
+      
+      // Handle different types of errors
+      if (error.response?.status === 401) {
+        toast.error('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+      } else if (error.response?.status === 404) {
+        toast.error('ไม่พบบัญชีผู้ใช้นี้');
+      } else if (error.response?.status === 429) {
+        toast.error('พยายามเข้าสู่ระบบหลายครั้งเกินไป กรุณารอสักครู่');
+      } else if (error.message?.includes('Network')) {
+        toast.error('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+      } else {
+        toast.error('เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง');
+      }
     } finally {
       setLoading(false);
     }

@@ -684,7 +684,19 @@ export default function BookingManagement() {
                         {formatPrice(booking.total_amount || booking.total_price || booking.totalAmount || booking.totalPrice || 0)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(booking.status)}
+                        <div className="flex items-center space-x-2">
+                          {getStatusBadge(booking.status)}
+                          {booking.payment_slips && booking.payment_slips.length > 0 && (
+                            <div className="relative group">
+                              <div className="w-6 h-6 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+                                <Receipt className="h-3 w-3 text-green-600 dark:text-green-400" />
+                              </div>
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                                มีสลีปการชำระเงิน ({booking.payment_slips.length})
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex items-center space-x-2">
@@ -767,9 +779,21 @@ export default function BookingManagement() {
                         <h3 className="font-semibold text-neutral-900 dark:text-white">
                           {booking.guest_name || 'ไม่ระบุ'}
                         </h3>
-                        <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                          {booking.booking_id || `BK${booking.id}`}
-                        </p>
+                        <div className="flex items-center space-x-2">
+                          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                            {booking.booking_id || `BK${booking.id}`}
+                          </p>
+                          {booking.payment_slips && booking.payment_slips.length > 0 && (
+                            <div className="relative group">
+                              <div className="w-5 h-5 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+                                <Receipt className="h-3 w-3 text-green-600 dark:text-green-400" />
+                              </div>
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                                มีสลีปการชำระเงิน ({booking.payment_slips.length})
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -1009,6 +1033,79 @@ export default function BookingManagement() {
                     คำขอพิเศษ
                   </h4>
                   <p className="text-neutral-900 dark:text-white">{selectedBooking.special_requests}</p>
+                </div>
+              )}
+
+              {/* Payment Slips */}
+              {selectedBooking.payment_slips && selectedBooking.payment_slips.length > 0 && (
+                <div className="bg-neutral-50 dark:bg-neutral-700 rounded-lg p-4">
+                  <h4 className="font-semibold text-neutral-900 dark:text-white mb-3 flex items-center">
+                    <Receipt className="h-5 w-5 mr-2" />
+                    หลักฐานการชำระเงิน ({selectedBooking.payment_slips.length})
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {selectedBooking.payment_slips.map((slip, index) => (
+                      <div key={slip.id || index} className="border border-neutral-200 dark:border-neutral-600 rounded-lg p-3">
+                        <div className="mb-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
+                              สลีป #{slip.id || index + 1}
+                            </span>
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              slip.status === 'approved' 
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                                : slip.status === 'pending'
+                                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+                                : slip.status === 'rejected'
+                                ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+                                : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+                            }`}>
+                              {slip.status === 'approved' ? 'อนุมัติแล้ว' : 
+                               slip.status === 'pending' ? 'รอตรวจสอบ' : 
+                               slip.status === 'rejected' ? 'ปฏิเสธ' : 'ไม่ระบุ'}
+                            </span>
+                          </div>
+                          {slip.payment_date && (
+                            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                              วันที่: {formatDate(slip.payment_date)}
+                            </p>
+                          )}
+                          {slip.amount && (
+                            <p className="text-sm font-semibold text-green-600 dark:text-green-400">
+                              จำนวนเงิน: {formatPrice(slip.amount)}
+                            </p>
+                          )}
+                        </div>
+                        
+                        {slip.file_path && (
+                          <div className="relative">
+                            <img
+                              src={`http://localhost:3001${slip.file_path}`}
+                              alt={`Payment slip ${slip.id || index + 1}`}
+                              className="w-full h-32 object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={() => {
+                                // Open image in modal or new tab
+                                window.open(`http://localhost:3001${slip.file_path}`, '_blank');
+                              }}
+                              onError={(e) => {
+                                e.target.src = '/images/placeholder-image.png';
+                                e.target.alt = 'ไม่สามารถโหลดรูปภาพได้';
+                              }}
+                            />
+                            <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-all duration-200 rounded-md flex items-center justify-center">
+                              <Eye className="h-6 w-6 text-white opacity-0 hover:opacity-100 transition-opacity" />
+                            </div>
+                          </div>
+                        )}
+                        
+                        {slip.file_name && (
+                          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-2 truncate">
+                            {slip.file_name}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 

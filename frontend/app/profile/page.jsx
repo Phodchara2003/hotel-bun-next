@@ -1,631 +1,670 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { User, Settings, Mail, Shield, Key, Bell, Save, Edit, X, ArrowLeft, Phone, MapPin, Calendar, Eye, EyeOff, Lock, Users, Star } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useRouter } from 'next/navigation';
-import { usersAPI, authAPI } from '../../lib/api';
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  Lock, 
-  Save, 
-  Eye,
-  EyeOff,
-  ArrowLeft,
-  AlertCircle,
-  MapPin
-} from 'lucide-react';
-import toast from 'react-hot-toast';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
+import NotificationCenter from '../../components/NotificationCenter';
 
 export default function ProfilePage() {
-  const { user, isAuthenticated, updateUser } = useAuth();
+  const { user, updateUser, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('profile');
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  // Profile form data
-  const [profileData, setProfileData] = useState({
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState({ type: '', content: '' });
+  
+  const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
-    email: '',
     phone: '',
-    address: ''
+    email: '',
+    address: '',
+    nationalId: ''
   });
 
-  // Password form data
+  // เก็บข้อมูลสำรองสำหรับการยกเลิกการแก้ไข
+  const [originalData, setOriginalData] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    email: '',
+    address: '',
+    nationalId: ''
+  });
+
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
 
-  // Form validation errors
-  const [errors, setErrors] = useState({});
-
+  // Load user data when component mounts or user changes
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/login');
-      return;
-    }
-
     if (user) {
-      setProfileData({
-        firstName: user.firstName || user.first_name || '',
-        lastName: user.lastName || user.last_name || '',
-        email: user.email || '',
+      loadProfile();
+    }
+  }, [user]);
+
+  const loadProfile = async () => {
+    try {
+      // ตรวจสอบ token จากหลายแหล่ง
+      let token = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('auth_token='))
+        ?.split('=')[1];
+      
+      // ถ้าไม่มี token ใน cookie ให้ลองหาใน localStorage
+      if (!token && typeof window !== 'undefined') {
+        token = localStorage.getItem('auth_token_persistent') || 
+                localStorage.getItem('auth_token_backup');
+      }
+      
+      if (!token) {
+        console.warn('No token found for profile loading');
+        return;
+      }
+
+      const response = await fetch('/api/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // โหลดข้อมูลที่มีอยู่แล้ว รวมทั้งข้อมูลที่เคยกรอกไว้
+        const initialData = {
+          firstName: data.profile.firstName || data.profile.first_name || '',
+          lastName: data.profile.lastName || data.profile.last_name || '',
+          phone: data.profile.phone || '',
+          email: data.profile.email || user.email || '',
+          address: data.profile.address || '',
+          nationalId: data.profile.nationalId || data.profile.national_id || ''
+        };
+        setFormData(initialData);
+        setOriginalData(initialData); // เก็บข้อมูลสำรอง
+      } else {
+        // โหลดข้อมูลจาก user context ที่มีอยู่
+        const initialData = {
+          firstName: user.first_name || user.firstName || '',
+          lastName: user.last_name || user.lastName || '',
+          phone: user.phone || '',
+          email: user.email || '',
+          address: user.address || '',
+          nationalId: user.national_id || user.nationalId || ''
+        };
+        setFormData(initialData);
+        setOriginalData(initialData); // เก็บข้อมูลสำรอง
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+      // โหลดข้อมูลจาก user context ที่มีอยู่
+      const initialData = {
+        firstName: user.first_name || user.firstName || '',
+        lastName: user.last_name || user.lastName || '',
         phone: user.phone || '',
-        address: user.address || ''
-      });
-    }
-  }, [user, isAuthenticated, router]);
-
-  // Handle profile form changes
-  const handleProfileChange = (e) => {
-    const { name, value } = e.target;
-    setProfileData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
-    }
-  };
-
-  // Handle password form changes
-  const handlePasswordChange = (e) => {
-    const { name, value } = e.target;
-    setPasswordData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
-    }
-  };
-
-  // Validate profile form
-  const validateProfileForm = () => {
-    const newErrors = {};
-
-    if (!profileData.firstName.trim()) {
-      newErrors.firstName = 'กรุณากรอกชื่อ';
-    }
-
-    if (!profileData.lastName.trim()) {
-      newErrors.lastName = 'กรุณากรอกนามสกุล';
-    }
-
-    if (!profileData.email.trim()) {
-      newErrors.email = 'กรุณากรอกอีเมล';
-    } else if (!/\S+@\S+\.\S+/.test(profileData.email)) {
-      newErrors.email = 'รูปแบบอีเมลไม่ถูกต้อง';
-    }
-
-    if (profileData.phone && !/^[0-9]{10}$/.test(profileData.phone.replace(/[-\s]/g, ''))) {
-      newErrors.phone = 'รูปแบบเบอร์โทรไม่ถูกต้อง (10 หลัก)';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  // Validate password form
-  const validatePasswordForm = () => {
-    const newErrors = {};
-
-    if (!passwordData.currentPassword) {
-      newErrors.currentPassword = 'กรุณากรอกรหัสผ่านปัจจุบัน';
-    }
-
-    if (!passwordData.newPassword) {
-      newErrors.newPassword = 'กรุณากรอกรหัสผ่านใหม่';
-    } else if (passwordData.newPassword.length < 6) {
-      newErrors.newPassword = 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร';
-    }
-
-    if (!passwordData.confirmPassword) {
-      newErrors.confirmPassword = 'กรุณายืนยันรหัสผ่านใหม่';
-    } else if (passwordData.newPassword !== passwordData.confirmPassword) {
-      newErrors.confirmPassword = 'รหัสผ่านไม่ตรงกัน';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  // Handle profile update
-  const handleProfileUpdate = async (e) => {
-    e.preventDefault();
-
-    if (!validateProfileForm()) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const updateData = {
-        first_name: profileData.firstName,
-        last_name: profileData.lastName,
-        email: profileData.email,
-        phone: profileData.phone,
-        address: profileData.address
+        email: user.email || '',
+        address: user.address || '',
+        nationalId: user.national_id || user.nationalId || ''
       };
-
-      const response = await usersAPI.updateProfile(updateData);
-
-      if (response.success) {
-        // Update user context
-        updateUser({
-          ...user,
-          firstName: profileData.firstName,
-          lastName: profileData.lastName,
-          first_name: profileData.firstName,
-          last_name: profileData.lastName,
-          email: profileData.email,
-          phone: profileData.phone,
-          address: profileData.address
-        });
-
-        toast.success('อัพเดทข้อมูลโปรไฟล์สำเร็จ');
-      }
-
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      
-      if (error.response?.status === 400) {
-        toast.error('ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง');
-      } else if (error.response?.status === 409) {
-        toast.error('อีเมลนี้ถูกใช้งานแล้ว');
-      } else {
-        toast.error('ไม่สามารถอัพเดทข้อมูลได้ กรุณาลองใหม่');
-      }
-    } finally {
-      setLoading(false);
+      setFormData(initialData);
+      setOriginalData(initialData); // เก็บข้อมูลสำรอง
     }
   };
 
-  // Handle password change
-  const handlePasswordUpdate = async (e) => {
-    e.preventDefault();
-
-    if (!validatePasswordForm()) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const response = await authAPI.changePassword({
-        currentPassword: passwordData.currentPassword,
-        newPassword: passwordData.newPassword
-      });
-
-      if (response.success) {
-        toast.success('เปลี่ยนรหัสผ่านสำเร็จ');
-        
-        // Reset password form
-        setPasswordData({
-          currentPassword: '',
-          newPassword: '',
-          confirmPassword: ''
-        });
-      }
-
-    } catch (error) {
-      console.error('Error changing password:', error);
-      
-      if (error.response?.status === 400) {
-        toast.error('รหัสผ่านปัจจุบันไม่ถูกต้อง');
-      } else {
-        toast.error('ไม่สามารถเปลี่ยนรหัสผ่านได้ กรุณาลองใหม่');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!isAuthenticated || !user) {
+  // Show loading while auth is initializing
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">กำลังโหลด...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">กำลังโหลด...</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center">
-              <Link 
-                href="/dashboard"
-                className="mr-4 p-2 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100 transition-colors"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">โปรไฟล์ของฉัน</h1>
-                <p className="text-gray-800">จัดการข้อมูลส่วนตัวและการตั้งค่าบัญชี</p>
-              </div>
-            </div>
-          </div>
+  // Show message if no user
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">กรุณาเข้าสู่ระบบเพื่อดูโปรไฟล์</p>
         </div>
       </div>
+    );
+  }
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow p-6">
-              {/* User Info */}
-              <div className="text-center mb-6">
-                <div className="w-20 h-20 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-semibold text-2xl mx-auto mb-4">
-                  {(user.firstName || user.first_name || user.email)?.charAt(0)?.toUpperCase()}
+  // Format National ID (14 digits)
+  const formatNationalId = (value) => {
+    const digits = value.replace(/\D/g, '');
+    const limitedDigits = digits.substring(0, 14);
+    
+    if (limitedDigits.length >= 14) {
+      return limitedDigits.replace(/(\d{1})(\d{4})(\d{5})(\d{2})(\d{2})/, '$1-$2-$3-$4-$5');
+    } else if (limitedDigits.length >= 12) {
+      return limitedDigits.replace(/(\d{1})(\d{4})(\d{5})(\d{2})(\d{0,2})/, '$1-$2-$3-$4-$5');
+    } else if (limitedDigits.length >= 10) {
+      return limitedDigits.replace(/(\d{1})(\d{4})(\d{5})(\d{0,2})/, '$1-$2-$3-$4');
+    } else if (limitedDigits.length >= 5) {
+      return limitedDigits.replace(/(\d{1})(\d{4})(\d{0,5})/, '$1-$2-$3');
+    } else if (limitedDigits.length >= 1) {
+      return limitedDigits.replace(/(\d{1})(\d{0,4})/, '$1-$2');
+    }
+    
+    return limitedDigits;
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    let processedValue = value;
+    
+    if (name === 'nationalId') {
+      processedValue = formatNationalId(value);
+    }
+    
+    const newData = {
+      ...formData,
+      [name]: processedValue
+    };
+    
+    setFormData(newData);
+    // อัปเดตข้อมูลสำรองด้วยเมื่อผู้ใช้กรอกข้อมูล
+    setOriginalData(newData);
+  };
+
+  const handleSave = async () => {
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.nationalId) {
+      toast.error('กรุณากรอกข้อมูลให้ครบถ้วน');
+      return;
+    }
+
+    // Validate National ID format
+    const nationalIdDigits = formData.nationalId.replace(/\D/g, '');
+    if (nationalIdDigits.length !== 14) {
+      toast.error('รหัสบัตรประชาชนต้องมี 14 หลัก');
+      return;
+    }
+
+    setSaving(true);
+    setMessage({ type: '', content: '' });
+    
+    try {
+      // ตรวจสอบ token จากหลายแหล่ง เพื่อความมั่นใจ
+      let token = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('auth_token='))
+        ?.split('=')[1];
+      
+      // ถ้าไม่มี token ใน cookie ให้ลองหาใน localStorage
+      if (!token && typeof window !== 'undefined') {
+        token = localStorage.getItem('auth_token_persistent') || 
+                localStorage.getItem('auth_token_backup');
+      }
+      
+      if (!token) {
+        toast.error('ไม่พบข้อมูลการยืนยันตัวตน กรุณาเข้าสู่ระบบใหม่');
+        router.push('/login');
+        return;
+      }
+
+      const response = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          profile: {
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            phone: formData.phone,
+            email: formData.email,
+            address: formData.address,
+            nationalId: formData.nationalId
+          }
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setMessage({ type: 'success', content: 'อัปเดตโปรไฟล์สำเร็จ' });
+        setIsEditing(false);
+        // อัปเดตข้อมูลสำรองด้วยข้อมูลใหม่ที่บันทึกแล้ว
+        setOriginalData(formData);
+        // อัปเดตข้อมูลใน AuthContext
+        updateUser({
+          ...user,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          phone: formData.phone,
+          email: formData.email,
+          address: formData.address,
+          national_id: formData.nationalId
+        });
+        toast.success('อัปเดตโปรไฟล์สำเร็จ');
+      } else if (response.status === 401) {
+        // Token หมดอายุ
+        toast.error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+        router.push('/login');
+      } else {
+        setMessage({ type: 'error', content: data.error || 'ไม่สามารถอัปเดตโปรไฟล์ได้' });
+        toast.error(data.error || 'ไม่สามารถอัปเดตโปรไฟล์ได้');
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      setMessage({ type: 'error', content: 'เกิดข้อผิดพลาดในการอัปเดตโปรไฟล์' });
+      toast.error('เกิดข้อผิดพลาดในการอัปเดตโปรไฟล์');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setMessage({ type: 'error', content: 'รหัสผ่านใหม่ไม่ตรงกัน' });
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      setMessage({ type: 'error', content: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร' });
+      return;
+    }
+
+    setSaving(true);
+    setMessage({ type: '', content: '' });
+
+    try {
+      const token = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('auth_token='))
+        ?.split('=')[1];
+
+      const response = await fetch('/api/change-password', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(passwordData)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setMessage({ type: 'success', content: 'เปลี่ยนรหัสผ่านสำเร็จ' });
+        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        setShowPasswordForm(false);
+        toast.success('เปลี่ยนรหัสผ่านสำเร็จ');
+      } else {
+        setMessage({ type: 'error', content: data.error || 'ไม่สามารถเปลี่ยนรหัสผ่านได้' });
+        toast.error(data.error || 'ไม่สามารถเปลี่ยนรหัสผ่านได้');
+      }
+    } catch (error) {
+      console.error('Error changing password:', error);
+      setMessage({ type: 'error', content: 'เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน' });
+      toast.error('เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const getRoleInfo = (role) => {
+    switch (role) {
+      case 'admin':
+        return { label: 'ผู้ดูแลระบบ', icon: Shield, color: 'text-red-600', bgColor: 'bg-red-50' };
+      case 'staff':
+        return { label: 'เจ้าหน้าที่', icon: Users, color: 'text-blue-600', bgColor: 'bg-blue-50' };
+      case 'customer':
+        return { label: 'ลูกค้า', icon: User, color: 'text-green-600', bgColor: 'bg-green-50' };
+      default:
+        return { label: 'ผู้ใช้', icon: User, color: 'text-gray-600', bgColor: 'bg-gray-50' };
+    }
+  };
+
+  const getBackLink = () => {
+    if (user?.role === 'admin' || user?.role === 'staff') {
+      return '/admin/dashboard';
+    }
+    return '/'; // หน้าหลักสำหรับลูกค้า
+  };
+
+  const roleInfo = getRoleInfo(user?.role);
+  const IconComponent = roleInfo.icon;
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header with Back Button */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <Link 
+              href={getBackLink()}
+              className="inline-flex items-center text-gray-600 hover:text-gray-900"
+            >
+              <ArrowLeft className="h-5 w-5 mr-1" />
+              กลับ
+            </Link>
+            <NotificationCenter />
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900">โปรไฟล์ของฉัน</h1>
+          <p className="mt-2 text-gray-600">จัดการข้อมูลส่วนตัวและรหัสผ่าน</p>
+        </div>
+
+        {/* Message Alert */}
+        {message.content && (
+          <div className={`mb-6 p-4 rounded-md ${
+            message.type === 'success' 
+              ? 'bg-green-50 border border-green-200' 
+              : 'bg-red-50 border border-red-200'
+          }`}>
+            <p className={`text-sm ${
+              message.type === 'success' ? 'text-green-800' : 'text-red-800'
+            }`}>
+              {message.content}
+            </p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Profile Form */}
+          <div className="lg:col-span-2">
+            <div className="bg-white shadow rounded-lg">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                    <User className="h-5 w-5 mr-2" />
+                    ข้อมูลส่วนตัว
+                  </h3>
+                  <button
+                    onClick={() => {
+                      if (isEditing) {
+                        // ยกเลิกการแก้ไข - คืนค่าเดิม
+                        setFormData(originalData);
+                      }
+                      setIsEditing(!isEditing);
+                    }}
+                    className={`inline-flex items-center px-4 py-2 border rounded-md text-sm font-medium transition-colors ${
+                      isEditing 
+                        ? 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50' 
+                        : 'border-emerald-500 text-white bg-emerald-600 hover:bg-emerald-700'
+                    }`}
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    {isEditing ? 'ยกเลิก' : 'แก้ไขข้อมูล'}
+                  </button>
                 </div>
-                <h3 className="text-lg font-medium text-gray-900">
-                  {user.firstName || user.first_name} {user.lastName || user.last_name}
-                </h3>
-                <p className="text-sm text-gray-600 mb-2">{user.email}</p>
-                <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                  ผู้ใช้ทั่วไป
-                </span>
               </div>
+              <div className="px-6 py-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">ชื่อ</label>
+                    <input
+                      type="text"
+                      name="firstName"
+                      value={formData.firstName}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      placeholder=""
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">นามสกุล</label>
+                    <input
+                      type="text"
+                      name="lastName"
+                      value={formData.lastName}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      placeholder=""
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+                    />
+                  </div>
+                </div>
 
-              {/* Navigation Tabs */}
-              <nav className="space-y-2">
-                <button
-                  onClick={() => setActiveTab('profile')}
-                  className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                    activeTab === 'profile'
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'text-gray-800 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <User className="h-4 w-4 mr-3" />
-                  ข้อมูลส่วนตัว
-                </button>
-                
-                <button
-                  onClick={() => setActiveTab('password')}
-                  className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                    activeTab === 'password'
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'text-gray-800 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <Lock className="h-4 w-4 mr-3" />
-                  เปลี่ยนรหัสผ่าน
-                </button>
-              </nav>
+                <div className="mt-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">อีเมล</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      placeholder=""
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">เบอร์โทรศัพท์</label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      placeholder=""
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    รหัสบัตรประชาชน <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      name="nationalId"
+                      value={formData.nationalId}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      placeholder=""
+                      required
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">ที่อยู่</label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <textarea
+                      name="address"
+                      rows={3}
+                      value={formData.address}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      placeholder=""
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+                    />
+                  </div>
+                </div>
+
+                {isEditing && (
+                  <div className="mt-8 flex justify-end space-x-3">
+                    <button
+                      onClick={() => {
+                        // ยกเลิกการแก้ไข - คืนค่าเดิม
+                        setFormData(originalData);
+                        setIsEditing(false);
+                      }}
+                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Main Content */}
-          <div className="lg:col-span-3">
-            {activeTab === 'profile' && (
-              <div className="bg-white rounded-lg shadow">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <h2 className="text-lg font-medium text-gray-900">ข้อมูลส่วนตัว</h2>
-                  <p className="text-sm text-gray-800">อัพเดทข้อมูลโปรไฟล์และข้อมูลติดต่อของคุณ</p>
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Account Info */}
+            <div className="bg-white shadow rounded-lg p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">ข้อมูลบัญชี</h3>
+              <div className="space-y-3">
+                <div className="flex items-center text-sm">
+                  <Mail className="h-4 w-4 text-gray-400 mr-2" />
+                  <span className="text-gray-600">อีเมล:</span>
+                  <span className="ml-2 font-medium">{user?.email}</span>
                 </div>
-
-                <form onSubmit={handleProfileUpdate} className="p-6 space-y-6">
-                  {/* Name Fields */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label htmlFor="firstName" className="block text-sm font-medium text-gray-900 mb-2">
-                        <User className="h-4 w-4 inline mr-1" />
-                        ชื่อ *
-                      </label>
-                      <input
-                        type="text"
-                        id="firstName"
-                        name="firstName"
-                        value={profileData.firstName}
-                        onChange={handleProfileChange}
-                        className={`w-full px-3 py-2 border rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
-                          errors.firstName ? 'border-red-300' : 'border-gray-300'
-                        }`}
-                        placeholder="เช่น สมชาย, อนิสา, ธนากร"
-                      />
-                      {errors.firstName && (
-                        <p className="mt-1 text-sm text-red-600 flex items-center">
-                          <AlertCircle className="h-4 w-4 mr-1" />
-                          {errors.firstName}
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label htmlFor="lastName" className="block text-sm font-medium text-gray-900 mb-2">
-                        <User className="h-4 w-4 inline mr-1" />
-                        นามสกุล *
-                      </label>
-                      <input
-                        type="text"
-                        id="lastName"
-                        name="lastName"
-                        value={profileData.lastName}
-                        onChange={handleProfileChange}
-                        className={`w-full px-3 py-2 border rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
-                          errors.lastName ? 'border-red-300' : 'border-gray-300'
-                        }`}
-                        placeholder="เช่น จันทร์เจริญ, วงศ์สวัสดิ์, เพชรรัตน์"
-                      />
-                      {errors.lastName && (
-                        <p className="mt-1 text-sm text-red-600 flex items-center">
-                          <AlertCircle className="h-4 w-4 mr-1" />
-                          {errors.lastName}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Email Field */}
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-900 mb-2">
-                      <Mail className="h-4 w-4 inline mr-1" />
-                      อีเมล *
-                    </label>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={profileData.email}
-                      onChange={handleProfileChange}
-                      className={`w-full px-3 py-2 border rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
-                        errors.email ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                      placeholder="เช่น somchai@email.com"
-                    />
-                    {errors.email && (
-                      <p className="mt-1 text-sm text-red-600 flex items-center">
-                        <AlertCircle className="h-4 w-4 mr-1" />
-                        {errors.email}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Phone Field */}
-                  <div>
-                    <label htmlFor="phone" className="block text-sm font-medium text-gray-900 mb-2">
-                      <Phone className="h-4 w-4 inline mr-1" />
-                      เบอร์โทรศัพท์
-                    </label>
-                    <input
-                      type="tel"
-                      id="phone"
-                      name="phone"
-                      value={profileData.phone}
-                      onChange={handleProfileChange}
-                      className={`w-full px-3 py-2 border rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
-                        errors.phone ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                      placeholder="เช่น 081-234-5678"
-                    />
-                    {errors.phone && (
-                      <p className="mt-1 text-sm text-red-600 flex items-center">
-                        <AlertCircle className="h-4 w-4 mr-1" />
-                        {errors.phone}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Address Field */}
-                  <div>
-                    <label htmlFor="address" className="block text-sm font-medium text-gray-900 mb-2">
-                      <MapPin className="h-4 w-4 inline mr-1" />
-                      ที่อยู่
-                    </label>
-                    <textarea
-                      id="address"
-                      name="address"
-                      value={profileData.address}
-                      onChange={handleProfileChange}
-                      rows="3"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                      placeholder="เช่น 123/45 หมู่ 6 ตำบลบางพลี อำเภอบางพลี จังหวัดสมุทรปราการ 10540"
-                    />
-                  </div>
-
-                  {/* Submit Button */}
-                  <div className="flex justify-end pt-6 border-t border-gray-200">
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {loading ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          กำลังบันทึก...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="h-4 w-4 mr-2" />
-                          บันทึกการเปลี่ยนแปลง
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
+                <div className="flex items-center text-sm">
+                  <IconComponent className={`h-4 w-4 mr-2 ${roleInfo.color}`} />
+                  <span className="text-gray-600">สถานะ:</span>
+                  <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${roleInfo.color} ${roleInfo.bgColor}`}>
+                    {roleInfo.label}
+                  </span>
+                </div>
+                <div className="flex items-center text-sm">
+                  <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                  <span className="text-gray-600">เข้าร่วมเมื่อ:</span>
+                  <span className="ml-2 font-medium">{user?.created_at ? new Date(user.created_at).toLocaleDateString('th-TH') : '-'}</span>
+                </div>
               </div>
-            )}
+            </div>
 
-            {activeTab === 'password' && (
-              <div className="bg-white rounded-lg shadow">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <h2 className="text-lg font-medium text-gray-900">เปลี่ยนรหัสผ่าน</h2>
-                  <p className="text-sm text-gray-800">อัพเดทรหัสผ่านเพื่อความปลอดภัยของบัญชี</p>
-                </div>
-
-                <form onSubmit={handlePasswordUpdate} className="p-6 space-y-6">
-                  {/* Current Password */}
+            {/* Change Password */}
+            <div className="bg-white shadow rounded-lg p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <Lock className="h-5 w-5 mr-2" />
+                เปลี่ยนรหัสผ่าน
+              </h3>
+              
+              {!showPasswordForm ? (
+                <button
+                  onClick={() => setShowPasswordForm(true)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  เปลี่ยนรหัสผ่าน
+                </button>
+              ) : (
+                <div className="space-y-4">
                   <div>
-                    <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-900 mb-2">
-                      <Lock className="h-4 w-4 inline mr-1" />
-                      รหัสผ่านปัจจุบัน *
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">รหัสผ่านปัจจุบัน</label>
                     <div className="relative">
                       <input
                         type={showCurrentPassword ? 'text' : 'password'}
-                        id="currentPassword"
-                        name="currentPassword"
                         value={passwordData.currentPassword}
-                        onChange={handlePasswordChange}
-                        className={`w-full px-3 py-2 pr-10 border rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
-                          errors.currentPassword ? 'border-red-300' : 'border-gray-300'
-                        }`}
-                        placeholder="ใส่รหัสผ่านเดิมของคุณ"
+                        onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                        className="w-full pr-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                       <button
                         type="button"
                         onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                        className="absolute inset-y-0 right-0 flex items-center pr-3"
+                        className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
                       >
-                        {showCurrentPassword ? (
-                          <EyeOff className="h-4 w-4 text-gray-400" />
-                        ) : (
-                          <Eye className="h-4 w-4 text-gray-400" />
-                        )}
+                        {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
-                    {errors.currentPassword && (
-                      <p className="mt-1 text-sm text-red-600 flex items-center">
-                        <AlertCircle className="h-4 w-4 mr-1" />
-                        {errors.currentPassword}
-                      </p>
-                    )}
                   </div>
 
-                  {/* New Password */}
                   <div>
-                    <label htmlFor="newPassword" className="block text-sm font-medium text-gray-900 mb-2">
-                      <Lock className="h-4 w-4 inline mr-1" />
-                      รหัสผ่านใหม่ *
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">รหัสผ่านใหม่</label>
                     <div className="relative">
                       <input
                         type={showNewPassword ? 'text' : 'password'}
-                        id="newPassword"
-                        name="newPassword"
                         value={passwordData.newPassword}
-                        onChange={handlePasswordChange}
-                        className={`w-full px-3 py-2 pr-10 border rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
-                          errors.newPassword ? 'border-red-300' : 'border-gray-300'
-                        }`}
-                        placeholder="ตั้งรหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)"
+                        onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                        className="w-full pr-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                       <button
                         type="button"
                         onClick={() => setShowNewPassword(!showNewPassword)}
-                        className="absolute inset-y-0 right-0 flex items-center pr-3"
+                        className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
                       >
-                        {showNewPassword ? (
-                          <EyeOff className="h-4 w-4 text-gray-400" />
-                        ) : (
-                          <Eye className="h-4 w-4 text-gray-400" />
-                        )}
+                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
-                    {errors.newPassword && (
-                      <p className="mt-1 text-sm text-red-600 flex items-center">
-                        <AlertCircle className="h-4 w-4 mr-1" />
-                        {errors.newPassword}
-                      </p>
-                    )}
                   </div>
 
-                  {/* Confirm Password */}
                   <div>
-                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-900 mb-2">
-                      <Lock className="h-4 w-4 inline mr-1" />
-                      ยืนยันรหัสผ่านใหม่ *
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">ยืนยันรหัสผ่านใหม่</label>
                     <div className="relative">
                       <input
                         type={showConfirmPassword ? 'text' : 'password'}
-                        id="confirmPassword"
-                        name="confirmPassword"
                         value={passwordData.confirmPassword}
-                        onChange={handlePasswordChange}
-                        className={`w-full px-3 py-2 pr-10 border rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
-                          errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
-                        }`}
-                        placeholder="พิมพ์รหัสผ่านใหม่อีกครั้งเพื่อยืนยัน"
+                        onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                        className="w-full pr-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                       <button
                         type="button"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute inset-y-0 right-0 flex items-center pr-3"
+                        className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
                       >
-                        {showConfirmPassword ? (
-                          <EyeOff className="h-4 w-4 text-gray-400" />
-                        ) : (
-                          <Eye className="h-4 w-4 text-gray-400" />
-                        )}
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
-                    {errors.confirmPassword && (
-                      <p className="mt-1 text-sm text-red-600 flex items-center">
-                        <AlertCircle className="h-4 w-4 mr-1" />
-                        {errors.confirmPassword}
-                      </p>
-                    )}
                   </div>
 
-                  {/* Password Requirements */}
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-md p-4">
-                    <h4 className="text-sm font-medium text-emerald-900 mb-2">ข้อกำหนดรหัสผ่าน:</h4>
-                    <ul className="text-sm text-emerald-800 space-y-1">
-                      <li>• อย่างน้อย 6 ตัวอักษร</li>
-                      <li>• ควรประกอบด้วยตัวอักษรและตัวเลข</li>
-                      <li>• หลีกเลี่ยงข้อมูลส่วนตัวที่เดาได้ง่าย</li>
-                    </ul>
-                  </div>
-
-                  {/* Submit Button */}
-                  <div className="flex justify-end pt-6 border-t border-gray-200">
+                  <div className="flex space-x-3">
                     <button
-                      type="submit"
-                      disabled={loading}
-                      className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      onClick={handleChangePassword}
+                      disabled={saving}
+                      className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                     >
-                      {loading ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          กำลังเปลี่ยน...
-                        </>
-                      ) : (
-                        <>
-                          <Lock className="h-4 w-4 mr-2" />
-                          เปลี่ยนรหัสผ่าน
-                        </>
-                      )}
+                      {saving ? 'กำลังเปลี่ยน...' : 'เปลี่ยนรหัสผ่าน'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowPasswordForm(false);
+                        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                      }}
+                      className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      ยกเลิก
                     </button>
                   </div>
-                </form>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Actions for Admin/Staff */}
+            {(user?.role === 'admin' || user?.role === 'staff') && (
+              <div className="bg-white shadow rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">การดำเนินการด่วน</h3>
+                <div className="space-y-3">
+                  <Link 
+                    href="/admin/dashboard"
+                    className="block w-full px-4 py-2 text-center bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
+                  >
+                    กลับไปหน้า Dashboard
+                  </Link>
+                  {user?.role === 'admin' && (
+                    <Link 
+                      href="/admin/user-management"
+                      className="block w-full px-4 py-2 text-center border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50"
+                    >
+                      จัดการผู้ใช้
+                    </Link>
+                  )}
+                </div>
               </div>
             )}
           </div>

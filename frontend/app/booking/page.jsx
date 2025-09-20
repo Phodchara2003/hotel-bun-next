@@ -411,17 +411,17 @@ export default function BookingPage() {
                 </h3>
                 
                 <div className="text-center mb-4">
-                  <div className="bg-white p-4 rounded-lg border inline-block">
+                  <div className="bg-white p-6 rounded-lg border inline-block shadow-md">
                     <img
                       src={`http://localhost:3001${paymentSettings.qrCodeUrl}`}
                       alt="QR Code สำหรับชำระเงิน"
-                      className="w-48 h-48 object-contain mx-auto"
+                      className="w-72 h-72 object-contain mx-auto"
                       onError={(e) => {
                         e.target.style.display = 'none';
                         e.target.nextSibling.style.display = 'block';
                       }}
                     />
-                    <div className="w-48 h-48 bg-gray-100 flex items-center justify-center text-gray-500" style={{display: 'none'}}>
+                    <div className="w-72 h-72 bg-gray-100 flex items-center justify-center text-gray-500" style={{display: 'none'}}>
                       <div className="text-center">
                         <CreditCard className="w-12 h-12 mx-auto mb-2" />
                         <p className="text-sm">ไม่สามารถโหลด QR Code ได้</p>

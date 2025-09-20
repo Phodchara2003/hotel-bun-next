@@ -19,9 +19,9 @@ export const profileRoutes = new Elysia()
       if (authUser?.error) return authUser;
   console.log('   authUser resolved:', authUser);
 
-      // fetch extended fields (phone, address, password hash) if not already present
+      // fetch extended fields (phone, address, national_id, password hash) if not already present
   console.log('   querying users table for id', authUser.id);
-  const rows = await sql`SELECT id, email, first_name, last_name, phone, address, username, role, password, created_at FROM users WHERE id = ${authUser.id}`;
+  const rows = await sql`SELECT id, email, first_name, last_name, phone, address, national_id, username, role, password, created_at FROM users WHERE id = ${authUser.id}`;
   console.log('   query result length:', rows?.length);
       const user = rows[0];
       if (!user) { set.status = 401; return { error: 'Invalid or expired token' }; }
@@ -33,6 +33,7 @@ export const profileRoutes = new Elysia()
             email: user.email,
           phone: user.phone || '',
           address: user.address || '',
+          nationalId: user.national_id || '',
           username: user.username || user.email,
           dateJoined: user.created_at,
           role: user.role
@@ -51,7 +52,7 @@ export const profileRoutes = new Elysia()
 
       // Support both body.profile and direct body formats
       const profile = body?.profile ? body.profile : body;
-      const allowed = ['first_name', 'last_name', 'email', 'phone', 'address', 'username'];
+      const allowed = ['first_name', 'last_name', 'email', 'phone', 'address', 'national_id', 'username'];
       const hasField = allowed.some(k => profile[k] !== undefined);
       if (!hasField) { set.status = 400; return { error: 'No valid fields to update' }; }
 
@@ -61,6 +62,7 @@ export const profileRoutes = new Elysia()
         email: profile.email ?? authUser.email,
         phone: profile.phone ?? authUser.phone,
         address: profile.address ?? authUser.address,
+        national_id: profile.national_id ?? authUser.national_id,
         username: profile.username ?? authUser.username
       };
 
@@ -70,6 +72,7 @@ export const profileRoutes = new Elysia()
         email = ${updated.email}, 
         phone = ${updated.phone}, 
         address = ${updated.address}, 
+        national_id = ${updated.national_id},
         username = ${updated.username}, 
         updated_at = NOW() 
         WHERE id = ${authUser.id}`;
@@ -80,6 +83,7 @@ export const profileRoutes = new Elysia()
         email: updated.email,
         phone: updated.phone || '',
         address: updated.address || '',
+        nationalId: updated.national_id || '',
         username: updated.username || '',
         dateJoined: authUser.created_at,
         role: authUser.role
@@ -105,9 +109,10 @@ export const profileRoutes = new Elysia()
       const lastName = profile.lastName || profile.last_name;
       const phone = profile.phone;
       const address = profile.address || profile.bio; // Support bio as address
+      const nationalId = profile.nationalId || profile.national_id;
       const username = profile.username;
       
-      const hasField = firstName !== undefined || lastName !== undefined || phone !== undefined || address !== undefined || username !== undefined;
+      const hasField = firstName !== undefined || lastName !== undefined || phone !== undefined || address !== undefined || nationalId !== undefined || username !== undefined;
       if (!hasField) { set.status = 400; return { error: 'No valid fields to update' }; }
 
       const updated = {
@@ -116,6 +121,7 @@ export const profileRoutes = new Elysia()
         email: authUser.email, // Email ไม่ให้เปลี่ยน
         phone: phone ?? authUser.phone,
         address: address ?? authUser.address,
+        national_id: nationalId ?? authUser.national_id,
         username: username ?? authUser.username
       };
       
@@ -127,6 +133,7 @@ export const profileRoutes = new Elysia()
         email = ${updated.email}, 
         phone = ${updated.phone}, 
         address = ${updated.address}, 
+        national_id = ${updated.national_id},
         username = ${updated.username}, 
         updated_at = NOW() 
         WHERE id = ${authUser.id}`;
@@ -137,6 +144,7 @@ export const profileRoutes = new Elysia()
         email: updated.email,
         phone: updated.phone || '',
         address: updated.address || '',
+        nationalId: updated.national_id || '',
         bio: updated.address || '', // ส่ง address เป็น bio ด้วย
         username: updated.username || '',
         dateJoined: authUser.created_at,

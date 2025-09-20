@@ -46,7 +46,7 @@ const HotelCard = ({ hotel }) => {
       {/* Hotel Image */}
       <div className="relative h-48 sm:h-56">
         <Image
-          src={hotel.images?.[0] || '/api/placeholder/400/300'}
+          src={hotel.images?.[0] || '/images/rooms/placeholder.svg'}
           alt={hotel.name}
           fill
           className="object-cover"

@@ -71,15 +71,21 @@ api.interceptors.response.use(
     // Handle timeout errors
     if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
       console.log('Request timeout - consider retrying...');
-      toast.error('Request taking longer than expected. Please try again.');
-      return Promise.reject(new Error('Request timeout. Please try again.'));
+      const isLoginEndpoint = error.config?.url?.includes('/auth/login');
+      if (!isLoginEndpoint) {
+        toast.error('การเชื่อมต่อใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง');
+      }
+      return Promise.reject(new Error('การเชื่อมต่อใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง'));
     }
     
     // Handle network errors
     if (!error.response) {
       console.log('Network error - server may be down');
-      toast.error('Unable to connect to server. Please check your connection.');
-      return Promise.reject(new Error('Network error. Please check your connection.'));
+      const isLoginEndpoint = error.config?.url?.includes('/auth/login');
+      if (!isLoginEndpoint) {
+        toast.error('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+      }
+      return Promise.reject(new Error('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต'));
     }
     
     // Handle authentication errors
@@ -87,35 +93,40 @@ api.interceptors.response.use(
       console.log('401 Unauthorized - Token issue detected');
       console.log('Error details:', error.response.data);
       
-      const currentToken = Cookies.get('auth_token');
-      if (currentToken) {
-        try {
-          const tokenPayload = JSON.parse(atob(currentToken.split('.')[1]));
-          const currentTime = Math.floor(Date.now() / 1000);
-          
-          if (tokenPayload.exp < currentTime) {
-            console.log('Token has expired');
-            toast.error('Session expired. Please log in again.');
+      // สำหรับ login endpoint ไม่ต้องแสดง toast error เพราะจะจัดการที่ login function
+      const isLoginEndpoint = error.config?.url?.includes('/auth/login');
+      
+      if (!isLoginEndpoint) {
+        const currentToken = Cookies.get('auth_token');
+        if (currentToken) {
+          try {
+            const tokenPayload = JSON.parse(atob(currentToken.split('.')[1]));
+            const currentTime = Math.floor(Date.now() / 1000);
             
-            // Clear expired token and redirect to login
-            Cookies.remove('auth_token');
-            if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin/')) {
-              window.location.href = '/auth/login';
+            if (tokenPayload.exp < currentTime) {
+              console.log('Token has expired');
+              toast.error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+              
+              // Clear expired token and redirect to login
+              Cookies.remove('auth_token');
+              if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin/')) {
+                window.location.href = '/auth/login';
+              }
+            } else {
+              console.log('Token is still valid but server rejected it');
+              toast.error('ข้อมูลการยืนยันตัวตนไม่ถูกต้อง กรุณาเข้าสู่ระบบใหม่');
             }
-          } else {
-            console.log('Token is still valid but server rejected it');
-            toast.error('Authentication error. Please try logging in again.');
+          } catch (tokenError) {
+            console.log('Could not parse token:', tokenError);
+            toast.error('ข้อมูลการยืนยันตัวตนไม่ถูกต้อง กรุณาเข้าสู่ระบบใหม่');
+            Cookies.remove('auth_token');
           }
-        } catch (tokenError) {
-          console.log('Could not parse token:', tokenError);
-          toast.error('Invalid session. Please log in again.');
-          Cookies.remove('auth_token');
-        }
-      } else {
-        console.log('No token found');
-        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin/')) {
-          toast.error('Please log in to access this area.');
-          window.location.href = '/auth/login';
+        } else {
+          console.log('No token found');
+          if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin/')) {
+            toast.error('กرุณาเข้าสู่ระบบเพื่อใช้งานในส่วนนี้');
+            window.location.href = '/auth/login';
+          }
         }
       }
     }
@@ -129,9 +140,10 @@ api.interceptors.response.use(
                           error.response?.data?.message?.includes('quota');
       const isNotificationError = error.config?.url?.includes('/notifications');
       const isHotelError = error.config?.url?.includes('/hotels');
+      const isLoginEndpoint = error.config?.url?.includes('/auth/login');
       
-      if (!isQuotaError && !isNotificationError && !isHotelError) {
-        toast.error('Server error. Please try again later.');
+      if (!isQuotaError && !isNotificationError && !isHotelError && !isLoginEndpoint) {
+        toast.error('เซิร์ฟเวอร์ขัดข้อง กรุณาลองใหม่ในภายหลัง');
       }
     }
     
@@ -172,8 +184,31 @@ export const authAPI = {
   },
   
   login: async (credentials) => {
-    const response = await api.post('/auth/login', credentials);
-    return response.data;
+    try {
+      const response = await api.post('/auth/login', credentials);
+      return response.data;
+    } catch (error) {
+      // แปลง error ให้เป็นข้อความที่เข้าใจง่าย
+      if (error.response?.status === 401) {
+        throw new Error('อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบและลองใหม่อีกครั้ง');
+      } else if (error.response?.status === 404) {
+        throw new Error('ไม่พบบัญชีผู้ใช้นี้ในระบบ');
+      } else if (error.response?.status === 429) {
+        throw new Error('พยายามเข้าสู่ระบบหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่');
+      } else if (error.response?.status >= 500) {
+        throw new Error('เซิร์ฟเวอร์ขัดข้อง กรุณาลองใหม่ในภายหลัง');
+      } else if (error.code === 'ECONNABORTED') {
+        throw new Error('การเชื่อมต่อใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง');
+      } else if (!error.response) {
+        throw new Error('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+      } else {
+        // ใช้ข้อความจาก server หากมี หรือใช้ข้อความทั่วไป
+        const errorMessage = error.response?.data?.message || 
+                            error.response?.data?.error || 
+                            'เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง';
+        throw new Error(errorMessage);
+      }
+    }
   },
 
   changePassword: async (passwordData) => {
@@ -197,19 +232,23 @@ export const hotelAPI = {
   // Get hotel info และ room types ในครั้งเดียว
   getHotelAndRoomTypes: async () => {
     try {
-      console.log('🏨 Fetching hotel and room types from database...');
+      console.log('🏨 [API] Fetching hotel and room types from database...');
       
       // ดึงข้อมูลโรงแรมแรก
+      console.log('🏨 [API] Calling /hotels endpoint...');
       const hotelsResponse = await api.get('/hotels', { params: { limit: 1 } });
+      console.log('🏨 [API] Hotels response received:', hotelsResponse.data);
       
-      // ดึงข้อมูล room types จาก database โดยตรง
-      const roomTypesResponse = await api.get('/room-types');
+      // ดึงข้อมูล room types พร้อมรูปภาพจาก database โดยตรง
+      console.log('🏠 [API] Calling /room-types-with-images endpoint...');
+      const roomTypesResponse = await api.get('/room-types-with-images');
+      console.log('🏠 [API] Room types response received:', roomTypesResponse.data);
       
-      console.log('🏨 Hotels response:', hotelsResponse.data);
-      console.log('🏠 Room types response:', roomTypesResponse.data);
-      
-      const hotel = hotelsResponse.data?.hotels?.[0] || null;
+      const hotel = hotelsResponse.data?.data?.[0] || null;
       const roomTypes = roomTypesResponse.data?.data || [];
+      
+      console.log('🏨 [API] Processed hotel:', hotel);
+      console.log('🏠 [API] Processed room types:', roomTypes);
       
       return {
         success: true,
@@ -219,7 +258,7 @@ export const hotelAPI = {
         }
       };
     } catch (error) {
-      console.error('Error fetching hotel and room types:', error);
+      console.error('❌ [API] Error fetching hotel and room types:', error);
       return {
         success: false,
         error: error.message
@@ -466,14 +505,33 @@ export const roomsAPI = {
   // Create new room (Admin)
   createRoom: async (roomData) => {
     try {
-      console.log('🏨 API: Creating room with data:', JSON.stringify(roomData, null, 2));
-      const response = await api.post('/admin/rooms/', roomData);
+      // Map frontend data to backend format
+      const mappedData = {
+        hotel_id: 1, // Default hotel ID - you might want to make this configurable
+        name: roomData.name,
+        description: roomData.description || '',
+        price_per_night: parseFloat(roomData.price) || 1500,
+        max_guests: parseInt(roomData.capacity) || 2,
+        size_sqm: roomData.size ? parseFloat(roomData.size) : null,
+        bed_type: roomData.bed_type || 'double',
+        amenities: Array.isArray(roomData.amenities) ? roomData.amenities : (roomData.amenities ? [roomData.amenities] : []),
+        images: Array.isArray(roomData.images) ? roomData.images : []
+      };
+      
+      console.log('🏨 API: Creating room with data:', JSON.stringify(mappedData, null, 2));
+      const response = await api.post('/admin/rooms/', mappedData);
       console.log('✅ API: Room created successfully:', response.data);
       return response.data;
     } catch (error) {
       console.error('❌ API: Error creating room:', error.response?.data || error.message);
+      console.error('❌ API: Full error response:', error.response);
       console.error('❌ API: Error status:', error.response?.status);
-      console.error('❌ API: Error details:', error.response?.data?.details || 'No details');
+      console.error('❌ API: Error details:', error.response?.data || 'No details');
+      
+      // Return the actual error from backend
+      if (error.response?.data) {
+        throw new Error(error.response.data.message || error.response.data.error || error.message);
+      }
       throw error;
     }
   },
@@ -481,14 +539,40 @@ export const roomsAPI = {
   // Update room (Admin)
   updateRoom: async (id, roomData) => {
     try {
+      // For update, preserve the existing hotel_id from the room data
+      // Don't force hotel_id to 1 when updating
+      // Only send fields that exist in room_types table
+      const mappedData = {
+        // Only set hotel_id if it's provided, otherwise let backend handle it
+        ...(roomData.hotel_id && { hotel_id: roomData.hotel_id }),
+        name: roomData.name,
+        description: roomData.description || '',
+        price_per_night: parseFloat(roomData.price) || 1500,
+        max_guests: parseInt(roomData.capacity) || 2,
+        size_sqm: roomData.size ? parseInt(roomData.size) : null, // Changed to int to match schema
+        type: roomData.type || 'standard',
+        amenities: Array.isArray(roomData.amenities) ? roomData.amenities : (roomData.amenities ? [roomData.amenities] : []),
+        // Only include images if explicitly provided AND not empty, otherwise let backend preserve existing images
+        ...(roomData.images !== undefined && Array.isArray(roomData.images) && roomData.images.length > 0 && { images: roomData.images })
+        // Removed: bed_type (not in schema)
+        // Note: status, floor, number, bed_type, view_type are not in room_types table
+      };
+
       console.log('🔧 API: Updating room ID:', id);
-      console.log('🔧 API: Room data:', roomData);
-      const response = await api.put(`/admin/rooms/${id}`, roomData);
+      console.log('🔧 API: Original room data:', roomData);
+      console.log('🔧 API: Mapped room data:', mappedData);
+      console.log('🔧 API: Images field:', roomData.images, '→', mappedData.images);
+      const response = await api.put(`/admin/rooms/${id}`, mappedData);
       console.log('🔧 API: Update response:', response.data);
       return response.data;
     } catch (error) {
       console.error('❌ API: Update room error:', error);
       console.error('❌ API: Error response:', error.response?.data);
+      
+      // Return the actual error from backend
+      if (error.response?.data) {
+        throw new Error(error.response.data.message || error.response.data.error || error.message);
+      }
       throw error;
     }
   },
@@ -630,7 +714,13 @@ export const usersAPI = {
 
   // Update current user's profile
   updateProfile: async (profileData) => {
-    const response = await api.put('/profile', profileData);
+    const response = await api.put('/users/profile', profileData);
+    return response.data;
+  },
+
+  // Get current user's profile
+  getProfile: async () => {
+    const response = await api.get('/users/profile');
     return response.data;
   },
 };

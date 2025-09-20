@@ -126,6 +126,13 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }) {
       active: pathname === '/admin/reports'
     },
     {
+      key: 'contact-settings',
+      label: 'จัดการข้อมูลติดต่อ',
+      icon: MessageSquare,
+      href: '/admin/contact-settings',
+      active: pathname === '/admin/contact-settings'
+    },
+    {
       key: 'settings',
       label: 'การตั้งค่า',
       icon: Settings,

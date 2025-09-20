@@ -342,11 +342,11 @@ export default function PaymentPage() {
                               <ImageIcon className="h-6 w-6 mr-2 text-green-600" />
                               สแกน QR Code เพื่อชำระเงิน
                             </h3>
-                            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-200">
+                            <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-200">
                               <img 
                                 src={`http://localhost:3001${paymentSettings.bankImageUrl}`} 
                                 alt="QR Code ธนาคาร" 
-                                className="w-80 h-80 object-contain mx-auto rounded-lg"
+                                className="w-96 h-96 object-contain mx-auto rounded-lg"
                                 onError={(e) => {
                                   console.error('❌ Failed to load QR Code image:', e.target.src);
                                   console.error('❌ Payment settings:', paymentSettings);

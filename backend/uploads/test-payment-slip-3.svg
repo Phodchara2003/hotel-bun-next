@@ -1,0 +1,11 @@
+<!-- Test payment slip image placeholder -->
+<svg width="400" height="600" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="600" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
+  <text x="200" y="50" text-anchor="middle" font-family="Arial" font-size="20" font-weight="bold" fill="#495057">Payment Slip</text>
+  <text x="200" y="100" text-anchor="middle" font-family="Arial" font-size="16" fill="#6c757d">Test Payment Receipt</text>
+  <text x="50" y="150" font-family="Arial" font-size="14" fill="#343a40">Amount: ฿898.00</text>
+  <text x="50" y="180" font-family="Arial" font-size="14" fill="#343a40">Date: 2025-09-21</text>
+  <text x="50" y="210" font-family="Arial" font-size="14" fill="#343a40">Reference: HTL782100</text>
+  <rect x="50" y="250" width="300" height="200" fill="#e9ecef" stroke="#adb5bd"/>
+  <text x="200" y="360" text-anchor="middle" font-family="Arial" font-size="14" fill="#6c757d">QR Code / Bank Transfer Receipt</text>
+</svg>

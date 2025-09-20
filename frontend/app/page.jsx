@@ -104,65 +104,44 @@ export default function HomePage() {
   const fetchHotelAndRooms = async () => {
     try {
       setIsLoading(true);
+      console.log('🚀 Starting to fetch hotel and room data...');
       
       // Get global pricing first
       let uniformPrice = 1500; // Default fallback price
       try {
+        console.log('💰 Fetching global pricing...');
         const globalPriceRes = await fetch('http://localhost:3001/api/global-settings');
         const globalPriceData = await globalPriceRes.json();
         uniformPrice = parseFloat(globalPriceData.data?.room_price_per_night || '1500');
+        console.log('💰 Global price fetched:', uniformPrice);
       } catch (priceError) {
-        console.log('⚠️ Homepage: Could not fetch global price, using default 1500');
+        console.log('⚠️ Homepage: Could not fetch global price, using default 1500', priceError);
       }
       
-      // ดึงข้อมูลโรงแรมและห้องพักในครั้งเดียว
-      const response = await hotelAPI.getHotelAndRoomTypes();
+      // Try direct API calls instead of hotelAPI
+      console.log('🏨 Fetching hotels directly...');
+      const hotelsResponse = await fetch('http://localhost:3001/api/hotels');
+      const hotelsData = await hotelsResponse.json();
+      console.log('🏨 Hotels response:', hotelsData);
       
-      if (response && response.success && response.data) {
-        setHotel(response.data.hotel);
+      console.log('🏠 Fetching room types with images directly...');
+      const roomTypesResponse = await fetch('http://localhost:3001/api/room-types-with-images');
+      const roomTypesData = await roomTypesResponse.json();
+      console.log('🏠 Room types response:', roomTypesData);
+      
+      if (hotelsData.success && roomTypesData.success) {
+        // Use first hotel from database
+        setHotel(hotelsData.data[0]);
         
-        // Apply uniform pricing to all room types
-        const roomTypesWithUniformPricing = response.data.roomTypes.map(room => ({
+        const roomTypesWithUniformPricing = roomTypesData.data.map(room => ({
           ...room,
           price: uniformPrice
         }));
         
         setRoomTypes(roomTypesWithUniformPricing);
-        console.log('✅ Homepage: Data loaded successfully with uniform pricing');
+        console.log('✅ Homepage: Data loaded successfully from direct API calls');
       } else {
-        // Try direct API call to hotels endpoint
-        try {
-          const hotelsResponse = await fetch('http://localhost:3001/api/hotels');
-          const hotelsData = await hotelsResponse.json();
-          
-          const roomTypesResponse = await fetch('http://localhost:3001/api/room-types');
-          const roomTypesData = await roomTypesResponse.json();
-          
-          if (hotelsData.success && roomTypesData.success) {
-            // Use first hotel from database
-            setHotel(hotelsData.data[0]);
-            
-            const roomTypesWithUniformPricing = roomTypesData.data.map(room => ({
-              ...room,
-              price: uniformPrice
-            }));
-            
-            setRoomTypes(roomTypesWithUniformPricing);
-            console.log('✅ Homepage: Data loaded directly from MySQL API');
-          } else {
-            throw new Error('API response failed');
-          }
-        } catch (directApiError) {
-          console.log('⚠️ Homepage: Using fallback data due to API connection issue');
-          setHotel(fallbackHotel);
-          
-          const fallbackRoomsWithUniformPricing = fallbackRooms.map(room => ({
-            ...room,
-            price: uniformPrice
-          }));
-          
-          setRoomTypes(fallbackRoomsWithUniformPricing);
-        }
+        throw new Error('API response failed');
       }
       
     } catch (error) {
@@ -281,13 +260,101 @@ export default function HomePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {roomTypes.map((room) => (
                 <div key={room.id} className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300 border border-gray-100">
-                  <div className="relative h-40 bg-gradient-to-br from-blue-100 to-blue-200">
-                    <div className="absolute inset-0 flex items-center justify-center text-blue-600">
-                      <div className="text-center">
-                        <Calendar className="h-8 w-8 mx-auto mb-1" />
-                        <span className="text-xs font-medium">ภาพห้องพัก</span>
-                      </div>
-                    </div>
+                  <div className="relative h-40 bg-gradient-to-br from-blue-100 to-blue-200 overflow-hidden">
+                    {(() => {
+                      // Process images - simplified processing since backend now handles parsing
+                      let imageArray = [];
+                      
+                      if (room.images) {
+                        console.log('🖼️ Processing images for room:', room.name, 'Raw images:', room.images);
+                        
+                        if (Array.isArray(room.images)) {
+                          imageArray = room.images.filter(img => img && typeof img === 'string' && img.trim());
+                        } else if (typeof room.images === 'string' && room.images.trim()) {
+                          // Backend should have parsed it, but handle just in case
+                          try {
+                            const parsed = JSON.parse(room.images);
+                            imageArray = Array.isArray(parsed) ? parsed : [room.images];
+                          } catch (e) {
+                            imageArray = [room.images];
+                          }
+                        }
+                      }
+                      
+                      console.log('🖼️ Final processed images for', room.name, ':', imageArray);
+                      
+                      // Use room images that are uploaded by admin
+                      const getRoomImageSrc = (imageName) => {
+                        const imageSrc = `/images/rooms/${imageName}`;
+                        console.log('🖼️ Getting image source:', imageSrc);
+                        return imageSrc;
+                      };
+
+                      const getFallbackImageSrc = (roomId, roomName) => {
+                        // Fallback to predefined room images in public folder
+                        const fallbackImages = [
+                          '/images/rooms/room1.jpg',
+                          '/images/rooms/room2.jpg', 
+                          '/images/rooms/suite1.jpg'
+                        ];
+                        const fallbackSrc = fallbackImages[(roomId - 1) % fallbackImages.length] || '/images/rooms/placeholder.svg';
+                        console.log('🔄 Using fallback image:', fallbackSrc);
+                        return fallbackSrc;
+                      };
+
+                      return imageArray.length > 0 ? (
+                        <>
+                          <img 
+                            src={getRoomImageSrc(imageArray[0])}
+                            alt={room.name}
+                            className="w-full h-full object-cover"
+                            onLoad={() => {
+                              console.log('✅ Room image loaded successfully:', getRoomImageSrc(imageArray[0]));
+                            }}
+                            onError={(e) => {
+                              console.log('❌ Room image failed to load:', e.target.src);
+                              console.log('❌ Available images for room:', room.name, ':', imageArray);
+                              // Try fallback image
+                              const fallbackSrc = getFallbackImageSrc(room.id, room.name);
+                              if (e.target.src !== fallbackSrc) {
+                                console.log('🔄 Trying fallback image:', fallbackSrc);
+                                e.target.src = fallbackSrc;
+                              } else {
+                                // Final fallback to placeholder
+                                console.log('❌ All images failed, showing placeholder');
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }
+                            }}
+                          />
+                          <div className="absolute inset-0 hidden items-center justify-center text-blue-600 bg-gradient-to-br from-blue-100 to-blue-200">
+                            <div className="text-center">
+                              <Calendar className="h-8 w-8 mx-auto mb-1" />
+                              <span className="text-xs font-medium">ภาพห้องพัก</span>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-blue-600">
+                          <img 
+                            src={getFallbackImageSrc(room.id, room.name)}
+                            alt={room.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              console.log('❌ Fallback image failed, showing placeholder icon');
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.style.display = 'flex';
+                            }}
+                          />
+                          <div className="absolute inset-0 hidden items-center justify-center text-blue-600 bg-gradient-to-br from-blue-100 to-blue-200">
+                            <div className="text-center">
+                              <Calendar className="h-8 w-8 mx-auto mb-1" />
+                              <span className="text-xs font-medium">ภาพห้องพัก</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                     {/* Price Badge */}
                     <div className="absolute top-3 right-3 bg-blue-600 text-white px-2 py-1 rounded-lg text-sm font-semibold">
                       ฿{getPrice(room).toLocaleString()}
@@ -303,10 +370,10 @@ export default function HomePage() {
                     <div className="flex items-center justify-between text-xs text-gray-600 mb-3">
                       <div className="flex items-center">
                         <Users className="h-3 w-3 mr-1" />
-                        <span>{room.maxGuests} คน</span>
+                        <span>{room.max_guests || room.maxGuests || 2} คน</span>
                       </div>
                       <div>
-                        <span>{room.sizeSqm || 'N/A'} ตร.ม.</span>
+                        <span>{room.size_sqm || room.sizeSqm || 30} ตร.ม.</span>
                       </div>
                     </div>
 
@@ -331,9 +398,12 @@ export default function HomePage() {
                       >
                         จองเลย
                       </Link>
-                      <button className="px-3 py-2 border border-gray-300 text-gray-700 rounded text-xs hover:bg-gray-50 transition-colors">
+                      <Link 
+                        href={`/room-details/${room.id}`}
+                        className="px-3 py-2 border border-gray-300 text-gray-700 rounded text-xs hover:bg-gray-50 transition-colors text-center"
+                      >
                         ดูรายละเอียด
-                      </button>
+                      </Link>
                     </div>
                   </div>
                 </div>
@@ -369,13 +439,13 @@ export default function HomePage() {
             </div>
             <div className="bg-white rounded-lg shadow-sm p-4 text-center">
               <div className="text-2xl font-bold text-purple-600">
-                {roomTypes.length > 0 ? Math.max(...roomTypes.map(r => r.maxGuests || 2)) : '2'}
+                {roomTypes.length > 0 ? Math.max(...roomTypes.map(r => r.max_guests || r.maxGuests || 2)) : '2'}
               </div>
               <div className="text-sm text-gray-600">รองรับสูงสุด (คน)</div>
             </div>
             <div className="bg-white rounded-lg shadow-sm p-4 text-center">
               <div className="text-2xl font-bold text-orange-600">
-                {roomTypes.length > 0 ? Math.max(...roomTypes.map(r => r.sizeSqm || 30)) : '30'}
+                {roomTypes.length > 0 ? Math.max(...roomTypes.map(r => r.size_sqm || r.sizeSqm || 30)) : '30'}
               </div>
               <div className="text-sm text-gray-600">ขนาดใหญ่สุด (ตร.ม.)</div>
             </div>

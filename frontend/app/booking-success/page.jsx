@@ -2,32 +2,61 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { CheckCircle, Calendar, CreditCard, Phone, Mail } from 'lucide-react';
+import { CheckCircle, Calendar, CreditCard, Phone, Mail, MapPin, MessageCircle } from 'lucide-react';
 
 export default function BookingSuccessPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   
   const [countdown, setCountdown] = useState(10);
+  const [contactInfo, setContactInfo] = useState({
+    phone: '02-123-4567',
+    email: 'support@hotel.com',
+    address: '',
+    website: '',
+    facebook: '',
+    line: ''
+  });
 
   const bookingId = searchParams.get('bookingId');
   const amount = searchParams.get('amount');
 
+  // Fetch contact settings
   useEffect(() => {
-    // Countdown timer
-    const timer = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          router.push('/');
-          return 0;
+    const fetchContactSettings = async () => {
+      try {
+        const response = await fetch('/api/contact-settings');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setContactInfo(data.data);
+          }
         }
-        return prev - 1;
-      });
-    }, 1000);
+      } catch (error) {
+        console.error('Error fetching contact settings:', error);
+        // Keep default values if API fails
+      }
+    };
 
-    return () => clearInterval(timer);
-  }, [router]);
+    fetchContactSettings();
+  }, []);
+
+  // เอา auto redirect ออก - ให้ผู้ใช้เลือกเอง
+  // useEffect(() => {
+  //   // Countdown timer
+  //   const timer = setInterval(() => {
+  //     setCountdown(prev => {
+  //       if (prev <= 1) {
+  //         clearInterval(timer);
+  //         router.push('/');
+  //         return 0;
+  //       }
+  //       return prev - 1;
+  //     });
+  //   }, 1000);
+
+  //   return () => clearInterval(timer);
+  // }, [router]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
@@ -115,14 +144,31 @@ export default function BookingSuccessPage() {
               </h3>
               
               <div className="space-y-3">
-                <div className="flex items-center justify-center text-gray-600">
-                  <Phone className="w-5 h-5 mr-2" />
-                  <span>โทร: 02-123-4567</span>
-                </div>
-                <div className="flex items-center justify-center text-gray-600">
-                  <Mail className="w-5 h-5 mr-2" />
-                  <span>อีเมล: support@hotel.com</span>
-                </div>
+                {contactInfo.phone && (
+                  <div className="flex items-center justify-center text-gray-600">
+                    <Phone className="w-5 h-5 mr-2" />
+                    <span>โทร: {contactInfo.phone}</span>
+                  </div>
+                )}
+                {contactInfo.email && (
+                  <div className="flex items-center justify-center text-gray-600">
+                    <Mail className="w-5 h-5 mr-2" />
+                    <span>อีเมล: {contactInfo.email}</span>
+                  </div>
+                )}
+                {contactInfo.address && (
+                  <div className="flex items-center justify-center text-gray-600">
+                    <MapPin className="w-5 h-5 mr-2" />
+                    <span>ที่อยู่: {contactInfo.address}</span>
+                  </div>
+                )}
+
+                {contactInfo.line && (
+                  <div className="flex items-center justify-center text-gray-600">
+                    <MessageCircle className="w-5 h-5 mr-2" />
+                    <span>LINE: {contactInfo.line}</span>
+                  </div>
+                )}
               </div>
               
               <p className="text-sm text-gray-500 mt-4">
@@ -138,18 +184,11 @@ export default function BookingSuccessPage() {
               >
                 กลับสู่หน้าแรก
               </button>
-              
-              <button
-                onClick={() => router.push('/bookings')}
-                className="w-full bg-gray-200 text-gray-800 py-3 px-6 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
-              >
-                ดูการจองของฉน
-              </button>
             </div>
 
-            {/* Auto Redirect Notice */}
+            {/* Manual Navigation Notice */}
             <div className="mt-6 text-sm text-gray-500">
-              <p>จะกลับสู่หน้าแรกอัตโนมัติใน {countdown} วินาที</p>
+              <p>เลือกดำเนินการต่อด้วยปุ่มด้านบน หรือบันทึกหมายเลขการจองไว้</p>
             </div>
           </div>
 

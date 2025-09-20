@@ -432,7 +432,7 @@ export default function PaymentSettingsPage() {
                                 ? settings.promptPay.qrCodeUrl 
                                 : `http://localhost:3001${settings.promptPay.qrCodeUrl}`} 
                               alt="PromptPay QR Code" 
-                              className="w-48 h-48 object-contain border border-gray-300 rounded-lg"
+                              className="w-64 h-64 object-contain border border-gray-300 rounded-lg shadow-md"
                               onError={(e) => {
                                 console.error('Failed to load QR Code image:', e.target.src);
                                 e.target.style.display = 'none';

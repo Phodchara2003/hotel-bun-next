@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Room Images</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .image-test { margin: 20px 0; padding: 10px; border: 1px solid #ccc; }
+        .image-test img { max-width: 300px; max-height: 200px; object-fit: cover; margin: 10px; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>ทดสอบการแสดงรูปภาพห้องพัก</h1>
+    
+    <div class="image-test">
+        <h3>รูปภาพที่แอดมินอัปโหลด</h3>
+        <img src="http://localhost:3002/images/rooms/room-1758275954942-81117622.png" alt="Room 1" onload="showSuccess(this)" onerror="showError(this)">
+        <img src="http://localhost:3002/images/rooms/room-1758283949829-274513890.png" alt="Room 2" onload="showSuccess(this)" onerror="showError(this)">
+        <img src="http://localhost:3002/images/rooms/room-1758283949849-871061205.png" alt="Room 3" onload="showSuccess(this)" onerror="showError(this)">
+        <img src="http://localhost:3002/images/rooms/room-1758283949883-536470183.jpg" alt="Room 4" onload="showSuccess(this)" onerror="showError(this)">
+    </div>
+    
+    <div class="image-test">
+        <h3>รูปภาพ Fallback</h3>
+        <img src="http://localhost:3002/images/rooms/room1.jpg" alt="Fallback 1" onload="showSuccess(this)" onerror="showError(this)">
+        <img src="http://localhost:3002/images/rooms/room2.jpg" alt="Fallback 2" onload="showSuccess(this)" onerror="showError(this)">
+        <img src="http://localhost:3002/images/rooms/suite1.jpg" alt="Fallback 3" onload="showSuccess(this)" onerror="showError(this)">
+    </div>
+    
+    <div class="image-test">
+        <h3>Placeholder</h3>
+        <img src="http://localhost:3002/images/rooms/placeholder.svg" alt="Placeholder" onload="showSuccess(this)" onerror="showError(this)">
+    </div>
+    
+    <div id="results"></div>
+    
+    <script>
+        function showSuccess(img) {
+            console.log('✅ Image loaded successfully:', img.src);
+            const result = document.createElement('div');
+            result.className = 'success';
+            result.textContent = '✅ โหลดสำเร็จ: ' + img.alt + ' (' + img.src + ')';
+            document.getElementById('results').appendChild(result);
+        }
+        
+        function showError(img) {
+            console.log('❌ Image failed to load:', img.src);
+            const result = document.createElement('div');
+            result.className = 'error';
+            result.textContent = '❌ โหลดไม่สำเร็จ: ' + img.alt + ' (' + img.src + ')';
+            document.getElementById('results').appendChild(result);
+        }
+    </script>
+</body>
+</html>

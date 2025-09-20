@@ -484,7 +484,16 @@ export const AuthProvider = ({ children }) => {
     setUser(userData);
     const token = Cookies.get('auth_token');
     if (token) {
-      updateStoredUserData(userData, token);
+      // Check if remember me was enabled
+      const rememberMe = typeof window !== 'undefined' ? 
+        localStorage.getItem('remember_me') === 'true' : false;
+      
+      // Update stored data while preserving remember me setting
+      updateStoredUserData(userData, token, rememberMe);
+      
+      console.log('✅ User data updated successfully');
+    } else {
+      console.warn('⚠️ No token found during user update');
     }
   };
 

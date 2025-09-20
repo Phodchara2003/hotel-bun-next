@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Room Data</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .room-card { border: 1px solid #ccc; margin: 10px; padding: 15px; border-radius: 8px; }
+        .room-info { display: flex; justify-content: space-between; margin: 10px 0; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>ทดสอบข้อมูลห้องพัก</h1>
+    <div id="results"></div>
+    
+    <script>
+        async function testRoomData() {
+            try {
+                const response = await fetch('http://localhost:3001/api/room-types-with-images');
+                const data = await response.json();
+                
+                const resultsDiv = document.getElementById('results');
+                
+                if (data.success && data.data) {
+                    data.data.forEach(room => {
+                        const roomDiv = document.createElement('div');
+                        roomDiv.className = 'room-card';
+                        
+                        roomDiv.innerHTML = `
+                            <h3>${room.name}</h3>
+                            <div class="room-info">
+                                <span><strong>ID:</strong> ${room.id}</span>
+                                <span><strong>ราคา:</strong> ฿${parseFloat(room.price_per_night).toLocaleString()}</span>
+                            </div>
+                            <div class="room-info">
+                                <span class="${room.max_guests ? 'success' : 'error'}">
+                                    <strong>จำนวนคน:</strong> ${room.max_guests || 'ไม่มีข้อมูล'} คน
+                                </span>
+                                <span class="${room.size_sqm ? 'success' : 'error'}">
+                                    <strong>ขนาด:</strong> ${room.size_sqm || 'ไม่มีข้อมูล'} ตร.ม.
+                                </span>
+                            </div>
+                            <p><strong>รายละเอียด:</strong> ${room.description}</p>
+                            <p><strong>สิ่งอำนวยความสะดวก:</strong> ${room.amenities ? room.amenities.join(', ') : 'ไม่มีข้อมูล'}</p>
+                        `;
+                        
+                        resultsDiv.appendChild(roomDiv);
+                    });
+                } else {
+                    resultsDiv.innerHTML = '<p class="error">ไม่สามารถโหลดข้อมูลได้</p>';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('results').innerHTML = '<p class="error">เกิดข้อผิดพลาด: ' + error.message + '</p>';
+            }
+        }
+        
+        // เรียกใช้เมื่อหน้าเว็บโหลดเสร็จ
+        window.onload = testRoomData;
+    </script>
+</body>
+</html>

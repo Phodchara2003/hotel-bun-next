@@ -46,6 +46,10 @@ export default function RoomsManagement() {
   const [selectedImages, setSelectedImages] = useState([]);
   const [uploadingImages, setUploadingImages] = useState(false);
   
+  // Delete confirmation modal states
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [roomToDelete, setRoomToDelete] = useState(null);
+  
   const [stats, setStats] = useState({
     totalRooms: 0,
     availableRooms: 0,
@@ -251,7 +255,22 @@ export default function RoomsManagement() {
         status: room.status || 'available', // Default status
         size: room.size_sqm || room.size || 25, // Map size_sqm to size with default
         bed_type: room.bed_type || 'double', // Default bed type
-        view_type: room.view_type || 'city' // Default view type
+        view_type: room.view_type || 'city', // Default view type
+        images: (() => {
+          try {
+            if (room.images) {
+              if (typeof room.images === 'string') {
+                return JSON.parse(room.images);
+              } else if (Array.isArray(room.images)) {
+                return room.images;
+              }
+            }
+            return [];
+          } catch (e) {
+            console.error('Error parsing images:', e);
+            return [];
+          }
+        })() // Safe images parsing
       };
       
       console.log('🔧 Mapped form data for edit:', mappedFormData);
@@ -265,6 +284,7 @@ export default function RoomsManagement() {
       console.log('    - status:', mappedFormData.status);
       console.log('    - bed_type:', mappedFormData.bed_type);
       console.log('    - view_type:', mappedFormData.view_type);
+      console.log('    - images:', mappedFormData.images, '(count:', mappedFormData.images?.length || 0, ')');
       
       setFormData(mappedFormData);
     } else {
@@ -349,7 +369,22 @@ export default function RoomsManagement() {
         response = await roomsAPI.createRoom(formData);
         console.log('➕ Create response:', response);
         if (response.success) {
-          toast.success('เพิ่มห้องพักสำเร็จ - ข้อมูลได้รับการอัปเดต');
+          const newRoomId = response.data?.id;
+          console.log('✅ Room created with ID:', newRoomId);
+          
+          // อัปโหลดรูปภาพหลังสร้างห้องสำเร็จ
+          if (selectedImages.length > 0 && newRoomId) {
+            console.log('📸 Uploading images for new room...');
+            const uploadResult = await handleUploadImages(newRoomId);
+            if (uploadResult?.success) {
+              toast.success('เพิ่มห้องพักและอัปโหลดรูปภาพสำเร็จ');
+            } else {
+              toast.success('เพิ่มห้องพักสำเร็จ แต่อัปโหลดรูปภาพไม่สำเร็จ');
+            }
+          } else {
+            toast.success('เพิ่มห้องพักสำเร็จ');
+          }
+          
           closeModal();
           // รีเฟรชข้อมูลทันทีหลังเพิ่มห้องใหม่
           await fetchRooms();
@@ -359,8 +394,15 @@ export default function RoomsManagement() {
         }
       } else if (modalType === 'edit') {
         console.log('✏️ Updating room with ID:', selectedRoom.id);
-        console.log('✏️ Update data:', formData);
-        response = await roomsAPI.updateRoom(selectedRoom.id, formData);
+        console.log('✏️ Update data:', JSON.stringify(formData, null, 2));
+        console.log('✏️ Form data types:', Object.keys(formData).map(key => `${key}: ${typeof formData[key]} = ${formData[key]}`));
+        
+        // Create update data without images field to preserve existing images
+        const updateData = { ...formData };
+        delete updateData.images; // Remove images field to let backend preserve existing images
+        console.log('✏️ Update data (without images):', JSON.stringify(updateData, null, 2));
+        
+        response = await roomsAPI.updateRoom(selectedRoom.id, updateData);
         console.log('✏️ Update response:', response);
         if (response.success) {
           toast.success('แก้ไขห้องพักสำเร็จ - ข้อมูลได้รับการอัปเดต');
@@ -386,14 +428,19 @@ export default function RoomsManagement() {
     }
   };
 
-  const handleDelete = async (roomId) => {
-    if (!confirm('คุณต้องการลบห้องพักนี้หรือไม่?')) {
-      return;
-    }
+  const handleDelete = (roomId) => {
+    // Find room details for confirmation modal
+    const room = rooms.find(r => r.id === roomId);
+    setRoomToDelete(room);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!roomToDelete) return;
 
     try {
       setActionLoading(true);
-      const response = await roomsAPI.deleteRoom(roomId);
+      const response = await roomsAPI.deleteRoom(roomToDelete.id);
       if (response.success) {
         toast.success('ลบห้องพักสำเร็จ - ข้อมูลได้รับการอัปเดต');
         // รีเฟรชข้อมูลทันทีหลังลบ
@@ -406,7 +453,14 @@ export default function RoomsManagement() {
       toast.error('เกิดข้อผิดพลาดในการลบห้องพัก');
     } finally {
       setActionLoading(false);
+      setShowDeleteModal(false);
+      setRoomToDelete(null);
     }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteModal(false);
+    setRoomToDelete(null);
   };
 
   const formatPrice = (amount) => {
@@ -536,19 +590,26 @@ export default function RoomsManagement() {
     setSelectedImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleUploadImages = async () => {
-    if (!selectedRoom?.id || selectedImages.length === 0) {
-      toast.error('กรุณาเลือกรูปภาพก่อนอัปโหลด');
-      return;
+  const handleUploadImages = async (roomId = null) => {
+    // Use provided roomId or existing selectedRoom.id
+    const targetRoomId = roomId || selectedRoom?.id;
+    
+    if (!targetRoomId || selectedImages.length === 0) {
+      if (modalType === 'add') {
+        toast.error('กรุณาเพิ่มห้องพักก่อน จากนั้นจึงอัปโหลดรูปภาพ');
+      } else {
+        toast.error('กรุณาเลือกรูปภาพก่อนอัปโหลด');
+      }
+      return null;
     }
 
     try {
       setUploadingImages(true);
       
-      console.log('📸 Uploading images for room ID:', selectedRoom.id);
+      console.log('📸 Uploading images for room ID:', targetRoomId);
       console.log('� Files to upload:', selectedImages.map(f => ({ name: f.name, size: f.size, type: f.type })));
       
-      const result = await roomsAPI.uploadImages(selectedRoom.id, selectedImages);
+      const result = await roomsAPI.uploadImages(targetRoomId, selectedImages);
       console.log('📸 Upload result:', result);
 
       if (result.success) {
@@ -556,17 +617,22 @@ export default function RoomsManagement() {
         setSelectedImages([]);
         // Refresh room data
         await fetchRooms();
-        // Update selected room with new images
-        const updatedRoom = await roomsAPI.getRoomById(selectedRoom.id);
-        if (updatedRoom.success) {
-          setSelectedRoom(updatedRoom.data);
+        // Update selected room with new images if in edit mode
+        if (modalType === 'edit' && selectedRoom?.id) {
+          const updatedRoom = await roomsAPI.getRoomById(selectedRoom.id);
+          if (updatedRoom.success) {
+            setSelectedRoom(updatedRoom.data);
+          }
         }
+        return result;
       } else {
         toast.error(result.message || 'เกิดข้อผิดพลาดในการอัปโหลด');
+        return null;
       }
     } catch (error) {
       console.error('Error uploading images:', error);
       toast.error('เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ');
+      return null;
     } finally {
       setUploadingImages(false);
     }
@@ -1467,12 +1533,15 @@ export default function RoomsManagement() {
                         </div>
                         
                         {/* Upload Button for Selected Images */}
-                        {modalType === 'edit' && selectedImages.length > 0 && (
+                        {(modalType === 'add' || modalType === 'edit') && selectedImages.length > 0 && (
                           <button
                             type="button"
-                            onClick={handleUploadImages}
-                            disabled={uploadingImages}
-                            className="mt-3 btn-outline flex items-center gap-2 text-sm"
+                            onClick={modalType === 'edit' ? handleUploadImages : undefined}
+                            disabled={uploadingImages || modalType === 'add'}
+                            className={`mt-3 flex items-center gap-2 text-sm ${
+                              modalType === 'add' ? 'btn-secondary cursor-not-allowed' : 'btn-outline'
+                            }`}
+                            title={modalType === 'add' ? 'รูปภาพจะถูกอัปโหลดหลังจากเพิ่มห้องพักสำเร็จ' : 'อัปโหลดรูปภาพทันที'}
                           >
                             {uploadingImages ? (
                               <RefreshCw className="h-4 w-4 animate-spin" />
@@ -1481,7 +1550,11 @@ export default function RoomsManagement() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                               </svg>
                             )}
-                            {uploadingImages ? 'กำลังอัปโหลด...' : `อัปโหลด ${selectedImages.length} รูป`}
+                            {uploadingImages ? 'กำลังอัปโหลด...' : 
+                              modalType === 'add' ? 
+                                `เตรียมอัปโหลด ${selectedImages.length} รูป (หลังเพิ่มห้อง)` : 
+                                `อัปโหลด ${selectedImages.length} รูป`
+                            }
                           </button>
                         )}
                       </div>
@@ -1521,6 +1594,102 @@ export default function RoomsManagement() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && roomToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-neutral-800 rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-2">
+                  <AlertCircle className="h-6 w-6 text-red-500" />
+                  ยืนยันการลบห้องพัก
+                </h2>
+                <button
+                  onClick={cancelDelete}
+                  className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-colors"
+                >
+                  <X className="h-5 w-5 text-neutral-400" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="mb-6">
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-red-800 dark:text-red-200 mb-1">
+                        คำเตือน: การดำเนินการนี้ไม่สามารถย้อนกลับได้
+                      </p>
+                      <p className="text-sm text-red-600 dark:text-red-300">
+                        ข้อมูลห้องพักจะถูกลบออกจากระบบอย่างถาวร
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-neutral-700 dark:text-neutral-300">
+                    คุณแน่ใจหรือไม่ที่จะลบห้องพัก:
+                  </p>
+                  
+                  <div className="bg-neutral-50 dark:bg-neutral-700 rounded-lg p-4 border border-neutral-200 dark:border-neutral-600">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Hotel className="h-5 w-5 text-primary-500" />
+                      <span className="font-semibold text-neutral-800 dark:text-neutral-200">
+                        {roomToDelete.name}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+                      <div className="flex items-center gap-1">
+                        <Users className="h-4 w-4" />
+                        <span>{roomToDelete.capacity} ท่าน</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <DollarSign className="h-4 w-4" />
+                        <span>{roomToDelete.price?.toLocaleString()} บาท/คืน</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={cancelDelete}
+                  disabled={actionLoading}
+                  className="px-4 py-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDelete}
+                  disabled={actionLoading}
+                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {actionLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      กำลังลบ...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4" />
+                      ยืนยันลบ
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       </div>
     </div>
   );

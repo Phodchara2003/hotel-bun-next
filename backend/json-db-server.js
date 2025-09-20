@@ -248,6 +248,7 @@ const server = createServer(async (req, res) => {
         endpoints: [
           'GET /health',
           'GET /api/hotels',
+          'GET /api/room-types-with-images',
           'GET /api/notifications', 
           'GET /global-settings/room_price_per_night',
           'GET /api/simple-payment-settings',
@@ -273,6 +274,79 @@ const server = createServer(async (req, res) => {
         success: true,
         data: hotels,
         count: hotels.length,
+        source: 'json_database'
+      });
+      return;
+    }
+
+    // API: Room Types with Images from JSON database
+    if (path === '/api/room-types-with-images' && method === 'GET') {
+      console.log('🏠 Fetching room types with images from JSON database...');
+      
+      const roomTypes = [
+        {
+          id: 1,
+          name: 'ห้องสแตนดาร์ด',
+          description: 'ห้องพักสำหรับผู้เข้าพักทั่วไปพร้อมสิ่งอำนวยความสะดวกครบครัน',
+          pricePerNight: 1500,
+          maxGuests: 2,
+          sizeSqm: 25,
+          amenities: ['Wi-Fi ฟรี', 'เครื่องปรับอากาศ', 'ทีวี'],
+          hotel_id: 1,
+          images: ['room1.jpg']
+        },
+        {
+          id: 2,
+          name: 'ห้องซูพีเรียร์',
+          description: 'ห้องพักขนาดใหญ่กว่าพร้อมวิวที่สวยงาม',
+          pricePerNight: 1800,
+          maxGuests: 3,
+          sizeSqm: 35,
+          amenities: ['Wi-Fi ฟรี', 'เครื่องปรับอากาศ', 'ทีวี', 'ตู้เซฟ'],
+          hotel_id: 1,
+          images: ['room2.jpg']
+        },
+        {
+          id: 3,
+          name: 'ห้องดีลักซ์',
+          description: 'ห้องพักหรูหราพร้อมระเบียงส่วนตัว',
+          pricePerNight: 2500,
+          maxGuests: 4,
+          sizeSqm: 45,
+          amenities: ['Wi-Fi ฟรี', 'เครื่องปรับอากาศ', 'ทีวี', 'ตู้เซฟ', 'ระเบียง'],
+          hotel_id: 1,
+          images: ['suite1.jpg']
+        },
+        {
+          id: 4,
+          name: 'ห้องสวีท',
+          description: 'ห้องพักขนาดใหญ่พร้อมห้องนั่งเล่นแยกต่างหาก',
+          pricePerNight: 3500,
+          maxGuests: 6,
+          sizeSqm: 65,
+          amenities: ['Wi-Fi ฟรี', 'เครื่องปรับอากาศ', 'ทีวี', 'ตู้เซฟ', 'ระเบียง', 'ห้องนั่งเล่น'],
+          hotel_id: 1,
+          images: ['room-1758275954942-81117622.png']
+        },
+        {
+          id: 5,
+          name: 'ห้องแฟมิลี่',
+          description: 'ห้องพักขนาดใหญ่สำหรับครอบครัว',
+          pricePerNight: 4200,
+          maxGuests: 8,
+          sizeSqm: 80,
+          amenities: ['Wi-Fi ฟรี', 'เครื่องปรับอากาศ', 'ทีวี', 'ตู้เซฟ', 'ครัวเล็ก', 'ห้องนั่งเล่น'],
+          hotel_id: 1,
+          images: ['room-1758283949829-274513890.png']
+        }
+      ];
+      
+      console.log(`✅ Found ${roomTypes.length} room types with images from JSON database`);
+      
+      sendJSON(res, 200, {
+        success: true,
+        data: roomTypes,
+        count: roomTypes.length,
         source: 'json_database'
       });
       return;

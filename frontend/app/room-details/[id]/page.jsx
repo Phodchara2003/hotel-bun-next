@@ -16,51 +16,86 @@ export default function RoomDetailsPage() {
   const fetchRoomDetails = async () => {
     try {
       setIsLoading(true);
+      console.log('🔍 Fetching room details for ID:', params.id);
       
-      // Try to get room details from admin API first
-      const adminRoomsResponse = await fetch('http://localhost:3001/api/admin/rooms');
-      const adminRoomsData = await adminRoomsResponse.json();
+      // Use the same API endpoint as homepage for consistency
+      const roomTypesResponse = await fetch('http://localhost:3001/api/room-types-with-images');
+      const roomTypesData = await roomTypesResponse.json();
       
-      if (adminRoomsData.success && adminRoomsData.data) {
-        const foundRoom = adminRoomsData.data.find(r => r.id.toString() === params.id);
+      if (roomTypesData.success && roomTypesData.data) {
+        const foundRoom = roomTypesData.data.find(r => r.id.toString() === params.id);
         
         if (foundRoom) {
-          // Process images
+          console.log('🏠 Found room data:', foundRoom);
+          
+          // Process images using the same logic as homepage
+          const flattenImageArray = (images) => {
+            let flatImages = [];
+            
+            if (Array.isArray(images)) {
+              images.forEach(img => {
+                if (typeof img === 'string' && img.trim() && !img.includes('System.Object')) {
+                  if (img.includes(' ')) {
+                    const splitImages = img.split(' ').filter(i => i.trim() && !i.includes('System.Object'));
+                    flatImages.push(...splitImages);
+                  } else {
+                    flatImages.push(img.trim());
+                  }
+                } else if (Array.isArray(img)) {
+                  flatImages.push(...flattenImageArray(img));
+                }
+              });
+            } else if (typeof images === 'string' && images.trim() && !images.includes('System.Object')) {
+              if (images.includes(' ')) {
+                flatImages.push(...images.split(' ').filter(i => i.trim() && !i.includes('System.Object')));
+              } else {
+                flatImages.push(images.trim());
+              }
+            }
+            
+            return flatImages;
+          };
+          
           let processedImages = [];
           if (foundRoom.images) {
-            if (Array.isArray(foundRoom.images)) {
-              processedImages = foundRoom.images.flat().filter(img => img && img.trim());
-            } else if (typeof foundRoom.images === 'string') {
-              processedImages = [foundRoom.images];
-            }
+            processedImages = flattenImageArray(foundRoom.images);
+            processedImages = [...new Set(processedImages.filter(img => img && img.trim() && !img.includes('System.Object')))];
           }
           
-          // Add full URL path for images
-          const imageUrls = processedImages.map(img => {
-            if (img.startsWith('http')) return img;
-            return `http://localhost:3001/uploads/room-images/${img}`;
-          });
+          // Convert to public folder paths
+          const imageUrls = processedImages.map(img => `/images/rooms/${img}`);
+          
+          // Add fallback images if no images available
+          if (imageUrls.length === 0) {
+            const fallbackImages = ['/images/rooms/room1.jpg', '/images/rooms/room2.jpg', '/images/rooms/suite1.jpg'];
+            imageUrls.push(fallbackImages[(foundRoom.id - 1) % fallbackImages.length] || '/images/rooms/placeholder.svg');
+          }
 
           const roomData = {
             id: foundRoom.id,
             name: foundRoom.name,
             description: foundRoom.description,
-            price: parseFloat(foundRoom.price_per_night),
-            maxGuests: parseInt(foundRoom.max_guests),
-            sizeSqm: parseInt(foundRoom.size_sqm),
+            price: parseFloat(foundRoom.price_per_night || 1500),
+            maxGuests: parseInt(foundRoom.max_guests || 2),
+            sizeSqm: parseInt(foundRoom.size_sqm || 30),
             amenities: Array.isArray(foundRoom.amenities) ? foundRoom.amenities : [],
             images: imageUrls,
             type: foundRoom.type,
-            hotel_id: foundRoom.hotel_id
+            hotel_id: foundRoom.hotel_id,
+            hotel_name: foundRoom.hotel_name,
+            hotel_address: foundRoom.hotel_address
           };
           
           setRoom(roomData);
           
-          // Get hotel data
-          const hotelsResponse = await fetch('http://localhost:3001/api/hotels');
-          const hotelsData = await hotelsResponse.json();
-          if (hotelsData.success && hotelsData.data.length > 0) {
-            setHotel(hotelsData.data[0]);
+          // Set hotel data from room data
+          if (foundRoom.hotel_name) {
+            setHotel({
+              id: foundRoom.hotel_id,
+              name: foundRoom.hotel_name,
+              address: foundRoom.hotel_address,
+              description: foundRoom.hotel_description
+            });
           }
           
           console.log('✅ Room details loaded:', roomData);
@@ -146,15 +181,31 @@ export default function RoomDetailsPage() {
           {room.images.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {room.images.map((image, index) => (
-                <div key={index} className="aspect-w-16 aspect-h-9 rounded-lg overflow-hidden">
+                <div key={index} className="relative aspect-w-16 aspect-h-9 rounded-lg overflow-hidden bg-gray-200">
                   <img 
                     src={image} 
                     alt={`${room.name} - รูปที่ ${index + 1}`}
                     className="w-full h-64 object-cover hover:scale-105 transition-transform duration-300"
                     onError={(e) => {
-                      e.target.src = '/placeholder-room.jpg';
+                      console.log('❌ Image failed to load:', e.target.src);
+                      // Try fallback to predefined room images
+                      const fallbackImages = ['/images/rooms/room1.jpg', '/images/rooms/room2.jpg', '/images/rooms/suite1.jpg'];
+                      const fallbackSrc = fallbackImages[index % fallbackImages.length] || '/images/rooms/placeholder.svg';
+                      if (e.target.src !== fallbackSrc) {
+                        e.target.src = fallbackSrc;
+                      } else {
+                        // Hide image and show placeholder
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }
                     }}
                   />
+                  <div className="absolute inset-0 hidden items-center justify-center bg-gradient-to-br from-blue-100 to-blue-200 text-blue-600">
+                    <div className="text-center">
+                      <Calendar className="h-8 w-8 mx-auto mb-1" />
+                      <span className="text-sm">ภาพห้องพัก</span>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
