@@ -757,6 +757,12 @@ export const notificationAPI = {
     return response.data;
   },
 
+  // Check room availability
+  checkAvailability: async (roomTypeId, checkIn, checkOut) => {
+    const response = await api.get(`/rooms/availability?room_type_id=${roomTypeId}&check_in=${checkIn}&check_out=${checkOut}`);
+    return response.data;
+  },
+
   // Admin: Send notification
   sendNotification: async (notificationData) => {
     const response = await api.post('/notifications/send', notificationData);

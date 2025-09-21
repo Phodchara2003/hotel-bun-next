@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { bookingAPI } from '../../../lib/api';
-import { isStaffOrAdmin, canEdit, canDelete, canManageBookings } from '../../../lib/roles';
+import { isStaffOrAdmin, canDelete, canManageBookings } from '../../../lib/roles';
 import ConfirmModal from '../../../components/ConfirmModal';
 import AdminNavigation from '../../../components/AdminNavigation';
 import Link from 'next/link';
@@ -24,7 +24,6 @@ import {
   Search,
   Filter,
   Trash2,
-  Edit,
   Plus,
   Download,
   RefreshCw
@@ -36,23 +35,13 @@ export default function BookingManagement() {
   const [bookings, setBookings] = useState([]);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
+
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
+  const [confirmActionType, setConfirmActionType] = useState('danger'); // danger, success, warning, info
   const [actionLoading, setActionLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isVisible, setIsVisible] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [editFormData, setEditFormData] = useState({
-    guestName: '',
-    guestPhone: '',
-    guestEmail: '',
-    checkInDate: '',
-    checkOutDate: '',
-    guests: 1,
-    specialRequests: '',
-    status: 'pending'
-  });
   const [stats, setStats] = useState({
     totalBookings: 0,
     pendingBookings: 0,
@@ -86,6 +75,8 @@ export default function BookingManagement() {
     }
   };
 
+
+
   useEffect(() => {
     setIsVisible(true);
     if (isAuthenticated && user && isStaffOrAdmin(user)) {
@@ -96,10 +87,13 @@ export default function BookingManagement() {
   const fetchBookings = async () => {
     try {
       setLoading(true);
-      const response = await bookingAPI.getAllBookings();
+      const response = await bookingAPI.getDetailedBookingsForAdmin();
+      console.log('📊 Full API response:', response);
       if (response.success) {
         setBookings(response.data);
         calculateStats(response.data);
+        
+
       } else if (response.bookings) {
         // Handle alternative response format
         console.log('Alternative booking data:', response.bookings[0]); // Debug log
@@ -247,63 +241,7 @@ export default function BookingManagement() {
     }
   };
 
-  // ฟังก์ชันสำหรับเปิด modal แก้ไข
-  const openEditModal = (booking) => {
-    setSelectedBooking(booking);
-    setEditFormData({
-      guestName: booking.guest_name || '',
-      guestPhone: booking.guest_phone || '',
-      guestEmail: booking.guest_email || '',
-      checkInDate: booking.check_in_date || '',
-      checkOutDate: booking.check_out_date || '',
-      guests: booking.guests || 1,
-      specialRequests: booking.special_requests || '',
-      status: booking.status || 'pending'
-    });
-    setShowEditModal(true);
-  };
 
-  // ฟังก์ชันสำหรับปิด modal แก้ไข
-  const closeEditModal = () => {
-    setShowEditModal(false);
-    setSelectedBooking(null);
-    setEditFormData({
-      guestName: '',
-      guestPhone: '',
-      guestEmail: '',
-      checkInDate: '',
-      checkOutDate: '',
-      guests: 1,
-      specialRequests: '',
-      status: 'pending'
-    });
-  };
-
-  // ฟังก์ชันสำหรับอัปเดตข้อมูลการจอง
-  const handleUpdateBooking = async () => {
-    if (!selectedBooking || !selectedBooking.id) {
-      toast.error('ไม่พบข้อมูลการจองที่ต้องการแก้ไข');
-      return;
-    }
-
-    setIsUpdating(true);
-    try {
-      // อัปเดตสถานะการจอง
-      await bookingAPI.updateStatus(selectedBooking.id, editFormData.status);
-      
-      toast.success('อัปเดตข้อมูลการจองเรียบร้อยแล้ว');
-      closeEditModal();
-      
-      // รีเฟรชข้อมูล
-      fetchBookings();
-      
-    } catch (error) {
-      console.error('Error updating booking:', error);
-      toast.error('เกิดข้อผิดพลาดในการอัปเดตข้อมูล: ' + (error.response?.data?.error || error.message));
-    } finally {
-      setIsUpdating(false);
-    }
-  };
 
   const formatDate = (dateString) => {
     const date = safeParseDate(dateString);
@@ -359,13 +297,17 @@ export default function BookingManagement() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-900 dark:to-neutral-800">
-      <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-neutral-50 to-indigo-50 dark:from-neutral-900 dark:via-neutral-800 dark:to-neutral-900">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Admin Navigation */}
-        <AdminNavigation 
-          title="จัดการการจอง"
-          description="จัดการและติดตามการจองทั้งหมดในระบบ"
-        />
+        <div className={`mb-8 transform transition-all duration-700 ease-out ${
+          isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
+        }`}>
+          <AdminNavigation 
+            title="จัดการการจอง"
+            description="จัดการและติดตามการจองทั้งหมดในระบบ"
+          />
+        </div>
 
         {/* Action Buttons */}
         <div className={`mb-8 transform transition-all duration-700 ease-out ${
@@ -477,43 +419,48 @@ export default function BookingManagement() {
         </div>
 
         {/* Filters */}
-        <div className={`bg-white dark:bg-neutral-800 rounded-xl shadow-lg border-2 border-neutral-200 dark:border-neutral-700 p-8 mb-8 transform transition-all duration-700 delay-300 ease-out ${
+        <div className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-xl border border-neutral-200 dark:border-neutral-700 p-6 mb-6 transform transition-all duration-700 delay-300 ease-out ${
           isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
         }`}>
-          <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-8 flex items-center">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center mr-4 shadow-lg">
-              <Filter className="h-5 w-5 text-white" />
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-bold text-neutral-900 dark:text-white flex items-center">
+              <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center mr-3 shadow-lg">
+                <Filter className="h-4 w-4 text-white" />
+              </div>
+              ค้นหาและกรอง
+            </h2>
+            <div className="text-sm text-neutral-500 dark:text-neutral-400">
+              {filteredBookings.length} / {bookings.length} รายการ
             </div>
-            ค้นหาและกรองข้อมูล
-          </h2>
+          </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             {/* Search */}
             <div>
-              <label className="block text-sm font-semibold text-neutral-800 dark:text-neutral-200 mb-3">
+              <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-2">
                 ค้นหา
               </label>
               <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-primary-500 dark:text-primary-400 pointer-events-none" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400 pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="รหัสจอง, อีเมล, ชื่อผู้เข้าพัก..."
+                  placeholder="รหัสจอง, ชื่อ, อีเมล..."
                   value={filters.search}
                   onChange={(e) => handleFilterChange('search', e.target.value)}
-                  className="pl-16 input-field text-sm"
+                  className="pl-10 w-full px-3 py-2 text-sm border border-neutral-300 dark:border-neutral-600 rounded-xl bg-neutral-50 dark:bg-neutral-700 text-neutral-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200"
                 />
               </div>
             </div>
             
             {/* Status Filter */}
             <div>
-              <label className="block text-sm font-semibold text-neutral-800 dark:text-neutral-200 mb-3">
+              <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-2">
                 สถานะ
               </label>
               <select
                 value={filters.status}
                 onChange={(e) => handleFilterChange('status', e.target.value)}
-                className="input-field text-sm"
+                className="w-full px-3 py-2 text-sm border border-neutral-300 dark:border-neutral-600 rounded-xl bg-neutral-50 dark:bg-neutral-700 text-neutral-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200"
               >
                 <option value="">ทั้งหมด</option>
                 <option value="pending">รอการยืนยัน</option>
@@ -553,195 +500,275 @@ export default function BookingManagement() {
             <div className="flex items-end">
               <button
                 onClick={clearFilters}
-                className="w-full px-6 py-3 bg-primary-100 hover:bg-primary-200 dark:bg-primary-900 dark:hover:bg-primary-800 text-primary-700 dark:text-primary-300 font-semibold rounded-lg border border-primary-300 dark:border-primary-600 transition-all duration-200"
+                className="group w-full px-6 py-3 bg-gradient-to-r from-rose-50 to-pink-50 hover:from-rose-100 hover:to-pink-100 dark:from-rose-900/20 dark:to-pink-900/20 dark:hover:from-rose-800/30 dark:hover:to-pink-800/30 text-rose-700 dark:text-rose-300 hover:text-rose-800 dark:hover:text-rose-200 font-semibold rounded-xl border border-rose-200 dark:border-rose-700/50 hover:border-rose-300 dark:hover:border-rose-600 transition-all duration-300 hover:shadow-lg hover:shadow-rose-200/30 dark:hover:shadow-rose-900/20 active:scale-[0.98] relative overflow-hidden"
+                title="ล้างตัวกรองทั้งหมด"
               >
-                ล้างตัวกรอง
+                <div className="absolute inset-0 bg-gradient-to-r from-rose-400/0 via-rose-300/0 to-pink-400/0 group-hover:from-rose-400/10 group-hover:via-rose-300/5 group-hover:to-pink-400/10 transition-all duration-300"></div>
+                <div className="relative flex items-center justify-center gap-2">
+                  <svg className="w-4 h-4 transition-transform duration-200 group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  ล้างตัวกรอง
+                </div>
               </button>
             </div>
           </div>
           
-          <div className="mt-8 flex justify-between items-center">
-            <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-              แสดงผล <span className="font-bold text-primary-600 dark:text-primary-400">{filteredBookings.length}</span> จาก <span className="font-bold text-neutral-900 dark:text-white">{bookings.length}</span> รายการ
-            </span>
+          <div className="mt-8">
+            <div className="bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-800/50 dark:to-blue-900/20 rounded-xl p-4 border border-slate-200 dark:border-slate-700/50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-600 dark:text-slate-400">รายการจองทั้งหมด</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl font-bold text-slate-900 dark:text-white">{filteredBookings.length}</span>
+                      <span className="text-sm text-slate-500 dark:text-slate-400">จาก</span>
+                      <span className="text-lg font-semibold text-blue-600 dark:text-blue-400">{bookings.length}</span>
+                      <span className="text-sm text-slate-500 dark:text-slate-400">รายการ</span>
+                    </div>
+                  </div>
+                </div>
+                {filteredBookings.length !== bookings.length && (
+                  <div className="px-3 py-1 bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 text-amber-700 dark:text-amber-300 text-xs font-medium rounded-full border border-amber-200 dark:border-amber-700/50">
+                    กำลังกรอง
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Bookings Table */}
-        <div className={`bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden transform transition-all duration-700 delay-400 ease-out ${
+        <div className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden transform transition-all duration-700 delay-400 ease-out ${
           isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
         }`}>
-          <div className="p-6 border-b border-neutral-200 dark:border-neutral-700">
+          <div className="px-6 py-4 bg-gradient-to-r from-primary-50 to-blue-50 dark:from-neutral-800 dark:to-neutral-900 border-b border-neutral-200 dark:border-neutral-700">
             <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold text-neutral-900 dark:text-white">
-                รายการการจอง ({filteredBookings.length})
-              </h2>
+              <div>
+                <h2 className="text-xl font-bold text-neutral-900 dark:text-white">
+                  รายการการจอง
+                </h2>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
+                  แสดง {filteredBookings.length} จาก {bookings.length} รายการ
+                </p>
+              </div>
               <button
                 onClick={fetchBookings}
                 disabled={loading}
-                className="flex items-center space-x-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white rounded-lg transition-colors"
+                className="flex items-center space-x-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl"
                 title="รีเฟรชข้อมูล"
               >
                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                <span>รีเฟรช</span>
+                <span className="font-medium">รีเฟรช</span>
               </button>
             </div>
           </div>
 
           {loading ? (
-            <div className="p-12 text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-              <p className="mt-4 text-neutral-600 dark:text-neutral-400">กำลังโหลดข้อมูล...</p>
+            <div className="p-16 text-center">
+              <div className="relative inline-block">
+                <div className="w-16 h-16 border-4 border-gradient-to-r from-blue-200 to-purple-200 dark:from-blue-800 dark:to-purple-800 rounded-full"></div>
+                <div className="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-t-blue-500 border-r-purple-500 rounded-full animate-spin"></div>
+              </div>
+              <div className="mt-6 space-y-2">
+                <p className="text-lg font-semibold text-slate-800 dark:text-slate-200">กำลังโหลดข้อมูลการจอง</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">โปรดรอสักครู่...</p>
+              </div>
+              <div className="mt-8 flex justify-center space-x-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+              </div>
             </div>
           ) : filteredBookings.length === 0 ? (
-            <div className="p-12 text-center">
-              <Calendar className="mx-auto h-12 w-12 text-neutral-400 dark:text-neutral-600 mb-4" />
-              <p className="text-lg font-medium text-neutral-900 dark:text-white mb-2">
-                ไม่มีข้อมูลการจอง
-              </p>
-              <p className="text-neutral-600 dark:text-neutral-400">
-                ยังไม่มีการจองในระบบหรือไม่ตรงกับเงื่อนไขการค้นหา
-              </p>
+            <div className="p-16 text-center">
+              <div className="relative mb-8">
+                <div className="w-24 h-24 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 rounded-full flex items-center justify-center mx-auto border-4 border-slate-200 dark:border-slate-600">
+                  <Calendar className="h-10 w-10 text-slate-400 dark:text-slate-500" />
+                </div>
+                <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-gradient-to-r from-amber-400 to-orange-400 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.084 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200">
+                  ไม่พบข้อมูลการจอง
+                </h3>
+                <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+                  {bookings.length === 0 
+                    ? "ยังไม่มีการจองในระบบ เริ่มต้นรับจองแรกของคุณเลย!" 
+                    : "ไม่มีรายการที่ตรงกับเงื่อนไขการค้นหา ลองปรับเปลี่ยนตัวกรองดู"
+                  }
+                </p>
+                {bookings.length > 0 && (
+                  <button
+                    onClick={clearFilters}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-medium rounded-lg transition-all duration-200 hover:shadow-lg transform hover:scale-105"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    รีเซ็ตตัวกรอง
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
             <>
               {/* Desktop Table View */}
               <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-neutral-50 dark:bg-neutral-900">
+                  <thead className="bg-gradient-to-r from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900">
                     <tr>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide">
                         รหัสจอง
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide">
                         ผู้เข้าพัก
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide">
                         ห้องพัก
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                        วันที่เข้าพัก
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide">
+                        วันที่พัก
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                        วันที่ออก
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide">
                         จำนวนเงิน
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide">
                         สถานะ
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide">
                         จัดการ
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
-                  {filteredBookings.map((booking) => (
-                    <tr key={booking.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-neutral-900 dark:text-white">
-                          {booking.booking_id || `BK${booking.id}`}
+                  <tbody className="divide-y divide-neutral-100 dark:divide-neutral-700 bg-white dark:bg-neutral-800">
+                  {filteredBookings.map((booking, index) => (
+                    <tr key={booking.id} className={`hover:bg-gradient-to-r hover:from-primary-25 hover:to-blue-25 dark:hover:from-neutral-700 dark:hover:to-neutral-750 transition-all duration-200 ${index % 2 === 0 ? 'bg-neutral-25 dark:bg-neutral-800' : 'bg-white dark:bg-neutral-800'}`}>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-8 h-8 bg-gradient-to-br from-primary-400 to-primary-600 rounded-lg flex items-center justify-center">
+                            <span className="text-xs font-bold text-white">{booking.id}</span>
+                          </div>
+                          <div className="text-sm font-semibold text-neutral-900 dark:text-white">
+                            {booking.booking_id || `BK${booking.id}`}
+                          </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10">
-                            <div className="h-10 w-10 bg-primary-100 dark:bg-primary-900 rounded-full flex items-center justify-center">
-                              <User className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+                      <td className="px-4 py-3">
+                        <div className="flex items-center space-x-3 min-w-0">
+                          <div className="flex-shrink-0 w-8 h-8">
+                            <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-800 dark:to-blue-900 rounded-full flex items-center justify-center border-2 border-blue-200 dark:border-blue-700">
+                              <User className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                             </div>
                           </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-neutral-900 dark:text-white">
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium text-neutral-900 dark:text-white truncate">
                               {booking.guest_name || 'ไม่ระบุ'}
                             </div>
-                            <div className="text-sm text-neutral-500 dark:text-neutral-400">
-                              {booking.guest_email || 'ไม่ระบุ'}
+                            <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                              {booking.guest_phone || 'ไม่ระบุเบอร์'}
                             </div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-neutral-900 dark:text-white">
-                          {booking.room_number || 'ไม่ระบุ'}
-                        </div>
-                        <div className="text-sm text-neutral-500 dark:text-neutral-400">
-                          {booking.room_type_name || booking.room_type || 'ไม่ระบุประเภทห้อง'}
-                        </div>
-                        {booking.hotel_name && (
-                          <div className="text-xs text-neutral-400">
-                            {booking.hotel_name}
+                      <td className="px-4 py-3">
+                        <div className="space-y-1">
+                          <div className="text-sm font-medium text-neutral-900 dark:text-white">
+                            {booking.room_number || 'ไม่ระบุ'}
                           </div>
-                        )}
+                          <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                            {booking.room_type_name || 
+                             (typeof booking.room_type === 'object' ? booking.room_type?.name : booking.room_type) || 
+                             'ไม่ระบุประเภทห้อง'}
+                          </div>
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 dark:text-white">
-                        {formatDate(booking.check_in_date)}
+                      <td className="px-4 py-3">
+                        <div className="space-y-1">
+                          <div className="text-sm text-neutral-900 dark:text-white">
+                            {formatDate(booking.check_in_date)}
+                          </div>
+                          <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                            ถึง {formatDate(booking.check_out_date)}
+                          </div>
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 dark:text-white">
-                        {formatDate(booking.check_out_date)}
+                      <td className="px-4 py-3">
+                        <div className="text-sm font-bold text-green-600 dark:text-green-400">
+                          {formatPrice(booking.total_amount || booking.total_price || booking.totalAmount || booking.totalPrice || 0)}
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900 dark:text-white">
-                        {formatPrice(booking.total_amount || booking.total_price || booking.totalAmount || booking.totalPrice || 0)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-3">
                         <div className="flex items-center space-x-2">
                           {getStatusBadge(booking.status)}
                           {booking.payment_slips && booking.payment_slips.length > 0 && (
                             <div className="relative group">
-                              <div className="w-6 h-6 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+                              <div className="w-6 h-6 bg-gradient-to-br from-green-100 to-green-200 dark:from-green-800 dark:to-green-900 rounded-full flex items-center justify-center border border-green-300 dark:border-green-600">
                                 <Receipt className="h-3 w-3 text-green-600 dark:text-green-400" />
                               </div>
-                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-neutral-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg">
                                 มีสลีปการชำระเงิน ({booking.payment_slips.length})
                               </div>
                             </div>
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex items-center space-x-2">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center space-x-1">
                           <button
                             onClick={() => {
                               setSelectedBooking(booking);
                               setShowBookingModal(true);
                             }}
-                            className="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300 transition-colors p-1 rounded hover:bg-primary-50 dark:hover:bg-primary-900/20"
+                            className="group relative p-2 rounded-xl bg-primary-50 hover:bg-primary-100 dark:bg-primary-900/30 dark:hover:bg-primary-800/40 text-primary-600 dark:text-primary-400 transition-all duration-200 hover:scale-105"
                             title="ดูรายละเอียดการจอง"
                           >
                             <Eye className="h-4 w-4" />
+                            <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-neutral-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                              ดูรายละเอียด
+                            </div>
                           </button>
                           
-                          {canEdit(user) && (
-                            <button
-                              onClick={() => openEditModal(booking)}
-                              className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 transition-colors p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                              title="แก้ไขข้อมูลการจอง"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                          )}
+
                           
-                          {canEdit(user) && booking.status === 'pending' && (
+                          {canManageBookings(user) && booking.status === 'pending' && (
                             <>
                               <button
                                 onClick={() => {
                                   setConfirmAction(() => () => handleStatusUpdate(booking.id, 'confirmed'));
+                                  setConfirmActionType('success');
                                   setShowConfirmModal(true);
                                 }}
-                                className="text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 transition-colors p-1 rounded hover:bg-green-50 dark:hover:bg-green-900/20"
+                                className="group relative p-2 rounded-xl bg-green-50 hover:bg-green-100 dark:bg-green-900/30 dark:hover:bg-green-800/40 text-green-600 dark:text-green-400 transition-all duration-200 hover:scale-105"
                                 title="อนุมัติการจอง"
                               >
                                 <CheckCircle className="h-4 w-4" />
+                                <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-neutral-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                                  อนุมัติ
+                                </div>
                               </button>
                               <button
                                 onClick={() => {
                                   setConfirmAction(() => () => handleStatusUpdate(booking.id, 'cancelled'));
+                                  setConfirmActionType('warning');
                                   setShowConfirmModal(true);
                                 }}
-                                className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 transition-colors p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20"
+                                className="group relative p-2 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-800/40 text-red-600 dark:text-red-400 transition-all duration-200 hover:scale-105"
                                 title="ยกเลิกการจอง"
                               >
                                 <XCircle className="h-4 w-4" />
+                                <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-neutral-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                                  ยกเลิก
+                                </div>
                               </button>
                             </>
                           )}
@@ -750,6 +777,7 @@ export default function BookingManagement() {
                             <button
                               onClick={() => {
                                 setConfirmAction(() => () => handleDeleteBooking(booking.id));
+                                setConfirmActionType('danger');
                                 setShowConfirmModal(true);
                               }}
                               className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 transition-colors p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20"
@@ -767,30 +795,30 @@ export default function BookingManagement() {
             </div>
 
             {/* Mobile/Tablet Card View */}
-            <div className="block lg:hidden space-y-4">
-              {filteredBookings.map((booking) => (
-                <div key={booking.id} className="bg-white dark:bg-neutral-800 rounded-xl p-4 shadow-lg border border-neutral-200 dark:border-neutral-700">
-                  <div className="flex items-start justify-between mb-3">
+            <div className="block lg:hidden space-y-4 p-4">
+              {filteredBookings.map((booking, index) => (
+                <div key={booking.id} className={`bg-gradient-to-br from-white to-neutral-50 dark:from-neutral-800 dark:to-neutral-900 rounded-2xl p-5 shadow-xl border border-neutral-200 dark:border-neutral-700 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1`}>
+                  <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 bg-primary-100 dark:bg-primary-900 rounded-full flex items-center justify-center">
-                        <User className="h-6 w-6 text-primary-600 dark:text-primary-400" />
+                      <div className="w-12 h-12 bg-gradient-to-br from-primary-400 to-primary-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <User className="h-6 w-6 text-white" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-neutral-900 dark:text-white">
+                        <h3 className="font-bold text-neutral-900 dark:text-white text-lg">
                           {booking.guest_name || 'ไม่ระบุ'}
                         </h3>
-                        <div className="flex items-center space-x-2">
-                          <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                            {booking.booking_id || `BK${booking.id}`}
-                          </p>
+                        <div className="flex items-center space-x-2 mt-1">
+                          <div className="px-2 py-1 bg-primary-100 dark:bg-primary-900 rounded-lg">
+                            <p className="text-xs font-semibold text-primary-600 dark:text-primary-400">
+                              {booking.booking_id || `BK${booking.id}`}
+                            </p>
+                          </div>
                           {booking.payment_slips && booking.payment_slips.length > 0 && (
-                            <div className="relative group">
-                              <div className="w-5 h-5 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
-                                <Receipt className="h-3 w-3 text-green-600 dark:text-green-400" />
-                              </div>
-                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                                มีสลีปการชำระเงิน ({booking.payment_slips.length})
-                              </div>
+                            <div className="px-2 py-1 bg-green-100 dark:bg-green-900 rounded-lg flex items-center space-x-1">
+                              <Receipt className="h-3 w-3 text-green-600 dark:text-green-400" />
+                              <span className="text-xs font-medium text-green-600 dark:text-green-400">
+                                {booking.payment_slips.length}
+                              </span>
                             </div>
                           )}
                         </div>
@@ -814,7 +842,9 @@ export default function BookingManagement() {
                     <div>
                       <span className="text-neutral-500 dark:text-neutral-400">ห้องพัก:</span>
                       <p className="font-medium text-neutral-900 dark:text-white">
-                        {booking.room_type_name || booking.room_type || 'ไม่ระบุประเภทห้อง'}
+                        {booking.room_type_name || 
+                         (typeof booking.room_type === 'object' ? booking.room_type?.name : booking.room_type) || 
+                         'ไม่ระบุประเภทห้อง'}
                       </p>
                       {booking.hotel_name && (
                         <p className="text-xs text-neutral-400">{booking.hotel_name}</p>
@@ -845,19 +875,12 @@ export default function BookingManagement() {
                       {booking.guest_email || 'ไม่ระบุอีเมล'}
                     </div>
                     <div className="flex items-center space-x-2">
-                      {canEdit(user) && (
-                        <button
-                          onClick={() => openEditModal(booking)}
-                          className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                      )}
                       
                       {canManageBookings(user) && booking.status === 'pending' && (
                         <button
                           onClick={() => {
                             setConfirmAction(() => () => handleStatusUpdate(booking.id, 'confirmed'));
+                            setConfirmActionType('success');
                             setShowConfirmModal(true);
                           }}
                           className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
@@ -870,6 +893,7 @@ export default function BookingManagement() {
                         <button
                           onClick={() => {
                             setConfirmAction(() => () => handleStatusUpdate(booking.id, 'cancelled'));
+                            setConfirmActionType('warning');
                             setShowConfirmModal(true);
                           }}
                           className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
@@ -882,6 +906,7 @@ export default function BookingManagement() {
                         <button
                           onClick={() => {
                             setConfirmAction(() => () => handleDeleteBooking(booking.id));
+                            setConfirmActionType('danger');
                             setShowConfirmModal(true);
                           }}
                           className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
@@ -974,7 +999,11 @@ export default function BookingManagement() {
                       ห้องพัก
                     </label>
                     <p className="text-neutral-900 dark:text-white">
-                      {selectedBooking.room_number || 'ไม่ระบุ'} ({selectedBooking.room_type_name || selectedBooking.room_type || 'ไม่ระบุ'})
+                      {selectedBooking.room_number || 'ไม่ระบุ'} ({
+                        selectedBooking.room_type_name || 
+                        (typeof selectedBooking.room_type === 'object' ? selectedBooking.room_type?.name : selectedBooking.room_type) || 
+                        'ไม่ระบุ'
+                      })
                     </p>
                   </div>
                   <div>
@@ -1079,22 +1108,58 @@ export default function BookingManagement() {
                         
                         {slip.file_path && (
                           <div className="relative">
-                            <img
-                              src={`http://localhost:3001${slip.file_path}`}
-                              alt={`Payment slip ${slip.id || index + 1}`}
-                              className="w-full h-32 object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity"
-                              onClick={() => {
-                                // Open image in modal or new tab
-                                window.open(`http://localhost:3001${slip.file_path}`, '_blank');
-                              }}
-                              onError={(e) => {
-                                e.target.src = '/images/placeholder-image.png';
-                                e.target.alt = 'ไม่สามารถโหลดรูปภาพได้';
-                              }}
-                            />
-                            <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-all duration-200 rounded-md flex items-center justify-center">
-                              <Eye className="h-6 w-6 text-white opacity-0 hover:opacity-100 transition-opacity" />
-                            </div>
+                            {/* Check if file is an image */}
+                            {(() => {
+                              const fileExt = slip.file_path.split('.').pop()?.toLowerCase();
+                              const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt);
+                              
+                              if (isImage) {
+                                return (
+                                  <>
+                                    <img
+                                      src={`http://localhost:3001/uploads/${slip.file_path}`}
+                                      alt={`Payment slip ${slip.id || index + 1}`}
+                                      className="w-full h-32 object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity"
+                                      onClick={() => {
+                                        window.open(`http://localhost:3001/uploads/${slip.file_path}`, '_blank');
+                                      }}
+                                      onError={(e) => {
+                                        console.log('Image load error:', slip.file_path);
+                                        e.target.style.display = 'none';
+                                        e.target.nextElementSibling.style.display = 'flex';
+                                      }}
+                                    />
+                                    <div className="w-full h-32 bg-neutral-200 dark:bg-neutral-600 rounded-md flex items-center justify-center text-neutral-500 dark:text-neutral-400" style={{display: 'none'}}>
+                                      <div className="text-center">
+                                        <Receipt className="h-8 w-8 mx-auto mb-2" />
+                                        <p className="text-xs">ไม่สามารถแสดงรูปภาพได้</p>
+                                        <p className="text-xs text-blue-500 cursor-pointer hover:underline" 
+                                           onClick={() => window.open(`http://localhost:3001/uploads/${slip.file_path}`, '_blank')}>
+                                          คลิกเพื่อดู
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-all duration-200 rounded-md flex items-center justify-center cursor-pointer">
+                                      <Eye className="h-6 w-6 text-white opacity-0 hover:opacity-100 transition-opacity" />
+                                    </div>
+                                  </>
+                                );
+                              } else {
+                                // For non-image files, show a download/view link
+                                return (
+                                  <div className="w-full h-32 bg-neutral-100 dark:bg-neutral-600 rounded-md flex items-center justify-center text-neutral-600 dark:text-neutral-400 border-2 border-dashed border-neutral-300 dark:border-neutral-500">
+                                    <div className="text-center">
+                                      <Receipt className="h-8 w-8 mx-auto mb-2" />
+                                      <p className="text-xs font-medium mb-1">ไฟล์แนบ</p>
+                                      <p className="text-xs text-blue-500 cursor-pointer hover:underline" 
+                                         onClick={() => window.open(`http://localhost:3001/uploads/${slip.file_path}`, '_blank')}>
+                                        คลิกเพื่อดู
+                                      </p>
+                                    </div>
+                                  </div>
+                                );
+                              }
+                            })()}
                           </div>
                         )}
                         
@@ -1143,176 +1208,11 @@ export default function BookingManagement() {
         message="คุณแน่ใจหรือไม่ที่จะดำเนินการนี้?"
         confirmText="ยืนยัน"
         cancelText="ยกเลิก"
+        type={confirmActionType}
         isLoading={actionLoading}
       />
 
-      {/* Edit Booking Modal */}
-      {showEditModal && selectedBooking && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                  แก้ไขการจอง #{selectedBooking?.id}
-                </h2>
-                <button
-                  onClick={closeEditModal}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
 
-              <form onSubmit={(e) => { e.preventDefault(); handleUpdateBooking(); }} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* ชื่อผู้จอง */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      ชื่อผู้จอง
-                    </label>
-                    <input
-                      type="text"
-                      value={editFormData.guestName}
-                      onChange={(e) => setEditFormData(prev => ({ ...prev, guestName: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                      placeholder="ชื่อผู้จอง"
-                    />
-                  </div>
-
-                  {/* เบอร์โทรศัพท์ */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      เบอร์โทรศัพท์
-                    </label>
-                    <input
-                      type="tel"
-                      value={editFormData.guestPhone}
-                      onChange={(e) => setEditFormData(prev => ({ ...prev, guestPhone: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                      placeholder="เบอร์โทรศัพท์"
-                    />
-                  </div>
-
-                  {/* อีเมล */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      อีเมล
-                    </label>
-                    <input
-                      type="email"
-                      value={editFormData.guestEmail}
-                      onChange={(e) => setEditFormData(prev => ({ ...prev, guestEmail: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                      placeholder="อีเมล"
-                    />
-                  </div>
-
-                  {/* จำนวนผู้เข้าพัก */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      จำนวนผู้เข้าพัก
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="10"
-                      value={editFormData.guests}
-                      onChange={(e) => setEditFormData(prev => ({ ...prev, guests: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    />
-                  </div>
-
-                  {/* วันที่เช็คอิน */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      วันที่เช็คอิน
-                    </label>
-                    <input
-                      type="date"
-                      value={editFormData.checkInDate}
-                      onChange={(e) => setEditFormData(prev => ({ ...prev, checkInDate: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    />
-                  </div>
-
-                  {/* วันที่เช็คเอาต์ */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      วันที่เช็คเอาต์
-                    </label>
-                    <input
-                      type="date"
-                      value={editFormData.checkOutDate}
-                      onChange={(e) => setEditFormData(prev => ({ ...prev, checkOutDate: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    />
-                  </div>
-
-                  {/* สถานะการจอง */}
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      สถานะการจอง
-                    </label>
-                    <select
-                      value={editFormData.status}
-                      onChange={(e) => setEditFormData(prev => ({ ...prev, status: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    >
-                      <option value="pending">รอดำเนินการ</option>
-                      <option value="confirmed">ยืนยันแล้ว</option>
-                      <option value="completed">เสร็จสิ้น</option>
-                      <option value="cancelled">ยกเลิก</option>
-                    </select>
-                  </div>
-
-                  {/* ข้อมูลพิเศษ */}
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      คำขอพิเศษ
-                    </label>
-                    <textarea
-                      value={editFormData.specialRequests}
-                      onChange={(e) => setEditFormData(prev => ({ ...prev, specialRequests: e.target.value }))}
-                      rows="3"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                      placeholder="คำขอพิเศษหรือหมายเหตุ..."
-                    />
-                  </div>
-                </div>
-
-                {/* ปุ่มควบคุม */}
-                <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 dark:border-gray-600">
-                  <button
-                    type="button"
-                    onClick={closeEditModal}
-                    className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded-md transition-colors"
-                    disabled={isUpdating}
-                  >
-                    ยกเลิก
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isUpdating}
-                    className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                  >
-                    {isUpdating ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        กำลังอัปเดต...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        บันทึกการแก้ไข
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

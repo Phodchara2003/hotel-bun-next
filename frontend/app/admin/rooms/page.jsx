@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { roomsAPI } from '../../../lib/api';
 import { isStaffOrAdmin } from '../../../lib/roles';
+import { invalidateRoomImageCache } from '../../../lib/imageUtils';
 import AdminNavigation from '../../../components/AdminNavigation';
 import Link from 'next/link';
 import { 
@@ -594,11 +595,22 @@ export default function RoomsManagement() {
     // Use provided roomId or existing selectedRoom.id
     const targetRoomId = roomId || selectedRoom?.id;
     
-    if (!targetRoomId || selectedImages.length === 0) {
+    // Debug logging
+    console.log('🔍 DEBUG: roomId parameter:', roomId);
+    console.log('🔍 DEBUG: selectedRoom:', selectedRoom);
+    console.log('🔍 DEBUG: selectedRoom?.id:', selectedRoom?.id);
+    console.log('🔍 DEBUG: targetRoomId:', targetRoomId);
+    console.log('🔍 DEBUG: typeof targetRoomId:', typeof targetRoomId);
+    
+    // Ensure targetRoomId is a number
+    const finalRoomId = parseInt(targetRoomId);
+    console.log('🔍 DEBUG: finalRoomId after parseInt:', finalRoomId);
+    
+    if (!finalRoomId || isNaN(finalRoomId) || selectedImages.length === 0) {
       if (modalType === 'add') {
         toast.error('กรุณาเพิ่มห้องพักก่อน จากนั้นจึงอัปโหลดรูปภาพ');
       } else {
-        toast.error('กรุณาเลือกรูปภาพก่อนอัปโหลด');
+        toast.error('กรุณาเลือกรูปภาพก่อนอัปโหลด หรือ Room ID ไม่ถูกต้อง');
       }
       return null;
     }
@@ -606,15 +618,28 @@ export default function RoomsManagement() {
     try {
       setUploadingImages(true);
       
-      console.log('📸 Uploading images for room ID:', targetRoomId);
+      console.log('📸 Uploading images for room ID:', finalRoomId);
       console.log('� Files to upload:', selectedImages.map(f => ({ name: f.name, size: f.size, type: f.type })));
       
-      const result = await roomsAPI.uploadImages(targetRoomId, selectedImages);
+      const result = await roomsAPI.uploadImages(finalRoomId, selectedImages);
       console.log('📸 Upload result:', result);
 
       if (result.success) {
         toast.success(result.message);
         setSelectedImages([]);
+        
+        // Invalidate cache for this room's images
+        invalidateRoomImageCache(finalRoomId);
+        console.log('🔄 Cache invalidated for room:', finalRoomId);
+        
+        // Show additional success message about cache refresh
+        setTimeout(() => {
+          toast.success('รูปภาพใหม่จะปรากฏในหน้าหลักภายในไม่กี่วินาที', {
+            duration: 3000,
+            position: 'top-right'
+          });
+        }, 1000);
+        
         // Refresh room data
         await fetchRooms();
         // Update selected room with new images if in edit mode
@@ -1536,7 +1561,7 @@ export default function RoomsManagement() {
                         {(modalType === 'add' || modalType === 'edit') && selectedImages.length > 0 && (
                           <button
                             type="button"
-                            onClick={modalType === 'edit' ? handleUploadImages : undefined}
+                            onClick={modalType === 'edit' ? () => handleUploadImages(selectedRoom?.id) : undefined}
                             disabled={uploadingImages || modalType === 'add'}
                             className={`mt-3 flex items-center gap-2 text-sm ${
                               modalType === 'add' ? 'btn-secondary cursor-not-allowed' : 'btn-outline'

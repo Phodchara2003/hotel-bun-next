@@ -34,6 +34,7 @@ export default function ConfirmModal({
       case 'danger': return 'text-red-600 bg-red-100';
       case 'warning': return 'text-yellow-600 bg-yellow-100';
       case 'info': return 'text-blue-600 bg-blue-100';
+      case 'success': return 'text-green-600 bg-green-100';
       default: return 'text-red-600 bg-red-100';
     }
   };
@@ -43,6 +44,7 @@ export default function ConfirmModal({
       case 'danger': return 'bg-red-600 hover:bg-red-700 focus:ring-red-500';
       case 'warning': return 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500';
       case 'info': return 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500';
+      case 'success': return 'bg-green-600 hover:bg-green-700 focus:ring-green-500';
       default: return 'bg-red-600 hover:bg-red-700 focus:ring-red-500';
     }
   };

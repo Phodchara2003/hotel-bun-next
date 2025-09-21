@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, MapPin, Star, User } from 'lucide-react';
+import { Calendar, Users, MapPin, Star, User, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { notificationAPI } from '@/lib/api';
 
 export default function BookingStepPage() {
   const searchParams = useSearchParams();
@@ -16,6 +17,9 @@ export default function BookingStepPage() {
   const [roomTypes, setRoomTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityData, setAvailabilityData] = useState(null);
   const [errors, setErrors] = useState({});
   const [bookingForm, setBookingForm] = useState({
     checkIn: '',
@@ -23,7 +27,8 @@ export default function BookingStepPage() {
     guests: 1,
     guestName: user?.name || '',
     guestEmail: user?.email || '',
-    guestPhone: ''
+    guestPhone: '',
+    guestNationalId: ''
   });
 
   // รับ roomId จาก URL
@@ -33,12 +38,17 @@ export default function BookingStepPage() {
     fetchHotelsAndRooms();
   }, []);
 
-  // Auto-fill profile data when user is authenticated
+  // Auto-fill profile data when user is authenticated and page loaded
   useEffect(() => {
-    if (user && isAuthenticated) {
-      loadUserProfile();
+    if (user && isAuthenticated && !loading) {
+      // Small delay to ensure all data is loaded
+      const timer = setTimeout(() => {
+        loadUserProfile();
+      }, 500);
+      
+      return () => clearTimeout(timer);
     }
-  }, [user, isAuthenticated]);
+  }, [user, isAuthenticated, loading]);
 
   useEffect(() => {
     if (roomId && roomTypes.length > 0) {
@@ -56,7 +66,14 @@ export default function BookingStepPage() {
       const hotelsRes = await fetch('http://localhost:3001/api/hotels');
       const hotelsData = await hotelsRes.json();
       
-      const roomsRes = await fetch('http://localhost:3001/api/room-types-with-images');
+      const roomsRes = await fetch(`http://localhost:3001/api/room-types-with-images?t=${Date.now()}`, {
+        cache: 'no-cache',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
       const roomsData = await roomsRes.json();
       
       if (hotelsData.success) {
@@ -77,6 +94,7 @@ export default function BookingStepPage() {
   const loadUserProfile = async () => {
     if (!isAuthenticated) return;
     
+    setProfileLoading(true);
     try {
       // ตรวจสอบ token จากหลายแหล่ง
       let token = document.cookie
@@ -114,7 +132,8 @@ export default function BookingStepPage() {
           ...bookingForm,
           guestName: `${profile?.firstName || profile?.first_name || ''} ${profile?.lastName || profile?.last_name || ''}`.trim() || user?.name || '',
           guestEmail: profile?.email || user?.email || '',
-          guestPhone: profile?.phone || user?.phone || ''
+          guestPhone: profile?.phone || user?.phone || '',
+          guestNationalId: profile?.nationalId || profile?.national_id || ''
         };
         
         setBookingForm(updatedFormData);
@@ -157,6 +176,8 @@ export default function BookingStepPage() {
       
       setBookingForm(fallbackData);
       toast.error('เกิดข้อผิดพลาดในการดึงข้อมูลโปรไฟล์');
+    } finally {
+      setProfileLoading(false);
     }
   };
 
@@ -174,6 +195,47 @@ export default function BookingStepPage() {
     return Math.max(1, nights) * getPrice(selectedRoom);
   };
 
+  // Check room availability
+  const checkRoomAvailability = async (roomTypeId, checkIn, checkOut) => {
+    if (!roomTypeId || !checkIn || !checkOut) return;
+    
+    try {
+      console.log('🔍 Checking availability for:', { roomTypeId, checkIn, checkOut });
+      setAvailabilityLoading(true);
+      const response = await notificationAPI.checkAvailability(roomTypeId, checkIn, checkOut);
+      console.log('📋 Availability response:', response);
+      
+      if (response.success) {
+        console.log('✅ Setting availability data:', response.data);
+        setAvailabilityData(response.data);
+        
+        if (!response.data.isAvailable) {
+          console.log('❌ Room not available');
+          toast.error('ช่วงเวลาที่เลือกไม่ว่าง กรุณาเลือกวันที่อื่น');
+          setErrors(prev => ({
+            ...prev,
+            availability: 'ช่วงเวลาที่เลือกไม่ว่าง กรุณาเลือกวันที่อื่น'
+          }));
+        } else {
+          console.log('✅ Room available');
+          setErrors(prev => {
+            const newErrors = { ...prev };
+            delete newErrors.availability;
+            return newErrors;
+          });
+          toast.success('ช่วงเวลาที่เลือกว่าง สามารถจองได้');
+        }
+      } else {
+        console.log('❌ API response not successful:', response);
+      }
+    } catch (error) {
+      console.error('❌ Error checking availability:', error);
+      toast.error('เกิดข้อผิดพลาดในการตรวจสอบห้องว่าง');
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  };
+
   const handleFormChange = (field, value) => {
     setBookingForm(prev => ({
       ...prev,
@@ -186,6 +248,24 @@ export default function BookingStepPage() {
         ...prev,
         [field]: ''
       }));
+    }
+
+    // Check availability when dates change
+    if ((field === 'checkIn' || field === 'checkOut') && selectedRoom) {
+      console.log('📅 Date changed:', field, value, 'selectedRoom:', selectedRoom?.id);
+      const newForm = { ...bookingForm, [field]: value };
+      if (newForm.checkIn && newForm.checkOut && new Date(newForm.checkOut) > new Date(newForm.checkIn)) {
+        console.log('⏱️ Will check availability in 500ms');
+        // Debounce availability check
+        setTimeout(() => {
+          console.log('🚀 Starting availability check');
+          checkRoomAvailability(selectedRoom.id, newForm.checkIn, newForm.checkOut);
+        }, 500);
+      } else {
+        console.log('❌ Date validation failed:', { checkIn: newForm.checkIn, checkOut: newForm.checkOut });
+      }
+    } else {
+      console.log('❌ Date change conditions not met:', { field, selectedRoom: selectedRoom?.id });
     }
   };
 
@@ -247,6 +327,18 @@ export default function BookingStepPage() {
       }
     }
 
+    // Check national ID
+    if (!bookingForm.guestNationalId?.trim()) {
+      newErrors.guestNationalId = 'กรุณากรอกเลขที่บัตรประจำตัวประชาชน';
+    } else {
+      const nationalIdRegex = /^[0-9]{13}$/;
+      const cleanNationalId = bookingForm.guestNationalId.replace(/[-\s]/g, '');
+      if (!nationalIdRegex.test(cleanNationalId)) {
+        newErrors.guestNationalId = 'เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก';
+      }
+      // ไม่ต้องตรวจสอบ checksum - เช็คแค่ 13 หลักเท่านั้น
+    }
+
     // Check guests number
     if (selectedRoom && bookingForm.guests > selectedRoom.max_guests) {
       newErrors.guests = `จำนวนผู้เข้าพักไม่เกิน ${selectedRoom.max_guests} คน`;
@@ -255,6 +347,11 @@ export default function BookingStepPage() {
     // Check authentication
     if (!user?.id) {
       newErrors.auth = 'กรุณาเข้าสู่ระบบก่อนทำการจอง';
+    }
+
+    // Check room availability
+    if (availabilityData && !availabilityData.isAvailable) {
+      newErrors.availability = 'ช่วงเวลาที่เลือกไม่ว่าง กรุณาเลือกวันที่อื่น';
     }
 
     setErrors(newErrors);
@@ -289,7 +386,10 @@ export default function BookingStepPage() {
         guest_name: bookingForm.guestName.trim(),
         guest_email: bookingForm.guestEmail.trim(),
         guest_phone: bookingForm.guestPhone.trim(),
-        total_price: total
+        guest_national_id: bookingForm.guestNationalId.replace(/[-\s]/g, '').trim(),
+        total_price: total,
+        room_name: selectedRoom.name, // เพิ่มชื่อห้องสำหรับการแจ้งเตือน
+        hotel_name: hotel.name // เพิ่มชื่อโรงแรมสำหรับการแจ้งเตือน
       };
 
       console.log('Sending booking data:', bookingData);
@@ -320,6 +420,7 @@ export default function BookingStepPage() {
             guestName: bookingForm.guestName,
             guestEmail: bookingForm.guestEmail,
             guestPhone: bookingForm.guestPhone,
+            guestNationalId: bookingForm.guestNationalId,
             total: total
           }).toString();
 
@@ -328,7 +429,21 @@ export default function BookingStepPage() {
           setErrors({ submit: 'ไม่สามารถสร้าง ID การจองได้ กรุณาลองใหม่' });
         }
       } else {
-        setErrors({ submit: result.message || 'เกิดข้อผิดพลาดในการสร้างการจอง' });
+        // จัดการข้อผิดพลาดเฉพาะกรณีห้องไม่ว่าง
+        if (result.error === 'ROOM_NOT_AVAILABLE') {
+          setErrors({ 
+            availability: result.message || 'ห้องไม่ว่างในช่วงเวลาที่เลือก กรุณาเลือกวันที่อื่น' 
+          });
+          
+          // อัปเดตสถานะห้องว่างด้วย
+          if (result.availability) {
+            setAvailabilityData(result.availability);
+          }
+          
+          toast.error('ห้องไม่ว่างในช่วงเวลาที่เลือก กรุณาเลือกวันที่อื่น');
+        } else {
+          setErrors({ submit: result.message || 'เกิดข้อผิดพลาดในการสร้างการจอง' });
+        }
       }
     } catch (error) {
       console.error('Error creating booking:', error);
@@ -485,6 +600,64 @@ export default function BookingStepPage() {
                   </div>
                 </div>
 
+                {/* Availability Status */}
+                {bookingForm.checkIn && bookingForm.checkOut && selectedRoom && (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                      <Calendar className="w-4 h-4 mr-2" />
+                      สถานะห้องพัก
+                    </h4>
+                    
+                    {availabilityLoading ? (
+                      <div className="flex items-center text-blue-600">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                        กำลังตรวจสอบความพร้อม...
+                      </div>
+                    ) : availabilityData ? (
+                      <div className="space-y-3">
+                        <div className={`flex items-center ${availabilityData.isAvailable && availabilityData.availableRooms > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {availabilityData.isAvailable && availabilityData.availableRooms > 0 ? (
+                            <CheckCircle className="w-5 h-5 mr-2" />
+                          ) : (
+                            <XCircle className="w-5 h-5 mr-2" />
+                          )}
+                          <span className="font-medium">
+                            {availabilityData.isAvailable && availabilityData.availableRooms > 0 
+                              ? 'ว่าง - สามารถจองได้' 
+                              : 'ไม่ว่าง - กรุณาเลือกวันที่อื่น'
+                            }
+                          </span>
+                        </div>
+                        
+                        {/* Existing bookings */}
+                        {availabilityData.existingBookings && availabilityData.existingBookings.length > 0 && (
+                          <div className="text-sm">
+                            <div className="font-medium text-gray-700 mb-2">การจองที่มีอยู่:</div>
+                            <div className="space-y-1 max-h-32 overflow-y-auto">
+                              {availabilityData.existingBookings.map((booking, index) => (
+                                <div key={index} className="bg-red-50 p-2 rounded text-xs">
+                                  <div className="flex justify-between">
+                                    <span>{booking.guestName}</span>
+                                    <span className={`px-2 py-0.5 rounded text-white text-xs ${
+                                      booking.status === 'confirmed' ? 'bg-green-500' :
+                                      booking.status === 'pending' ? 'bg-yellow-500' : 'bg-blue-500'
+                                    }`}>
+                                      {booking.status}
+                                    </span>
+                                  </div>
+                                  <div className="text-gray-600 mt-1">
+                                    {new Date(booking.checkIn).toLocaleDateString('th-TH')} - {new Date(booking.checkOut).toLocaleDateString('th-TH')}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+
                 {/* Number of Guests */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -508,17 +681,19 @@ export default function BookingStepPage() {
 
                 {/* Guest Information */}
                 <div className="border-t pt-4">
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="mb-4">
                     <h4 className="font-medium text-gray-900">ข้อมูลผู้เข้าพัก</h4>
                     {isAuthenticated && (
-                      <button
-                        type="button"
-                        onClick={loadUserProfile}
-                        className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                      >
-                        <User className="h-4 w-4" />
-                        ดึงข้อมูลจากโปรไฟล์
-                      </button>
+                      <div className="flex items-center gap-2 text-sm mt-1">
+                        {profileLoading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
+                            <span className="text-blue-600">กำลังดึงข้อมูลจากโปรไฟล์...</span>
+                          </>
+                        ) : (
+                          <span className="text-green-600">ข้อมูลถูกดึงจากโปรไฟล์อัตโนมัติ</span>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -572,6 +747,36 @@ export default function BookingStepPage() {
                     required
                   />
                   {errors.guestPhone && <p className="text-red-500 text-sm mt-1">{errors.guestPhone}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    เลขที่บัตรประจำตัวประชาชน <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={bookingForm.guestNationalId}
+                    onChange={(e) => {
+                      // Allow only numbers and limit to 13 digits
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 13);
+                      handleFormChange('guestNationalId', value);
+                    }}
+                    className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      errors.guestNationalId ? 'border-red-300 error-field' : 'border-gray-300'
+                    }`}
+                    placeholder=""
+                    maxLength="13"
+                    pattern="[0-9]{13}"
+                    required
+                  />
+                  {errors.guestNationalId && <p className="text-red-500 text-sm mt-1">{errors.guestNationalId}</p>}
+                  <p className="text-gray-500 text-xs mt-1">
+                    กรอกตัวเลข 13 หลักเท่านั้น {bookingForm.guestNationalId && (
+                      <span className="text-blue-600 font-mono">
+                        ({bookingForm.guestNationalId.length}/13 หลัก)
+                      </span>
+                    )}
+                  </p>
                 </div>
 
                 {/* Total Calculation */}

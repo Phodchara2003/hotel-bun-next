@@ -116,10 +116,11 @@ const dbConfig = {
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  charset: 'utf8mb4',
   // เพิ่ม configuration สำหรับ JSON parsing
   typeCast: function (field, next) {
     if (field.type === 'JSON') {
-      return JSON.parse(field.string());
+      return JSON.parse(field.string('utf8'));
     }
     return next();
   }
@@ -160,10 +161,24 @@ const setCorsHeaders = (res) => {
 
 // Send JSON response
 const sendJSON = (res, statusCode, data) => {
-  setCorsHeaders(res);
-  res.setHeader('Content-Type', 'application/json');
-  res.writeHead(statusCode);
-  res.end(JSON.stringify(data, null, 2));
+  if (res.headersSent) {
+    console.log('⚠️ Headers already sent, cannot send response');
+    return;
+  }
+  
+  try {
+    console.log(`📤 Sending JSON response: ${statusCode}`);
+    setCorsHeaders(res);
+    res.setHeader('Content-Type', 'application/json');
+    res.writeHead(statusCode);
+    res.end(JSON.stringify(data, null, 2));
+    console.log('✅ Response sent successfully');
+  } catch (error) {
+    console.error('❌ Error in sendJSON:', error.message);
+    if (error.code === 'ERR_HTTP_HEADERS_SENT') {
+      console.log('⚠️ Headers were already sent when trying to send response');
+    }
+  }
 };
 
 // Get request body as JSON
@@ -585,9 +600,21 @@ async function createBooking(bookingData) {
       guest_name,
       guest_email,
       guest_phone,
+      guest_national_id,
       total_price,
       special_requests = null
     } = bookingData;
+
+    // ตรวจสอบห้องว่างก่อนสร้างการจอง
+    console.log('🔍 Checking room availability before booking...');
+    const availability = await checkRoomAvailability(room_type_id, check_in_date, check_out_date);
+    
+    if (!availability.isAvailable) {
+      console.log('❌ Room not available for the selected dates');
+      throw new Error('ห้องไม่ว่างในช่วงเวลาที่เลือก กรุณาเลือกวันที่อื่น');
+    }
+    
+    console.log('✅ Room is available, proceeding with booking');
 
     // Generate booking reference
     const bookingReference = `HTL${Date.now().toString().slice(-6)}`;
@@ -607,9 +634,10 @@ async function createBooking(bookingData) {
         guest_name,
         guest_phone,
         guest_email,
+        guest_id_number,
         special_requests,
         created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     `, [
       user_id,
       hotel_id,
@@ -623,6 +651,7 @@ async function createBooking(bookingData) {
       guest_name,
       guest_phone,
       guest_email,
+      guest_national_id,
       special_requests
     ]);
 
@@ -2123,6 +2152,46 @@ const server = createServer(async (req, res) => {
         });
         break;
 
+      case '/api/rooms/availability':
+        setCorsHeaders(res);
+        
+        if (req.method === 'GET') {
+          try {
+            const { room_type_id, check_in, check_out } = query;
+            
+            if (!room_type_id || !check_in || !check_out) {
+              sendJSON(res, 400, {
+                success: false,
+                message: 'กรุณาระบุ room_type_id, check_in และ check_out'
+              });
+              return;
+            }
+
+            const availability = await checkRoomAvailability(
+              parseInt(room_type_id),
+              check_in,
+              check_out
+            );
+            
+            sendJSON(res, 200, {
+              success: true,
+              data: availability
+            });
+          } catch (error) {
+            console.error('Error checking room availability:', error);
+            sendJSON(res, 500, {
+              success: false,
+              message: 'เกิดข้อผิดพลาดในการตรวจสอบห้องว่าง'
+            });
+          }
+        } else {
+          sendJSON(res, 405, {
+            success: false,
+            message: 'Method not allowed'
+          });
+        }
+        break;
+
       case '/api/room-types-with-images':
         console.log('📸 Fetching room types with images...');
         // Copy ทั้งหมดจาก /api/room-types แล้วเพิ่มข้อมูล hotel details
@@ -2447,8 +2516,7 @@ const server = createServer(async (req, res) => {
         } else if (req.method === 'POST') {
           // Create new notification
           try {
-            const body = await getRequestBody(req);
-            const notificationData = JSON.parse(body);
+            const notificationData = await getRequestBody(req);
             
             if (!notificationData.title || !notificationData.message) {
               sendJSON(res, 400, {
@@ -2526,7 +2594,7 @@ const server = createServer(async (req, res) => {
             
             sendJSON(res, 200, {
               success: true,
-              count: count
+              unreadCount: count
             });
           } catch (error) {
             console.error('Error fetching unread notifications count:', error);
@@ -2719,11 +2787,36 @@ const server = createServer(async (req, res) => {
           req.on('end', async () => {
             try {
               const bookingData = JSON.parse(body);
+              
+              // ตรวจสอบห้องว่างก่อนสร้างการจอง
+              const availability = await checkRoomAvailability(
+                bookingData.room_type_id, 
+                bookingData.check_in_date, 
+                bookingData.check_out_date
+              );
+              
+              if (!availability.isAvailable) {
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'ห้องไม่ว่างในช่วงเวลาที่เลือก กรุณาเลือกวันที่อื่น',
+                  error: 'ROOM_NOT_AVAILABLE',
+                  availability: availability
+                });
+                return;
+              }
+              
               const booking = await createBooking(bookingData);
               
               if (booking) {
-                // สร้างการแจ้งเตือนเมื่อมีการจองใหม่
+                // สร้างการแจ้งเตือนเมื่อมีการจองใหม่ (สำหรับแอดมิน)
                 await createSystemNotification('new_booking', booking.id, 'booking');
+                
+                // สร้างการแจ้งเตือนสำหรับผู้จอง
+                await createBookingNotification({
+                  ...booking,
+                  room_name: bookingData.room_name || 'ห้องพัก',
+                  guests: bookingData.guests || 1
+                });
                 
                 sendJSON(res, 201, {
                   success: true,
@@ -3242,33 +3335,135 @@ const server = createServer(async (req, res) => {
 
       case '/api/payment-slip/upload':
         if (req.method === 'POST') {
-          // Simple mock upload endpoint for testing
-          let body = '';
-          req.on('data', chunk => {
-            body += chunk.toString();
-          });
+          setCorsHeaders(res);
           
-          req.on('end', async () => {
-            try {
-              // For now, just return success
-              sendJSON(res, 200, {
-                success: true,
-                message: 'Payment slip uploaded successfully (mock)',
-                data: { 
-                  id: Math.floor(Math.random() * 1000),
-                  file_path: '/uploads/payment-slips/mock-file.jpg',
-                  file_name: 'mock-file.jpg'
-                }
+          try {
+            console.log('🧾 Processing payment slip upload...');
+            
+            const bb = busboy({ headers: req.headers });
+            let fields = {};
+            let fileData = null;
+            let fileName = '';
+            let originalName = '';
+            let fileSize = 0;
+
+            bb.on('field', (fieldname, val) => {
+              fields[fieldname] = val;
+              console.log(`📝 Field: ${fieldname} = ${val}`);
+            });
+
+            bb.on('file', (fieldname, file, info) => {
+              const { filename, mimeType } = info;
+              originalName = filename;
+              
+              // Generate unique filename
+              const timestamp = Date.now();
+              const randomId = Math.floor(Math.random() * 1000000);
+              const fileExtension = path.extname(filename);
+              fileName = `payment-slip-${timestamp}-${randomId}${fileExtension}`;
+              
+              console.log(`📁 Receiving file: ${originalName} -> ${fileName}`);
+              
+              const chunks = [];
+              file.on('data', (chunk) => {
+                chunks.push(chunk);
+                fileSize += chunk.length;
               });
-            } catch (error) {
-              console.error('Upload error:', error);
+              
+              file.on('end', () => {
+                fileData = Buffer.concat(chunks);
+                console.log(`✅ File received: ${fileSize} bytes`);
+              });
+            });
+
+            bb.on('finish', async () => {
+              try {
+                if (!fileData) {
+                  throw new Error('No file data received');
+                }
+
+                // Save file to uploads directory
+                const uploadDir = path.join(__dirname, 'uploads');
+                if (!fs.existsSync(uploadDir)) {
+                  fs.mkdirSync(uploadDir, { recursive: true });
+                }
+                
+                const filePath = path.join(uploadDir, fileName);
+                fs.writeFileSync(filePath, fileData);
+                console.log(`💾 File saved: ${filePath}`);
+
+                // Debug: Show all received fields
+                console.log('🔍 All received fields:', JSON.stringify(fields, null, 2));
+                console.log('🔍 booking_id value:', fields.booking_id, 'type:', typeof fields.booking_id);
+                console.log('🔍 user_id value:', fields.user_id, 'type:', typeof fields.user_id);
+                console.log('🔍 amount value:', fields.amount, 'type:', typeof fields.amount);
+
+                // Save to database
+                const insertQuery = `
+                  INSERT INTO payment_slips 
+                  (booking_id, user_id, file_name, original_name, file_path, file_size, amount, payment_date, status) 
+                  VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), 'pending')
+                `;
+
+                const insertParams = [
+                  (fields.booking_id || fields.bookingId) ? parseInt(fields.booking_id || fields.bookingId) : null,
+                  fields.user_id ? parseInt(fields.user_id) : null,
+                  fileName,
+                  originalName,
+                  fileName, // file_path without /uploads/ prefix
+                  fileSize,
+                  fields.amount ? parseFloat(fields.amount) : null
+                ];
+
+                console.log('🔍 Insert parameters:', JSON.stringify(insertParams, null, 2));
+
+                const [result] = await connection.execute(insertQuery, insertParams);
+
+                console.log(`✅ Payment slip saved to database with ID: ${result.insertId}`);
+
+                sendJSON(res, 200, {
+                  success: true,
+                  message: 'Payment slip uploaded successfully',
+                  data: {
+                    id: result.insertId,
+                    file_path: fileName,
+                    file_name: fileName,
+                    original_name: originalName,
+                    file_size: fileSize,
+                    booking_id: fields.booking_id,
+                    amount: fields.amount,
+                    status: 'pending'
+                  }
+                });
+
+              } catch (error) {
+                console.error('❌ Error saving payment slip:', error);
+                sendJSON(res, 500, {
+                  success: false,
+                  error: 'Failed to save payment slip: ' + error.message
+                });
+              }
+            });
+
+            bb.on('error', (error) => {
+              console.error('❌ Busboy error:', error);
               sendJSON(res, 500, {
                 success: false,
-                error: 'Failed to process upload'
+                error: 'File upload error: ' + error.message
               });
-            }
-          });
+            });
+
+            req.pipe(bb);
+
+          } catch (error) {
+            console.error('❌ Payment slip upload error:', error);
+            sendJSON(res, 500, {
+              success: false,
+              error: 'Upload processing failed: ' + error.message
+            });
+          }
         } else {
+          setCorsHeaders(res);
           sendJSON(res, 405, {
             success: false,
             error: 'Method not allowed'
@@ -3410,12 +3605,212 @@ const server = createServer(async (req, res) => {
 
       default:
         // Handle dynamic routes
-        if (normalizedPathname.startsWith('/api/admin/rooms/')) {
+        // Handle booking status updates
+        console.log('🔍 Checking path for booking status update:', normalizedPathname);
+        if (normalizedPathname.match(/^\/api\/bookings\/\d+\/status$/)) {
+          console.log('✅ Path matches booking status pattern');
+          const pathParts = normalizedPathname.split('/');
+          const bookingId = parseInt(pathParts[3]);
+          console.log('📝 Extracted booking ID:', bookingId);
+          
+          if (req.method === 'PUT') {
+            // ใช้ Promise เพื่อหลีกเลี่ยง race condition
+            const processRequest = new Promise((resolve, reject) => {
+              let body = '';
+              
+              req.on('data', chunk => {
+                body += chunk.toString();
+              });
+              
+              req.on('end', () => {
+                resolve(body);
+              });
+              
+              req.on('error', (error) => {
+                reject(error);
+              });
+            });
+            
+            processRequest.then(async (body) => {
+              let responseSent = false;
+              
+              try {
+                console.log('� PUT /api/bookings/:id/status - Start processing');
+                console.log('�📝 Booking ID:', bookingId);
+                console.log('📝 Raw request body:', JSON.stringify(body));
+                console.log('📝 Body length:', body.length);
+                console.log('📝 Body type:', typeof body);
+                
+                if (!body || body.trim() === '') {
+                  console.log('❌ Empty request body detected - SENDING 400');
+                  if (!responseSent) {
+                    responseSent = true;
+                    sendJSON(res, 400, {
+                      success: false,
+                      message: 'Request body is empty'
+                    });
+                  }
+                  return;
+                }
+                
+                let requestData;
+                try {
+                  requestData = JSON.parse(body);
+                  console.log('✅ Parsed request data:', JSON.stringify(requestData, null, 2));
+                } catch (parseError) {
+                  console.error('❌ JSON parse error - SENDING 400:', parseError.message);
+                  console.error('❌ Raw body that failed:', JSON.stringify(body));
+                  if (!responseSent) {
+                    responseSent = true;
+                    sendJSON(res, 400, {
+                      success: false,
+                      message: 'รูปแบบข้อมูลไม่ถูกต้อง: ' + parseError.message
+                    });
+                  }
+                  return;
+                }
+                
+                const { status } = requestData;
+                console.log('🔄 Extracted status:', status);
+                
+                if (!status) {
+                  console.log('❌ No status provided in request - SENDING 400');
+                  if (!responseSent) {
+                    responseSent = true;
+                    sendJSON(res, 400, {
+                      success: false,
+                      message: 'กรุณาระบุสถานะที่ต้องการอัปเดต'
+                    });
+                  }
+                  return;
+                }
+                
+                console.log(`🔄 Attempting to update booking ${bookingId} to status: ${status}`);
+                
+                // อัปเดตสถานะในฐานข้อมูล
+                const [result] = await connection.execute(
+                  'UPDATE bookings SET status = ?, updated_at = NOW() WHERE id = ?',
+                  [status, bookingId]
+                );
+                
+                console.log('🔄 Update result:', { 
+                  affectedRows: result.affectedRows,
+                  changedRows: result.changedRows,
+                  insertId: result.insertId
+                });
+                
+                if (result.affectedRows === 0) {
+                  console.log(`❌ No booking found with ID: ${bookingId}`);
+                  if (!responseSent) {
+                    responseSent = true;
+                    sendJSON(res, 404, {
+                      success: false,
+                      message: 'ไม่พบการจองที่ระบุ'
+                    });
+                  }
+                  return;
+                }
+                
+                console.log(`✅ Booking ${bookingId} status updated successfully to: ${status}`);
+                
+                // ดึงข้อมูลการจองที่อัปเดตแล้ว
+                console.log('🔄 Fetching updated booking data...');
+                const [updatedBooking] = await connection.execute(
+                  `SELECT b.*, u.first_name, u.last_name, h.name as hotel_name, rt.name as room_type_name
+                   FROM bookings b
+                   LEFT JOIN users u ON b.user_id = u.id
+                   LEFT JOIN hotels h ON b.hotel_id = h.id
+                   LEFT JOIN room_types rt ON b.room_type_id = rt.id
+                   WHERE b.id = ?`,
+                  [bookingId]
+                );
+                
+                console.log('🔄 Updated booking data:', updatedBooking[0] ? 'Found' : 'Not found');
+                
+                // ส่ง response เพียงครั้งเดียว
+                if (!responseSent) {
+                  responseSent = true;
+                  console.log('📤 Sending success response to client');
+                  try {
+                    sendJSON(res, 200, {
+                      success: true,
+                      message: 'อัปเดตสถานะการจองเรียบร้อยแล้ว',
+                      data: updatedBooking[0]
+                    });
+                  } catch (responseError) {
+                    console.error('❌ Error sending response:', responseError.message);
+                  }
+                }
+                
+                // สร้างการแจ้งเตือนแบบ background (ไม่รอผลลัพธ์)
+                if (updatedBooking[0]) {
+                  console.log('🔔 Creating background notification for status change');
+                  // ใช้ setTimeout แทน setImmediate เพื่อหลีกเลี่ยงปัญหา
+                  setTimeout(() => {
+                    createBookingStatusNotification(updatedBooking[0], status)
+                      .catch(error => {
+                        console.error('⚠️ Background notification error:', error.message);
+                      });
+                  }, 100);
+                } else {
+                  console.log('⚠️ No updated booking data for notification');
+                }
+                
+              } catch (error) {
+                console.error('❌ Error updating booking status:', error);
+                console.error('❌ Error stack:', error.stack);
+                if (!responseSent) {
+                  responseSent = true;
+                  console.log('📤 Sending error response to client');
+                  try {
+                    sendJSON(res, 500, {
+                      success: false,
+                      message: 'เกิดข้อผิดพลาดในการอัปเดตสถานะการจอง: ' + error.message
+                    });
+                  } catch (responseError) {
+                    console.error('❌ Error sending error response:', responseError.message);
+                  }
+                }
+              }
+            }).catch((error) => {
+              console.error('❌ Error processing request:', error);
+              if (!res.headersSent) {
+                sendJSON(res, 500, {
+                  success: false,
+                  message: 'เกิดข้อผิดพลาดในการประมวลผลคำขอ'
+                });
+              }
+            });
+          } else {
+            sendJSON(res, 405, {
+              success: false,
+              message: 'Method not allowed'
+            });
+          }
+          return; // ป้องกันไม่ให้รันต่อไปยัง default 404
+        } else if (normalizedPathname.startsWith('/api/admin/rooms/')) {
           console.log(`🎯 Matching admin rooms route: ${req.method} ${normalizedPathname}`);
           const pathParts = normalizedPathname.split('/');
-          const roomId = pathParts[4]; // /api/admin/rooms/{id}
+          const roomIdRaw = pathParts[4]; // /api/admin/rooms/{id}
           const action = pathParts[5]; // /api/admin/rooms/{id}/{action}
-          console.log(`🔍 Route parts: roomId=${roomId}, action=${action}`);
+          
+          // Validate and parse roomId
+          console.log(`🔍 Route parts: roomIdRaw=${roomIdRaw}, action=${action}`);
+          console.log(`🔍 roomIdRaw type: ${typeof roomIdRaw}`);
+          
+          // Try to parse roomId
+          const roomId = parseInt(roomIdRaw);
+          console.log(`🔍 Parsed roomId: ${roomId}, isNaN: ${isNaN(roomId)}`);
+          
+          // Check if roomId is valid
+          if (isNaN(roomId) || roomId <= 0) {
+            console.log(`❌ Invalid room ID: ${roomIdRaw}`);
+            sendJSON(res, 400, {
+              success: false,
+              message: `รหัสห้องพักไม่ถูกต้อง: ${roomIdRaw}`
+            });
+            return;
+          }
           
           setCorsHeaders(res);
           
@@ -4211,61 +4606,85 @@ const server = createServer(async (req, res) => {
           });
         }
         break;
-
-        // Default 404 response
-        sendJSON(res, 404, {
-          success: false,
-          error: 'Endpoint not found',
-          available_endpoints: [
-            'GET /',
-            'GET /health',
-            'POST /api/auth/login',
-            'POST /api/auth/register',
-            'POST /api/auth/verify',
-            'GET /api/test',
-            'GET /api/hotels',
-            'GET /api/room-types',
-            'GET /api/rooms',
-            'GET /api/bookings',
-            'GET /api/admin/bookings/detailed',
-            'GET /api/cancellation-requests',
-            'PUT /api/cancellation-requests',
-            'GET /api/admin/dashboard/stats',
-            'GET /api/admin/users',
-            'POST /api/admin/users',
-            'GET /api/admin/users/{id}',
-            'PUT /api/admin/users/{id}',
-            'DELETE /api/admin/users/{id}',
-            'GET /api/admin/payment-settings',
-            'POST /api/admin/payment-settings',
-            'GET /api/notifications',
-            'PUT /api/notifications',
-            'POST /api/notifications',
-            'GET /api/notifications/unread-count',
-            'GET /api/global-settings',
-            'GET /api/contact-settings',
-            'PUT /api/contact-settings',
-            'GET /api/database/status',
-            'GET /api/simple-payment-settings',
-            'POST /api/simple-payment-settings/qr-upload',
-            'GET /api/payment-slips',
-            'POST /api/payment-slip/upload',
-            'GET /uploads/qr-code.svg',
-            'GET /uploads/qr-codes/{filename}',
-            'GET /uploads/payment-slips/{filename}'
-          ]
-        });
-        break;
     }
   } catch (error) {
-    console.error('Server error:', error);
-    sendJSON(res, 500, {
-      success: false,
-      error: 'Internal server error',
-      message: error.message
-    });
+    console.error('❌ Server error:', error);
+    if (!res.headersSent) {
+      sendJSON(res, 500, {
+        success: false,
+        message: 'Internal server error'
+      });
+    }
   }
 });
+
+// Server listen
+server.listen(PORT, () => {
+  console.log(`🚀 Hotel Backend Server with MySQL is running at http://localhost:${PORT}`);
+  
+  // Print available endpoints
+  console.log('📋 Available endpoints:');
+  console.log('   GET /                        - Server info');
+  console.log('   GET /health                  - Health check');
+  console.log('   POST /api/auth/login         - User login');
+  console.log('   POST /api/auth/verify        - Verify token');
+  console.log('   GET /api/test                - API test');
+  console.log('   GET /api/hotels              - Hotels from database');
+  console.log('   GET /api/room-types          - Room types from database');
+  console.log('   GET /api/rooms               - Rooms from database');
+  console.log('   GET /api/rooms/availability  - Check room availability');
+  console.log('   GET /api/room-types-with-images - Room types with images for user');
+  console.log('   GET /api/bookings            - Bookings from database');
+  console.log('   PUT /api/bookings/{id}/status - Update booking status');
+  console.log('   GET /api/admin/bookings/detailed - Detailed bookings for admin');
+  console.log('   GET /api/admin/rooms         - All rooms for admin management');
+  console.log('   POST /api/admin/rooms        - Create new room');
+  console.log('   GET /api/admin/rooms/{id}    - Get room by ID');
+  console.log('   PUT /api/admin/rooms/{id}    - Update room');
+  console.log('   POST /api/admin/rooms/{id}/upload-images - Upload room images');
+  console.log('   DELETE /api/admin/rooms/{id}/delete-image - Delete room image');
+  console.log('   DELETE /api/admin/rooms/{id} - Delete room');
+  console.log('   PATCH /api/admin/rooms/{id}/toggle-availability - Toggle room availability');
+  console.log('   GET /api/cancellation-requests - Cancellation requests');
+  console.log('   PUT /api/cancellation-requests - Process cancellation requests');
+  console.log('   GET /api/admin/dashboard/stats - Admin dashboard statistics');
+  console.log('   GET /api/admin/users         - Get all users (admin)');
+  console.log('   POST /api/admin/users        - Create new user (admin)');
+  console.log('   GET /api/admin/users/{id}    - Get user by ID (admin)');
+  console.log('   PUT /api/admin/users/{id}    - Update user (admin)');
+  console.log('   DELETE /api/admin/users/{id} - Delete user (admin)');
+  console.log('   GET /api/notifications       - Get notifications list');
+  console.log('   PUT /api/notifications       - Mark notification as read/unread');
+  console.log('   POST /api/notifications      - Create new notification');
+  console.log('   GET /api/notifications/unread-count - Get unread count');
+  console.log('   GET /api/global-settings     - Global settings');
+  console.log('   GET /api/database/status     - Database statistics');
+  console.log('');
+  console.log(`💾 Database: MySQL (${process.env.DB_NAME || 'AppServ'})`);
+  console.log(`🌐 CORS enabled for: ${process.env.FRONTEND_URL || 'http://localhost:3002'}`);
+  console.log('🔔 Notification system initialized and running');
+});
+
+// Error handling
+process.on('uncaughtException', (error) => {
+  console.error('💥 Uncaught Exception:', error);
+  console.error('Stack:', error.stack);
+  // Don't exit the process, just log the error
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit the process, just log the error
+});
+
+// Handle warning events
+process.on('warning', (warning) => {
+  console.warn('⚠️  Warning:', warning.name, warning.message);
+});
+
+// Start the server
+startServer().catch(console.error);
 
 // ==============================
 // NOTIFICATIONS FUNCTIONS
@@ -4318,6 +4737,129 @@ async function getNotifications(limit = 10, offset = 0, userId = null, unreadOnl
   
   const [rows] = await connection.execute(query, params);
   return rows;
+}
+
+// Check room availability for booking
+async function checkRoomAvailability(roomTypeId, checkInDate, checkOutDate) {
+  try {
+    // Get total number of rooms for this room type
+    const roomCountQuery = `
+      SELECT quantity as totalRooms
+      FROM room_types 
+      WHERE id = ?
+    `;
+    
+    const [roomCountRows] = await connection.execute(roomCountQuery, [roomTypeId]);
+    const totalAvailableRooms = roomCountRows[0]?.totalRooms || 0;
+    
+    // Get conflicting bookings for this room type and date range
+    const query = `
+      SELECT COUNT(*) as conflictCount
+      FROM bookings 
+      WHERE room_type_id = ? 
+      AND status IN ('confirmed', 'checked_in', 'pending')
+      AND (
+        (check_in_date <= ? AND check_out_date > ?) OR
+        (check_in_date < ? AND check_out_date >= ?) OR
+        (check_in_date >= ? AND check_out_date <= ?)
+      )
+    `;
+    
+    const [rows] = await connection.execute(query, [
+      roomTypeId,
+      checkInDate, checkInDate,  
+      checkOutDate, checkOutDate,  
+      checkInDate, checkOutDate   
+    ]);
+    
+    const conflictCount = rows[0].conflictCount;
+    
+    // ห้ามจองซ้ำในวันที่เดียวกันโดยสิ้นเชิง - ถ้ามีการจองอยู่แล้วให้ถือว่าไม่ว่าง
+    const availableRooms = Math.max(0, totalAvailableRooms - conflictCount);
+    const isAvailable = conflictCount === 0; // เปลี่ยนจาก availableRooms > 0 เป็น conflictCount === 0
+    
+    console.log(`🔍 Room availability check:
+      - Room type ID: ${roomTypeId}
+      - Total available rooms: ${totalAvailableRooms}
+      - Conflicting bookings: ${conflictCount}
+      - Available rooms: ${availableRooms}
+      - Is available: ${isAvailable}
+    `);
+    
+    // Get existing bookings for this room type to show in calendar
+    const existingBookingsQuery = `
+      SELECT 
+        check_in_date,
+        check_out_date,
+        guest_name,
+        status
+      FROM bookings 
+      WHERE room_type_id = ? 
+      AND status IN ('confirmed', 'checked_in', 'pending')
+      AND check_out_date >= CURDATE()
+      ORDER BY check_in_date
+    `;
+    
+    const [existingBookings] = await connection.execute(existingBookingsQuery, [roomTypeId]);
+    
+    return {
+      isAvailable,
+      totalRooms: totalAvailableRooms,
+      bookedRooms: conflictCount,
+      availableRooms,
+      existingBookings: existingBookings.map(booking => ({
+        checkIn: booking.check_in_date,
+        checkOut: booking.check_out_date,
+        guestName: booking.guest_name,
+        status: booking.status
+      }))
+    };
+  } catch (error) {
+    console.error('Error checking room availability:', error);
+    throw error;
+  }
+}
+
+// Create booking completion notification
+async function createBookingNotification(bookingData) {
+  try {
+    const checkInDate = new Date(bookingData.check_in_date);
+    const today = new Date();
+    const daysUntilCheckIn = Math.ceil((checkInDate - today) / (1000 * 60 * 60 * 24));
+    
+    let message = `มีการจองห้องพักเสร็จสิ้นแล้ว! `;
+    let title = 'การจองห้องเสร็จสมบูรณ์';
+    
+    if (daysUntilCheckIn > 0) {
+      message += `อีก ${daysUntilCheckIn} วันถึงวันเข้าพัก (${checkInDate.toLocaleDateString('th-TH')})`;
+      title = `การจองห้องเสร็จสมบูรณ์ - อีก ${daysUntilCheckIn} วัน`;
+    } else if (daysUntilCheckIn === 0) {
+      message += `วันนี้เป็นวันเข้าพักของคุณ!`;
+      title = 'การจองห้องเสร็จสมบูรณ์ - วันนี้เข้าพัก';
+    } else {
+      message += `วันเข้าพักได้ผ่านไปแล้ว`;
+    }
+    
+    // Add booking details
+    message += ` ห้อง: ${bookingData.room_name || 'ไม่ระบุ'}, ผู้เข้าพัก: ${bookingData.guests} คน`;
+    
+    const notification = {
+      title: title,
+      message: message,
+      type: 'info',
+      user_id: bookingData.user_id,
+      related_id: bookingData.id,
+      related_type: 'booking',
+      priority: daysUntilCheckIn <= 1 ? 'high' : 'medium',
+      action_url: `/bookings/${bookingData.id}`
+    };
+    
+    await createSystemNotification('booking_confirmed', bookingData.id, 'booking', notification);
+    console.log(`✅ Created booking notification for user ${bookingData.user_id}`);
+    
+  } catch (error) {
+    console.error('❌ Error creating booking notification:', error);
+  }
 }
 
 // Get unread notifications count
@@ -4385,7 +4927,21 @@ async function createNotification(data) {
 }
 
 // Helper function to create system notifications automatically
-async function createSystemNotification(type, relatedId = null, relatedType = null) {
+async function createSystemNotification(type, relatedId = null, relatedType = null, customData = null) {
+  // If customData is provided (for booking_confirmed), use it directly
+  if (customData && type === 'booking_confirmed') {
+    return await createNotification({
+      title: customData.title,
+      message: customData.message,
+      type: customData.type,
+      userId: customData.user_id,
+      relatedId: customData.related_id,
+      relatedType: customData.related_type,
+      priority: customData.priority,
+      actionUrl: customData.action_url
+    });
+  }
+
   let title, message, priority = 'medium';
   
   switch (type) {
@@ -4431,24 +4987,53 @@ async function createSystemNotification(type, relatedId = null, relatedType = nu
 
 // Helper function to create notifications based on booking status changes
 async function createBookingStatusNotification(booking, newStatus) {
-  const today = new Date().toISOString().split('T')[0];
-  const checkInDate = booking.check_in_date ? booking.check_in_date.split('T')[0] : null;
-  const checkOutDate = booking.check_out_date ? booking.check_out_date.split('T')[0] : null;
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Handle date conversion - could be Date object or string
+    let checkInDate = null;
+    let checkOutDate = null;
+    
+    if (booking.check_in_date) {
+      try {
+        checkInDate = booking.check_in_date instanceof Date 
+          ? booking.check_in_date.toISOString().split('T')[0]
+          : new Date(booking.check_in_date).toISOString().split('T')[0];
+      } catch (dateError) {
+        console.warn('Warning: Invalid check_in_date format:', booking.check_in_date);
+      }
+    }
+    
+    if (booking.check_out_date) {
+      try {
+        checkOutDate = booking.check_out_date instanceof Date 
+          ? booking.check_out_date.toISOString().split('T')[0]
+          : new Date(booking.check_out_date).toISOString().split('T')[0];
+      } catch (dateError) {
+        console.warn('Warning: Invalid check_out_date format:', booking.check_out_date);
+      }
+    }
 
-  let notificationType = null;
-  
-  // Check if it's check-in day
-  if (checkInDate === today && (newStatus === 'confirmed' || newStatus === 'checked_in')) {
-    notificationType = 'checkin_reminder';
-  }
-  
-  // Check if it's check-out day
-  if (checkOutDate === today && newStatus === 'checked_in') {
-    notificationType = 'checkout_reminder';
-  }
-  
-  if (notificationType) {
-    await createSystemNotification(notificationType, booking.id, 'booking');
+    let notificationType = null;
+    
+    // Check if it's check-in day
+    if (checkInDate === today && (newStatus === 'confirmed' || newStatus === 'checked_in')) {
+      notificationType = 'checkin_reminder';
+    }
+    
+    // Check if it's check-out day
+    if (checkOutDate === today && newStatus === 'checked_in') {
+      notificationType = 'checkout_reminder';
+    }
+    
+    if (notificationType) {
+      await createSystemNotification(notificationType, booking.id, 'booking');
+    }
+    
+    console.log(`✅ Booking status notification processed for booking ${booking.id}`);
+  } catch (error) {
+    console.error('❌ Error in createBookingStatusNotification:', error);
+    // Don't throw error to prevent breaking the main flow
   }
 }
 
@@ -4502,48 +5087,6 @@ async function startServer() {
         await createDailyReminders();
       }
     }, 60 * 60 * 1000); // Check every hour
-    
-    server.listen(PORT, () => {
-      console.log(`🚀 Hotel Backend Server with MySQL is running at http://localhost:${PORT}`);
-    console.log(`📋 Available endpoints:`);
-    console.log(`   GET /                        - Server info`);
-    console.log(`   GET /health                  - Health check`);
-    console.log(`   POST /api/auth/login         - User login`);
-    console.log(`   POST /api/auth/verify        - Verify token`);
-    console.log(`   GET /api/test                - API test`);
-    console.log(`   GET /api/hotels              - Hotels from database`);
-    console.log(`   GET /api/room-types          - Room types from database`);
-    console.log(`   GET /api/rooms               - Rooms from database`);
-    console.log(`   GET /api/room-types-with-images - Room types with images for user`);
-    console.log(`   GET /api/bookings            - Bookings from database`);
-    console.log(`   GET /api/admin/bookings/detailed - Detailed bookings for admin`);
-    console.log(`   GET /api/admin/rooms         - All rooms for admin management`);
-    console.log(`   POST /api/admin/rooms        - Create new room`);
-    console.log(`   GET /api/admin/rooms/{id}    - Get room by ID`);
-    console.log(`   PUT /api/admin/rooms/{id}    - Update room`);
-    console.log(`   POST /api/admin/rooms/{id}/upload-images - Upload room images`);
-    console.log(`   DELETE /api/admin/rooms/{id}/delete-image - Delete room image`);
-    console.log(`   DELETE /api/admin/rooms/{id} - Delete room`);
-    console.log(`   PATCH /api/admin/rooms/{id}/toggle-availability - Toggle room availability`);
-    console.log(`   GET /api/cancellation-requests - Cancellation requests`);
-    console.log(`   PUT /api/cancellation-requests - Process cancellation requests`);
-    console.log(`   GET /api/admin/dashboard/stats - Admin dashboard statistics`);
-    console.log(`   GET /api/admin/users         - Get all users (admin)`);
-    console.log(`   POST /api/admin/users        - Create new user (admin)`);
-    console.log(`   GET /api/admin/users/{id}    - Get user by ID (admin)`);
-    console.log(`   PUT /api/admin/users/{id}    - Update user (admin)`);
-    console.log(`   DELETE /api/admin/users/{id} - Delete user (admin)`);
-    console.log(`   GET /api/notifications       - Get notifications list`);
-    console.log(`   PUT /api/notifications       - Mark notification as read/unread`);
-    console.log(`   POST /api/notifications      - Create new notification`);
-    console.log(`   GET /api/notifications/unread-count - Get unread count`);
-    console.log(`   GET /api/global-settings     - Global settings`);
-    console.log(`   GET /api/database/status     - Database statistics`);
-    console.log(``);
-    console.log(`💾 Database: MySQL (AppServ)`);
-    console.log(`🌐 CORS enabled for: ${process.env.FRONTEND_URL || 'http://localhost:3002'}`);
-    console.log(`🔔 Notification system initialized and running`);
-  });
   } catch (error) {
     console.error('❌ Error starting server:', error);
     process.exit(1);

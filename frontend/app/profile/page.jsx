@@ -142,22 +142,10 @@ export default function ProfilePage() {
     );
   }
 
-  // Format National ID (14 digits)
+  // Format National ID (13 digits only, no dashes)
   const formatNationalId = (value) => {
     const digits = value.replace(/\D/g, '');
-    const limitedDigits = digits.substring(0, 14);
-    
-    if (limitedDigits.length >= 14) {
-      return limitedDigits.replace(/(\d{1})(\d{4})(\d{5})(\d{2})(\d{2})/, '$1-$2-$3-$4-$5');
-    } else if (limitedDigits.length >= 12) {
-      return limitedDigits.replace(/(\d{1})(\d{4})(\d{5})(\d{2})(\d{0,2})/, '$1-$2-$3-$4-$5');
-    } else if (limitedDigits.length >= 10) {
-      return limitedDigits.replace(/(\d{1})(\d{4})(\d{5})(\d{0,2})/, '$1-$2-$3-$4');
-    } else if (limitedDigits.length >= 5) {
-      return limitedDigits.replace(/(\d{1})(\d{4})(\d{0,5})/, '$1-$2-$3');
-    } else if (limitedDigits.length >= 1) {
-      return limitedDigits.replace(/(\d{1})(\d{0,4})/, '$1-$2');
-    }
+    return digits.substring(0, 13);
     
     return limitedDigits;
   };
@@ -186,10 +174,10 @@ export default function ProfilePage() {
       return;
     }
 
-    // Validate National ID format
+    // Validate National ID format - เช็คแค่ว่ามี 13 หลัก
     const nationalIdDigits = formData.nationalId.replace(/\D/g, '');
-    if (nationalIdDigits.length !== 14) {
-      toast.error('รหัสบัตรประชาชนต้องมี 14 หลัก');
+    if (nationalIdDigits.length !== 13) {
+      toast.error('เลขบัตรประชาชนต้องมี 13 หลัก');
       return;
     }
 
@@ -477,9 +465,17 @@ export default function ProfilePage() {
                       disabled={!isEditing}
                       placeholder=""
                       required
+                      maxLength="13"
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
                     />
                   </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    กรอกเลขบัตรประชาชน 13 หลัก (ตัวเลขเท่านั้น) {formData.nationalId && (
+                      <span className="text-blue-600 font-mono">
+                        ({formData.nationalId.length}/13 หลัก)
+                      </span>
+                    )}
+                  </p>
                 </div>
 
                 <div className="mt-6">

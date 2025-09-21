@@ -18,8 +18,15 @@ export default function RoomDetailsPage() {
       setIsLoading(true);
       console.log('🔍 Fetching room details for ID:', params.id);
       
-      // Use the same API endpoint as homepage for consistency
-      const roomTypesResponse = await fetch('http://localhost:3001/api/room-types-with-images');
+      // Use the same API endpoint as homepage for consistency with cache busting
+      const roomTypesResponse = await fetch(`http://localhost:3001/api/room-types-with-images?t=${Date.now()}`, {
+        cache: 'no-cache',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
       const roomTypesData = await roomTypesResponse.json();
       
       if (roomTypesData.success && roomTypesData.data) {
@@ -121,6 +128,19 @@ export default function RoomDetailsPage() {
       fetchRoomDetails();
     }
   }, [params.id]);
+
+  // Refresh room data when page gets focus to show latest images
+  useEffect(() => {
+    const handleFocus = () => {
+      if (params.id && !isLoading) {
+        console.log('🔄 Refreshing room data on page focus');
+        fetchRoomDetails();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [params.id, isLoading]);
 
   if (isLoading) {
     return (

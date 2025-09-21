@@ -29,23 +29,19 @@ async function checkBookings() {
       const [countResult] = await connection.execute('SELECT COUNT(*) as total FROM bookings');
       console.log(`📊 Total bookings in database: ${countResult[0].total}`);
 
+      // Check table structure
+      console.log('\n📋 Bookings table structure:');
+      const [columns] = await connection.execute('DESCRIBE bookings');
+      columns.forEach(column => {
+        console.log(`  ${column.Field} - ${column.Type} (${column.Null === 'YES' ? 'nullable' : 'not null'})`);
+      });
+
       // Show all bookings
       const [bookings] = await connection.execute(`
-        SELECT 
-          b.id,
-          b.user_id,
-          b.hotel_id,
-          b.room_type_id,
-          b.check_in_date,
-          b.check_out_date,
-          b.guests,
-          b.total_price,
-          b.status,
-          b.guest_name,
-          b.created_at
-        FROM bookings b
-        ORDER BY b.created_at DESC
-        LIMIT 10
+        SELECT *
+        FROM bookings
+        ORDER BY created_at DESC
+        LIMIT 3
       `);
 
       console.log('\n📝 Recent bookings:');

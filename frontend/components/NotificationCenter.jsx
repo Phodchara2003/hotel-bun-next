@@ -59,7 +59,7 @@ export default function NotificationCenter() {
         .find(row => row.startsWith('auth_token='))
         ?.split('=')[1];
 
-      const response = await fetch('/api/notifications/unread-count', {
+      const response = await fetch('http://localhost:3001/api/notifications/unread-count', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

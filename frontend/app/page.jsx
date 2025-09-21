@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Calendar, MapPin, Star, Users, Wifi, Car, Coffee, Tv, Wind } from 'lucide-react';
+import { Calendar, MapPin, Star, Users, Wifi, Car, Coffee, Tv, Wind, Phone, Mail, Globe, Facebook, MessageCircle } from 'lucide-react';
 import { hotelAPI } from '../lib/api';
+import { getRoomImageUrl, getFallbackRoomImages, getPlaceholderImageUrl, getRoomImageUrlWithCache } from '../lib/imageUtils';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 
@@ -12,6 +13,7 @@ export default function HomePage() {
   const [hotel, setHotel] = useState(null);
   const [roomTypes, setRoomTypes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [contactInfo, setContactInfo] = useState(null);
 
   // แสดงสถานะ authentication ใน console
   useEffect(() => {
@@ -125,7 +127,14 @@ export default function HomePage() {
       console.log('🏨 Hotels response:', hotelsData);
       
       console.log('🏠 Fetching room types with images directly...');
-      const roomTypesResponse = await fetch('http://localhost:3001/api/room-types-with-images');
+      const roomTypesResponse = await fetch(`http://localhost:3001/api/room-types-with-images?t=${Date.now()}`, {
+        cache: 'no-cache',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
       const roomTypesData = await roomTypesResponse.json();
       console.log('🏠 Room types response:', roomTypesData);
       
@@ -161,9 +170,60 @@ export default function HomePage() {
     }
   };
 
+  const fetchContactInfo = async () => {
+    try {
+      console.log('📞 Fetching hotel contact information...');
+      const response = await fetch('http://localhost:3001/api/contact-settings');
+      const result = await response.json();
+      
+      console.log('📞 Contact info response:', result);
+      
+      if (result.success && result.data) {
+        setContactInfo(result.data);
+        console.log('✅ Contact info loaded:', result.data);
+      } else {
+        console.log('⚠️ Using default contact info');
+        // Fallback to default contact info
+        setContactInfo({
+          phone: '02-123-4567',
+          email: 'support@hotel.com',
+          address: '123 ถนนใหญ่ เขตกลาง กรุงเทพฯ 10100',
+          website: 'www.hotel.com',
+          facebook: 'facebook.com/hotel',
+          line: '@hotel'
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error fetching contact info:', error);
+      // Fallback to default contact info
+      setContactInfo({
+        phone: '02-123-4567',
+        email: 'support@hotel.com',
+        address: '123 ถนนใหญ่ เขตกลาง กรุงเทพฯ 10100',
+        website: 'www.hotel.com',
+        facebook: 'facebook.com/hotel',
+        line: '@hotel'
+      });
+    }
+  };
+
   useEffect(() => {
     fetchHotelAndRooms();
+    fetchContactInfo();
   }, []);
+
+  // Refresh data when page gets focus to show latest room images
+  useEffect(() => {
+    const handleFocus = () => {
+      if (!isLoading) {
+        console.log('🔄 Refreshing hotel and room data on page focus');  
+        fetchHotelAndRooms();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [isLoading]);
 
   if (isLoading) {
     return (
@@ -284,20 +344,16 @@ export default function HomePage() {
                       console.log('🖼️ Final processed images for', room.name, ':', imageArray);
                       
                       // Use room images that are uploaded by admin
-                      const getRoomImageSrc = (imageName) => {
-                        const imageSrc = `/images/rooms/${imageName}`;
+                      const getRoomImageSrc = (imageName, roomId) => {
+                        const imageSrc = getRoomImageUrlWithCache(imageName, roomId);
                         console.log('🖼️ Getting image source:', imageSrc);
                         return imageSrc;
                       };
 
                       const getFallbackImageSrc = (roomId, roomName) => {
-                        // Fallback to predefined room images in public folder
-                        const fallbackImages = [
-                          '/images/rooms/room1.jpg',
-                          '/images/rooms/room2.jpg', 
-                          '/images/rooms/suite1.jpg'
-                        ];
-                        const fallbackSrc = fallbackImages[(roomId - 1) % fallbackImages.length] || '/images/rooms/placeholder.svg';
+                        // Fallback to predefined room images 
+                        const fallbackImages = getFallbackRoomImages();
+                        const fallbackSrc = fallbackImages[(roomId - 1) % fallbackImages.length] || getPlaceholderImageUrl();
                         console.log('🔄 Using fallback image:', fallbackSrc);
                         return fallbackSrc;
                       };
@@ -305,11 +361,11 @@ export default function HomePage() {
                       return imageArray.length > 0 ? (
                         <>
                           <img 
-                            src={getRoomImageSrc(imageArray[0])}
+                            src={getRoomImageSrc(imageArray[0], room.id)}
                             alt={room.name}
                             className="w-full h-full object-cover"
                             onLoad={() => {
-                              console.log('✅ Room image loaded successfully:', getRoomImageSrc(imageArray[0]));
+                              console.log('✅ Room image loaded successfully:', getRoomImageSrc(imageArray[0], room.id));
                             }}
                             onError={(e) => {
                               console.log('❌ Room image failed to load:', e.target.src);
@@ -512,6 +568,96 @@ export default function HomePage() {
             จองห้องพักตอนนี้
           </Link>
         </div>
+
+        {/* Hotel Contact Information */}
+        {contactInfo && (
+          <div className="mt-12 bg-white rounded-lg shadow-lg p-8">
+            <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center flex items-center justify-center">
+              <Phone className="mr-3 text-blue-600" size={28} />
+              ติดต่อเรา
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-6">
+                <div className="flex items-center space-x-4">
+                  <div className="flex-shrink-0">
+                    <Phone className="text-green-600" size={24} />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 font-medium">โทรศัพท์</p>
+                    <p className="text-lg font-semibold text-gray-800">{contactInfo.phone}</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <div className="flex-shrink-0">
+                    <Mail className="text-red-600" size={24} />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 font-medium">อีเมล</p>
+                    <p className="text-lg font-semibold text-gray-800">{contactInfo.email}</p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-4">
+                  <div className="flex-shrink-0 mt-1">
+                    <MapPin className="text-purple-600" size={24} />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 font-medium">ที่อยู่</p>
+                    <p className="text-lg font-semibold text-gray-800 leading-relaxed">{contactInfo.address}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-6">
+                {contactInfo.website && (
+                  <div className="flex items-center space-x-4">
+                    <div className="flex-shrink-0">
+                      <Globe className="text-blue-600" size={24} />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 font-medium">เว็บไซต์</p>
+                      <a 
+                        href={`https://${contactInfo.website}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="text-lg font-semibold text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                      >
+                        {contactInfo.website}
+                      </a>
+                    </div>
+                  </div>
+                )}
+                {contactInfo.facebook && (
+                  <div className="flex items-center space-x-4">
+                    <div className="flex-shrink-0">
+                      <Facebook className="text-blue-700" size={24} />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 font-medium">Facebook</p>
+                      <a 
+                        href={`https://${contactInfo.facebook}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-lg font-semibold text-blue-700 hover:text-blue-900 hover:underline transition-colors"
+                      >
+                        {contactInfo.facebook}
+                      </a>
+                    </div>
+                  </div>
+                )}
+                {contactInfo.line && (
+                  <div className="flex items-center space-x-4">
+                    <div className="flex-shrink-0">
+                      <MessageCircle className="text-green-500" size={24} />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 font-medium">LINE ID</p>
+                      <p className="text-lg font-semibold text-gray-800">{contactInfo.line}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

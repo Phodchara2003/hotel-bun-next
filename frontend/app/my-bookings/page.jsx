@@ -15,6 +15,7 @@ export default function MyBookings() {
   const [cancelling, setCancelling] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
 
+
   useEffect(() => {
     if (user) {
       fetchMyBookings();
@@ -45,6 +46,8 @@ export default function MyBookings() {
       setLoading(false);
     }
   };
+
+
 
   const getStatusText = (status) => {
     switch (status) {
@@ -300,12 +303,6 @@ export default function MyBookings() {
                         ขอยกเลิกการจอง
                       </button>
                     )}
-                    
-                    <button
-                      className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      ติดต่อเรา
-                    </button>
                   </div>
                 </div>
               </div>
