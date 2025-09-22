@@ -34,21 +34,23 @@ export default function UserManagement() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [wsConnected, setWsConnected] = useState(false);
+  const [wsInstance, setWsInstance] = useState(null);
   const [formData, setFormData] = useState({
     email: '',
     fullName: '',
     firstName: '',
     lastName: '',
     phone: '',
-    role: 'user',
+    role: 'guest',
     password: ''
   });
 
   const roles = [
     { value: 'guest', label: 'ผู้ใช้ทั่วไป', color: 'bg-blue-500' },
     { value: 'staff', label: 'พนักงาน', color: 'bg-green-500' },
-    { value: 'admin', label: 'ผู้ดูแล', color: 'bg-purple-500' },
-    { value: 'super_admin', label: 'ผู้ดูแลระบบ', color: 'bg-red-500' }
+    { value: 'admin', label: 'ผู้ดูแล', color: 'bg-purple-500' }
   ];
 
   // Fetch users data
@@ -127,7 +129,7 @@ export default function UserManagement() {
         firstName: '',
         lastName: '',
         phone: '',
-        role: 'user',
+        role: 'guest',
         password: ''
       });
       fetchUsers();
@@ -166,13 +168,48 @@ export default function UserManagement() {
         firstName: '',
         lastName: '',
         phone: '',
-        role: 'user',
+        role: 'guest',
         password: ''
       });
       fetchUsers();
     } catch (error) {
       console.error('Error updating user:', error);
       toast.error('ไม่สามารถอัพเดทข้อมูลผู้ใช้ได้');
+    }
+  };
+
+  // Quick role change
+  const handleQuickRoleChange = async (userId, newRole) => {
+    try {
+      // Get current user data first
+      const currentUser = users.find(u => u.id === userId);
+      if (!currentUser) {
+        toast.error('ไม่พบข้อมูลผู้ใช้');
+        return;
+      }
+
+      // Use the existing updateUser API with current user data + new role
+      const userData = {
+        email: currentUser.email,
+        first_name: currentUser.first_name || currentUser.firstName,
+        last_name: currentUser.last_name || currentUser.lastName,
+        phone: currentUser.phone,
+        role: newRole
+      };
+
+      await usersAPI.updateUser(userId, userData);
+      toast.success('เปลี่ยนสิทธิ์ผู้ใช้สำเร็จ');
+      
+      // Update local state immediately for better UX
+      setUsers(users.map(user => 
+        user.id === userId ? { ...user, role: newRole } : user
+      ));
+      
+      // Refresh data from server
+      fetchUsers();
+    } catch (error) {
+      console.error('Error updating user role:', error);
+      toast.error('ไม่สามารถเปลี่ยนสิทธิ์ผู้ใช้ได้');
     }
   };
 
@@ -227,6 +264,127 @@ export default function UserManagement() {
     }
   }, [isAuthenticated, user, currentPage, searchTerm, filterRole]);
 
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    if (!autoRefresh || !isAuthenticated || user?.role !== 'admin') return;
+    
+    const interval = setInterval(() => {
+      fetchUsers();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [autoRefresh, isAuthenticated, user?.role]);
+
+  // WebSocket connection for real-time updates
+  useEffect(() => {
+    if (!isAuthenticated || !user || user.role !== 'admin') return;
+
+    const wsUrl = `ws://localhost:3001/ws?userId=${user.id}&role=${user.role}`;
+    const websocket = new WebSocket(wsUrl);
+
+    websocket.onopen = () => {
+      console.log('🔌 WebSocket connected for user management');
+      setWsConnected(true);
+      setWsInstance(websocket);
+    };
+
+    websocket.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        console.log('📨 WebSocket message received:', message);
+
+        if (message.type === 'user_role_updated') {
+          // Update user in the list
+          setUsers(prevUsers => 
+            prevUsers.map(u => 
+              u.id === message.data.userId 
+                ? { ...u, role: message.data.newRole }
+                : u
+            )
+          );
+          toast.success(`สิทธิ์ของผู้ใช้ ${message.data.email} ถูกอัปเดทเป็น ${message.data.newRole}`);
+        } else if (message.type === 'connected') {
+          console.log('✅ WebSocket connection established');
+        }
+      } catch (error) {
+        console.error('❌ Error parsing WebSocket message:', error);
+      }
+    };
+
+    websocket.onclose = () => {
+      console.log('🔌 WebSocket disconnected');
+      setWsConnected(false);
+      setWsInstance(null);
+    };
+
+    websocket.onerror = (error) => {
+      console.error('❌ WebSocket error:', error);
+      setWsConnected(false);
+    };
+
+    // Cleanup on unmount
+    return () => {
+      if (websocket.readyState === WebSocket.OPEN) {
+        websocket.close();
+      }
+    };
+  }, [isAuthenticated, user]);
+
+  // WebSocket connection for real-time updates
+  useEffect(() => {
+    if (!isAuthenticated || user?.role !== 'admin') return;
+
+    const ws = new WebSocket('ws://localhost:3001/ws');
+    
+    ws.onopen = () => {
+      console.log('WebSocket connected');
+      setWsConnected(true);
+      setWsInstance(ws);
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('WebSocket message received:', data);
+        
+        if (data.type === 'userRoleUpdate') {
+          // Update user role in real-time
+          setUsers(currentUsers => 
+            currentUsers.map(userItem => 
+              userItem.id === data.userId 
+                ? { ...userItem, role: data.newRole }
+                : userItem
+            )
+          );
+          
+          // Show notification if it's not the current user making the change
+          if (data.userId !== user?.id) {
+            toast.success(`สิทธิ์ของผู้ใช้ได้รับการอัปเดทเป็น ${data.newRole}`);
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+      }
+    };
+
+    ws.onclose = () => {
+      console.log('WebSocket disconnected');
+      setWsConnected(false);
+      setWsInstance(null);
+    };
+
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      setWsConnected(false);
+    };
+
+    return () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+    };
+  }, [isAuthenticated, user?.role, user?.id]);
+
   // Search handler
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
@@ -274,13 +432,40 @@ export default function UserManagement() {
               </h1>
               <p className="text-gray-600 mt-2">จัดการข้อมูลผู้ใช้ในระบบ</p>
             </div>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              เพิ่มผู้ใช้ใหม่
-            </button>
+            <div className="flex items-center space-x-4">
+              {/* WebSocket Status */}
+              <div className="flex items-center space-x-2">
+                <div className={`w-3 h-3 rounded-full ${wsConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                <span className="text-sm text-gray-600">
+                  {wsConnected ? 'เชื่อมต่อแบบ Real-time' : 'ไม่ได้เชื่อมต่อ Real-time'}
+                </span>
+              </div>
+              
+              {/* Auto Refresh Toggle */}
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-600">รีเฟรชอัตโนมัติ:</span>
+                <button
+                  onClick={() => setAutoRefresh(!autoRefresh)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    autoRefresh ? 'bg-blue-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      autoRefresh ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+              
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                เพิ่มผู้ใช้ใหม่
+              </button>
+            </div>
           </div>
         </div>
 
@@ -392,10 +577,26 @@ export default function UserManagement() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${roleInfo.color}`}>
-                              <Shield className="w-3 h-3 mr-1" />
-                              {roleInfo.label}
-                            </span>
+                            <div className="flex items-center space-x-2">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${roleInfo.color}`}>
+                                <Shield className="w-3 h-3 mr-1" />
+                                {roleInfo.label}
+                              </span>
+                              
+                              {/* Quick Role Change Dropdown */}
+                              <select
+                                value={userItem.role}
+                                onChange={(e) => handleQuickRoleChange(userItem.id, e.target.value)}
+                                className="text-xs border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                title="เปลี่ยนสิทธิ์"
+                              >
+                                {roles.map(role => (
+                                  <option key={role.value} value={role.value}>
+                                    {role.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             <div className="flex items-center">

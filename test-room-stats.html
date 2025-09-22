@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Room Statistics API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        input, button {
+            padding: 10px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }
+        .loading {
+            color: #007bff;
+        }
+        .error {
+            color: #dc3545;
+        }
+        .success {
+            color: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏨 Test Room Statistics API</h1>
+        
+        <div>
+            <label for="date">เลือกวันที่:</label>
+            <input type="date" id="date" value="2025-09-23">
+            <button onclick="testAPI()">ทดสอบ API</button>
+            <button onclick="testAPINoDate()">ทดสอบ API (ไม่ระบุวันที่)</button>
+        </div>
+        
+        <div id="result" class="result">
+            <p>กดปุ่มเพื่อทดสอบ API</p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:3001';
+        
+        function setResult(message, className = '') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<p class="${className}">${message}</p>`;
+        }
+        
+        function setResultJSON(data, className = '') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<pre class="${className}">${JSON.stringify(data, null, 2)}</pre>`;
+        }
+        
+        async function testAPI() {
+            const date = document.getElementById('date').value;
+            setResult('🔄 กำลังเรียก API...', 'loading');
+            
+            try {
+                console.log('Testing API with date:', date);
+                const url = `${API_BASE_URL}/api/room-statistics?date=${date}`;
+                console.log('API URL:', url);
+                
+                const response = await fetch(url);
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('API Response:', data);
+                
+                setResultJSON(data, 'success');
+                
+            } catch (error) {
+                console.error('API Error:', error);
+                setResult(`❌ เกิดข้อผิดพลาด: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testAPINoDate() {
+            setResult('🔄 กำลังเรียก API (ไม่ระบุวันที่)...', 'loading');
+            
+            try {
+                const url = `${API_BASE_URL}/api/room-statistics`;
+                console.log('API URL:', url);
+                
+                const response = await fetch(url);
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('API Response:', data);
+                
+                setResultJSON(data, 'success');
+                
+            } catch (error) {
+                console.error('API Error:', error);
+                setResult(`❌ เกิดข้อผิดพลาด: ${error.message}`, 'error');
+            }
+        }
+        
+        // Set default date to today
+        document.getElementById('date').value = new Date().toISOString().split('T')[0];
+    </script>
+</body>
+</html>

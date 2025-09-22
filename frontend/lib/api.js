@@ -1177,4 +1177,21 @@ export const hotelsAPI = {
   }
 };
 
+// Room Statistics API
+export const roomAPI = {
+  // Get room statistics for dashboard
+  getRoomStatistics: async (date = null) => {
+    console.log('🏨 Fetching room statistics for date:', date);
+    try {
+      const params = date ? { date } : {};
+      const response = await api.get('/room-statistics', { params });
+      console.log('✅ Room statistics response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error fetching room statistics:', error);
+      throw error;
+    }
+  }
+};
+
 export default api;

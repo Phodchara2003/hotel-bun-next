@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { isStaffOrAdmin } from '../../../lib/roles';
-import { bookingAPI } from '../../../lib/api';
+import { bookingAPI, roomAPI } from '../../../lib/api';
 
 export default function AdminDashboard() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
@@ -14,6 +14,14 @@ export default function AdminDashboard() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [dateBookings, setDateBookings] = useState([]);
   const [dateBookingsLoading, setDateBookingsLoading] = useState(false);
+  
+  // Room statistics states
+  const [roomStats, setRoomStats] = useState(null);
+  const [roomStatsLoading, setRoomStatsLoading] = useState(true);
+  const [selectedStatsDate, setSelectedStatsDate] = useState(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0);
+  });
 
   // Fetch recent bookings
   useEffect(() => {
@@ -118,6 +126,47 @@ export default function AdminDashboard() {
     }
   }, [selectedDate, isAuthenticated, user]);
 
+  // Fetch room statistics
+  useEffect(() => {
+    console.log('🔄 useEffect triggered for room stats', {
+      isAuthenticated,
+      isStaff: isStaffOrAdmin(user),
+      selectedDate: selectedStatsDate.toISOString().split('T')[0]
+    });
+    
+    const fetchRoomStats = async () => {
+      try {
+        setRoomStatsLoading(true);
+        console.log('🏨 Fetching room statistics for date:', selectedStatsDate.toISOString().split('T')[0]);
+        
+        const dateString = selectedStatsDate.toISOString().split('T')[0];
+        console.log('🔗 Calling roomAPI.getRoomStatistics with:', dateString);
+        const response = await roomAPI.getRoomStatistics(dateString);
+        console.log('📊 Room stats response:', response);
+        
+        if (response.success) {
+          console.log('✅ Room stats data loaded:', response.data);
+          setRoomStats(response.data);
+        } else {
+          console.error('❌ Failed to fetch room statistics:', response.message);
+          setRoomStats(null);
+        }
+        
+      } catch (error) {
+        console.error('❌ Error fetching room statistics:', error);
+        console.error('Error details:', error.response?.data || error.message);
+        setRoomStats(null);
+      } finally {
+        setRoomStatsLoading(false);
+        console.log('🏁 Room stats loading finished');
+      }
+    };
+
+    if (isAuthenticated && isStaffOrAdmin(user)) {
+      fetchRoomStats();
+    }
+  }, [isAuthenticated, user, selectedStatsDate]);
+
   if (!isAuthenticated || !isStaffOrAdmin(user)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -133,23 +182,115 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-gray-50">
       {/* Top Navigation */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
-        <div className="flex items-center">
+        <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          
+          {/* Date Picker */}
+          <div className="flex items-center gap-4">
+            <label className="text-sm font-medium text-gray-700">ดูข้อมูลวันที่:</label>
+            <input
+              type="date"
+              value={selectedStatsDate.toISOString().split('T')[0]}
+              onChange={(e) => {
+                const dateValue = e.target.value;
+                console.log('📅 Date picker value changed:', dateValue);
+                if (dateValue) {
+                  // Create date with explicit timezone to avoid offset issues
+                  const [year, month, day] = dateValue.split('-').map(Number);
+                  const newDate = new Date(year, month - 1, day, 12, 0, 0);
+                  console.log('📅 New date object:', newDate);
+                  console.log('📅 Date parts:', { year, month, day });
+                  console.log('📅 Stats date changed to:', newDate.toISOString().split('T')[0]);
+                  console.log('🔄 Triggering room stats update...');
+                  setSelectedStatsDate(newDate);
+                }
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+
+            {selectedStatsDate.toISOString().split('T')[0] !== new Date().toISOString().split('T')[0] && (
+              <button
+                onClick={() => {
+                  const today = new Date();
+                  const todayFixed = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0);
+                  console.log('📅 Resetting to today:', todayFixed.toISOString().split('T')[0]);
+                  setSelectedStatsDate(todayFixed);
+                }}
+                className="px-3 py-2 text-sm text-blue-600 hover:text-blue-700 transition-colors"
+              >
+                วันนี้
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="p-6">
+        {/* Date Info */}
+        <div className="mb-4">
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <span>📅 แสดงข้อมูลวันที่:</span>
+            <span className="font-medium text-gray-900">
+              {selectedStatsDate.toLocaleDateString('th-TH', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                weekday: 'long'
+              })}
+            </span>
+            {selectedStatsDate.toISOString().split('T')[0] === new Date().toISOString().split('T')[0] && (
+              <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">วันนี้</span>
+            )}
+            {roomStatsLoading && (
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-blue-600 text-xs">กำลังโหลด...</span>
+              </div>
+            )}
+            {!roomStatsLoading && roomStats && (
+              <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
+                อัปเดตแล้ว
+              </span>
+            )}
+            {!roomStatsLoading && !roomStats && (
+              <>
+                <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full">
+                  ไม่สามารถโหลดข้อมูล
+                </span>
+                <button
+                  onClick={() => {
+                    console.log('🔄 Manual refresh triggered');
+                    setSelectedStatsDate(new Date(selectedStatsDate));
+                  }}
+                  className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded hover:bg-blue-200 transition-colors"
+                >
+                  รีเฟรช
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* New Booking Card */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+          {/* Total Bookings Card */}
           <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white relative overflow-hidden transform hover:scale-105 transition-transform duration-200">
             <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
             <div className="relative z-10">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-4xl font-bold mb-2">872</p>
-                  <h3 className="text-blue-100 text-sm font-medium">New Booking</h3>
+                  {roomStatsLoading ? (
+                    <div className="animate-pulse">
+                      <div className="h-10 bg-white/20 rounded mb-2 w-20"></div>
+                      <div className="h-4 bg-white/20 rounded w-24"></div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-4xl font-bold mb-2">{roomStats?.bookings?.total || 0}</p>
+                      <h3 className="text-blue-100 text-sm font-medium">Total Bookings</h3>
+                    </>
+                  )}
                 </div>
                 <div className="bg-white/20 p-3 rounded-lg">
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -160,14 +301,23 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Schedule Room Card */}
+          {/* Available Rooms Card */}
           <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-6 text-white relative overflow-hidden transform hover:scale-105 transition-transform duration-200">
             <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
             <div className="relative z-10">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-4xl font-bold mb-2">285</p>
-                  <h3 className="text-green-100 text-sm font-medium">Schedule Room</h3>
+                  {roomStatsLoading ? (
+                    <div className="animate-pulse">
+                      <div className="h-10 bg-white/20 rounded mb-2 w-20"></div>
+                      <div className="h-4 bg-white/20 rounded w-28"></div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-4xl font-bold mb-2">{roomStats?.rooms?.available || 0}</p>
+                      <h3 className="text-green-100 text-sm font-medium">Available Rooms</h3>
+                    </>
+                  )}
                 </div>
                 <div className="bg-white/20 p-3 rounded-lg">
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -184,8 +334,17 @@ export default function AdminDashboard() {
             <div className="relative z-10">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-4xl font-bold mb-2">53</p>
-                  <h3 className="text-orange-100 text-sm font-medium">Check In</h3>
+                  {roomStatsLoading ? (
+                    <div className="animate-pulse">
+                      <div className="h-10 bg-white/20 rounded mb-2 w-20"></div>
+                      <div className="h-4 bg-white/20 rounded w-24"></div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-4xl font-bold mb-2">{roomStats?.bookings?.checkin_today || 0}</p>
+                      <h3 className="text-orange-100 text-sm font-medium">Check In Today</h3>
+                    </>
+                  )}
                 </div>
                 <div className="bg-white/20 p-3 rounded-lg">
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -202,12 +361,50 @@ export default function AdminDashboard() {
             <div className="relative z-10">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-4xl font-bold mb-2">78</p>
-                  <h3 className="text-red-100 text-sm font-medium">Check Out</h3>
+                  {roomStatsLoading ? (
+                    <div className="animate-pulse">
+                      <div className="h-10 bg-white/20 rounded mb-2 w-20"></div>
+                      <div className="h-4 bg-white/20 rounded w-26"></div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-4xl font-bold mb-2">{roomStats?.bookings?.checkout_today || 0}</p>
+                      <h3 className="text-red-100 text-sm font-medium">Check Out Today</h3>
+                    </>
+                  )}
                 </div>
                 <div className="bg-white/20 p-3 rounded-lg">
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Revenue Card */}
+          <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-6 text-white relative overflow-hidden transform hover:scale-105 transition-transform duration-200">
+            <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-between">
+                <div>
+                  {roomStatsLoading ? (
+                    <div className="animate-pulse">
+                      <div className="h-10 bg-white/20 rounded mb-2 w-20"></div>
+                      <div className="h-4 bg-white/20 rounded w-24"></div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-4xl font-bold mb-2">
+                        ฿{roomStats?.revenue?.daily_total ? Math.floor(roomStats.revenue.daily_total).toLocaleString() : '0'}
+                      </p>
+                      <h3 className="text-purple-100 text-sm font-medium">รายได้วันนี้</h3>
+                    </>
+                  )}
+                </div>
+                <div className="bg-white/20 p-3 rounded-lg">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                   </svg>
                 </div>
               </div>
@@ -237,13 +434,23 @@ export default function AdminDashboard() {
                     fill="none"
                     stroke="#3B82F6"
                     strokeWidth="3"
-                    strokeDasharray="75, 100"
+                    strokeDasharray={roomStats?.rooms?.occupancy_rate ? `${roomStats.rooms.occupancy_rate}, 100` : "0, 100"}
+                    className="transition-all duration-500"
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center">
-                    <p className="text-4xl font-bold text-gray-900">785</p>
-                    <p className="text-gray-600 text-sm">Available Room Today</p>
+                    {roomStatsLoading ? (
+                      <div className="animate-pulse">
+                        <div className="h-10 bg-gray-200 rounded mb-2 w-16 mx-auto"></div>
+                        <div className="h-4 bg-gray-200 rounded w-32 mx-auto"></div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-4xl font-bold text-gray-900">{roomStats?.rooms?.total || 0}</p>
+                        <p className="text-gray-600 text-sm">Total Rooms</p>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -252,58 +459,164 @@ export default function AdminDashboard() {
               <div className="space-y-4">
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-gray-600 text-sm">Pending</span>
-                    <span className="text-gray-900 text-sm font-medium">234</span>
+                    <span className="text-gray-600 text-sm">Available</span>
+                    <span className="text-gray-900 text-sm font-medium">
+                      {roomStatsLoading ? (
+                        <div className="w-8 h-4 bg-gray-200 rounded animate-pulse"></div>
+                      ) : (
+                        roomStats?.rooms?.available || 0
+                      )}
+                    </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-orange-500 h-2 rounded-full" style={{ width: '60%' }}></div>
+                    <div 
+                      className="bg-green-500 h-2 rounded-full transition-all duration-300" 
+                      style={{ 
+                        width: roomStats?.rooms?.total > 0 
+                          ? `${(roomStats.rooms.available / roomStats.rooms.total) * 100}%` 
+                          : '0%' 
+                      }}
+                    ></div>
                   </div>
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-gray-600 text-sm">Done</span>
-                    <span className="text-gray-900 text-sm font-medium">65</span>
+                    <span className="text-gray-600 text-sm">Occupied</span>
+                    <span className="text-gray-900 text-sm font-medium">
+                      {roomStatsLoading ? (
+                        <div className="w-8 h-4 bg-gray-200 rounded animate-pulse"></div>
+                      ) : (
+                        roomStats?.rooms?.occupied || 0
+                      )}
+                    </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-green-500 h-2 rounded-full" style={{ width: '40%' }}></div>
+                    <div 
+                      className="bg-red-500 h-2 rounded-full transition-all duration-300" 
+                      style={{ 
+                        width: roomStats?.rooms?.total > 0 
+                          ? `${(roomStats.rooms.occupied / roomStats.rooms.total) * 100}%` 
+                          : '0%' 
+                      }}
+                    ></div>
                   </div>
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-gray-600 text-sm">Finish</span>
-                    <span className="text-gray-900 text-sm font-medium">763</span>
+                    <span className="text-gray-600 text-sm">Occupancy Rate</span>
+                    <span className="text-gray-900 text-sm font-medium">
+                      {roomStatsLoading ? (
+                        <div className="w-12 h-4 bg-gray-200 rounded animate-pulse"></div>
+                      ) : (
+                        `${roomStats?.rooms?.occupancy_rate || 0}%`
+                      )}
+                    </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-purple-500 h-2 rounded-full" style={{ width: '80%' }}></div>
+                    <div 
+                      className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
+                      style={{ 
+                        width: `${roomStats?.rooms?.occupancy_rate || 0}%` 
+                      }}
+                    ></div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Reservation Statistics */}
+          {/* Daily Revenue & Booking Statistics */}
           <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-gray-900 text-xl font-semibold">Reservation Statistic</h3>
-                <p className="text-gray-600 text-sm">Lorem ipsum dolor sit amet</p>
+                <h3 className="text-gray-900 text-xl font-semibold">สถิติรายได้และการจอง</h3>
+                <p className="text-gray-600 text-sm">
+                  วันที่ {selectedStatsDate.toLocaleDateString('th-TH', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}
+                </p>
               </div>
               <div className="flex items-center gap-6">
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-gray-900">549</p>
-                  <p className="text-gray-600 text-sm">Check In</p>
+                  {roomStatsLoading ? (
+                    <div className="animate-pulse">
+                      <div className="h-8 bg-gray-200 rounded mb-1 w-16"></div>
+                      <div className="h-4 bg-gray-200 rounded w-12"></div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-2xl font-bold text-gray-900">{roomStats?.bookings?.checkin_today || 0}</p>
+                      <p className="text-gray-600 text-sm">Check In</p>
+                    </>
+                  )}
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-gray-900">327</p>
-                  <p className="text-gray-600 text-sm">Check Out</p>
+                  {roomStatsLoading ? (
+                    <div className="animate-pulse">
+                      <div className="h-8 bg-gray-200 rounded mb-1 w-16"></div>
+                      <div className="h-4 bg-gray-200 rounded w-12"></div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-2xl font-bold text-gray-900">{roomStats?.bookings?.checkout_today || 0}</p>
+                      <p className="text-gray-600 text-sm">Check Out</p>
+                    </>
+                  )}
                 </div>
-                <button className="text-gray-600 hover:text-gray-900">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                  </svg>
-                </button>
+                <div className="text-right">
+                  {roomStatsLoading ? (
+                    <div className="animate-pulse">
+                      <div className="h-8 bg-gray-200 rounded mb-1 w-20"></div>
+                      <div className="h-4 bg-gray-200 rounded w-16"></div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-2xl font-bold text-purple-600">
+                        ฿{roomStats?.revenue?.daily_total ? Math.floor(roomStats.revenue.daily_total).toLocaleString() : '0'}
+                      </p>
+                      <p className="text-gray-600 text-sm">รายได้รวม</p>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            {/* Revenue Breakdown */}
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-purple-50 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">รายได้จาก Check-in</p>
+                    <p className="text-xl font-bold text-purple-600">
+                      ฿{roomStatsLoading ? '...' : (roomStats?.revenue?.checkin_revenue ? Math.floor(roomStats.revenue.checkin_revenue).toLocaleString() : '0')}
+                    </p>
+                  </div>
+                  <div className="text-purple-600">
+                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-blue-50 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">อัตราการเข้าพัก</p>
+                    <p className="text-xl font-bold text-blue-600">
+                      {roomStatsLoading ? '...' : `${roomStats?.rooms?.occupancy_rate || 0}%`}
+                    </p>
+                  </div>
+                  <div className="text-blue-600">
+                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                </div>
               </div>
             </div>
             

@@ -1,5 +1,6 @@
 const { createServer } = require('http');
 const { parse } = require('url');
+const { WebSocketServer } = require('ws');
 require('dotenv').config();
 const mysql = require('mysql2/promise');
 const multer = require('multer');
@@ -3753,6 +3754,120 @@ const server = createServer(async (req, res) => {
         }
         break;
 
+      case '/api/room-statistics':
+        setCorsHeaders(res);
+        if (req.method === 'GET') {
+          try {
+            console.log('🏨 Fetching room statistics...');
+            
+            // Get date from query parameter or use today
+            const targetDate = query.date || new Date().toISOString().split('T')[0];
+            console.log('📅 Fetching statistics for date:', targetDate);
+            
+            // Get total rooms by type
+            const [roomTypeStats] = await connection.execute(`
+              SELECT 
+                rt.name as room_type_name,
+                rt.bed_type,
+                SUM(rt.quantity) as total_rooms,
+                rt.price_per_night,
+                rt.max_guests
+              FROM room_types rt 
+              GROUP BY rt.name, rt.bed_type, rt.price_per_night, rt.max_guests
+              ORDER BY rt.name
+            `);
+            
+            // Get bookings stats for selected date
+            const [dateBookings] = await connection.execute(`
+              SELECT 
+                COUNT(*) as total_bookings,
+                COUNT(CASE WHEN status = 'confirmed' THEN 1 END) as confirmed_bookings,
+                COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_bookings,
+                COUNT(CASE WHEN check_in_date = ? THEN 1 END) as checkin_today,
+                COUNT(CASE WHEN check_out_date = ? THEN 1 END) as checkout_today
+              FROM bookings 
+              WHERE status IN ('confirmed', 'pending', 'completed')
+            `, [targetDate, targetDate]);
+            
+            // Get occupied rooms for selected date
+            const [occupiedRooms] = await connection.execute(`
+              SELECT COUNT(*) as occupied_rooms
+              FROM bookings 
+              WHERE status IN ('confirmed', 'completed')
+              AND check_in_date <= ? 
+              AND check_out_date > ?
+            `, [targetDate, targetDate]);
+            
+            // Get revenue for selected date 
+            const [revenueData] = await connection.execute(`
+              SELECT 
+                COALESCE(SUM(CASE WHEN b.check_in_date = ? THEN b.total_price END), 0) as daily_revenue,
+                COUNT(CASE WHEN b.check_in_date = ? THEN 1 END) as checkin_count,
+                COALESCE(SUM(CASE WHEN b.check_in_date = ? THEN b.total_price END), 0) as checkin_revenue
+              FROM bookings b
+              WHERE b.status IN ('confirmed', 'completed')
+            `, [targetDate, targetDate, targetDate]);
+            
+            // Calculate totals
+            const totalRooms = roomTypeStats.reduce((sum, room) => sum + room.total_rooms, 0);
+            const occupiedCount = occupiedRooms[0]?.occupied_rooms || 0;
+            const availableRooms = Math.max(0, totalRooms - occupiedCount);
+            
+            const bookingStats = dateBookings[0];
+            const revenue = revenueData[0];
+            
+            const statistics = {
+              rooms: {
+                total: totalRooms,
+                occupied: occupiedCount,
+                available: availableRooms,
+                occupancy_rate: totalRooms > 0 ? Math.round((occupiedCount / totalRooms) * 100) : 0
+              },
+              bookings: {
+                total: bookingStats.total_bookings || 0,
+                confirmed: bookingStats.confirmed_bookings || 0,
+                pending: bookingStats.pending_bookings || 0,
+                checkin_today: bookingStats.checkin_today || 0,
+                checkout_today: bookingStats.checkout_today || 0
+              },
+              revenue: {
+                daily_total: parseFloat(revenue.daily_revenue || 0),
+                checkin_revenue: parseFloat(revenue.checkin_revenue || 0),
+                checkin_count: revenue.checkin_count || 0
+              },
+              room_types: roomTypeStats,
+              date: targetDate
+            };
+            
+            console.log('📊 Room statistics generated:', {
+              date: targetDate,
+              totalRooms,
+              availableRooms,
+              occupiedCount,
+              bookingsTotal: bookingStats.total_bookings,
+              dailyRevenue: revenue.daily_revenue
+            });
+            
+            sendJSON(res, 200, {
+              success: true,
+              data: statistics
+            });
+            
+          } catch (error) {
+            console.error('❌ Error fetching room statistics:', error);
+            sendJSON(res, 500, {
+              success: false,
+              message: 'เกิดข้อผิดพลาดในการดึงข้อมูลสถิติห้องพัก'
+            });
+          }
+        } else {
+          sendJSON(res, 405, {
+            success: false,
+            message: 'Method not allowed'
+          });
+        }
+        break;
+
       case '/api/contact-settings':
         setCorsHeaders(res);
         if (req.method === 'GET') {
@@ -4422,7 +4537,7 @@ const server = createServer(async (req, res) => {
               
               await connection.execute(updateQuery, [
                 email, first_name, last_name, phone || null, role, 
-                req.body.address || null, req.body.national_id || null, parseInt(userId)
+                body.address || null, body.national_id || null, parseInt(userId)
               ]);
               
               // Get updated user
@@ -4431,10 +4546,17 @@ const server = createServer(async (req, res) => {
                 [parseInt(userId)]
               );
               
+              const updatedUser = updatedUsers[0];
+              
+              // Broadcast role update if role was changed
+              if (updatedUser && typeof broadcastUserRoleUpdate === 'function') {
+                broadcastUserRoleUpdate(updatedUser);
+              }
+              
               sendJSON(res, 200, {
                 success: true,
                 message: 'อัปเดตข้อมูลผู้ใช้เรียบร้อยแล้ว',
-                data: updatedUsers[0]
+                data: updatedUser
               });
               
             } catch (error) {
@@ -4450,6 +4572,67 @@ const server = createServer(async (req, res) => {
                   message: 'เกิดข้อผิดพลาดในการอัปเดตข้อมูลผู้ใช้'
                 });
               }
+            }
+          } else if (req.method === 'PUT' && normalizedPathname.endsWith('/role')) {
+            // PUT /api/admin/users/{id}/role - Update user role specifically
+            try {
+              const pathParts = normalizedPathname.split('/');
+              const userId = pathParts[pathParts.length - 2]; // Get ID before '/role'
+              
+              const body = await getRequestBody(req);
+              const { role } = body;
+              
+              console.log(`👤 Updating user role: ${userId} -> ${role}`);
+              
+              // Validate role
+              const validRoles = ['guest', 'staff', 'admin'];
+              if (!validRoles.includes(role)) {
+                return sendJSON(res, 400, {
+                  success: false,
+                  message: 'บทบาทไม่ถูกต้อง'
+                });
+              }
+              
+              // Check if user exists
+              const [existingUsers] = await connection.execute('SELECT id, email FROM users WHERE id = ?', [parseInt(userId)]);
+              if (existingUsers.length === 0) {
+                return sendJSON(res, 404, {
+                  success: false,
+                  message: 'ไม่พบผู้ใช้ที่ระบุ'
+                });
+              }
+              
+              // Update user role
+              await connection.execute(
+                'UPDATE users SET role = ?, updated_at = NOW() WHERE id = ?',
+                [role, parseInt(userId)]
+              );
+              
+              // Get updated user
+              const [updatedUsers] = await connection.execute(
+                'SELECT id, email, first_name, last_name, phone, role, address, national_id, created_at, updated_at FROM users WHERE id = ?',
+                [parseInt(userId)]
+              );
+              
+              const updatedUser = updatedUsers[0];
+              
+              // Broadcast role update via WebSocket
+              if (updatedUser && typeof broadcastUserRoleUpdate === 'function') {
+                broadcastUserRoleUpdate(updatedUser);
+              }
+              
+              sendJSON(res, 200, {
+                success: true,
+                message: 'อัปเดตบทบาทผู้ใช้เรียบร้อยแล้ว',
+                data: updatedUser
+              });
+              
+            } catch (error) {
+              console.error('❌ Error updating user role:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในการอัปเดตบทบาทผู้ใช้'
+              });
             }
           } else if (req.method === 'DELETE' && userId) {
             // DELETE /api/admin/users/{id}
@@ -4890,6 +5073,7 @@ server.listen(PORT, () => {
   console.log('   GET /api/rooms/availability  - Check room availability');
   console.log('   GET /api/check-room-availability - Check room availability by date');
   console.log('   GET /api/room-types-with-images - Room types with images for user');
+  console.log('   GET /api/room-statistics     - Room statistics for dashboard');
   console.log('   GET /api/bookings            - Bookings from database');
   console.log('   PUT /api/bookings/{id}/status - Update booking status');
   console.log('   GET /api/admin/bookings/detailed - Detailed bookings for admin');
@@ -4921,6 +5105,98 @@ server.listen(PORT, () => {
   console.log(`🌐 CORS enabled for: ${process.env.FRONTEND_URL || 'http://localhost:3002'}`);
   console.log('🔔 Notification system initialized and running');
 });
+
+// WebSocket Server for real-time updates
+const wss = new WebSocketServer({ 
+  server,
+  path: '/ws'
+});
+
+// Store connected clients with their user info
+const connectedClients = new Map();
+
+wss.on('connection', (ws, req) => {
+  const userId = new URL(req.url, `http://${req.headers.host}`).searchParams.get('userId');
+  const userRole = new URL(req.url, `http://${req.headers.host}`).searchParams.get('role');
+  
+  console.log(`🔌 WebSocket connected: userId=${userId}, role=${userRole}`);
+  
+  // Store client info
+  connectedClients.set(ws, { userId, userRole, connectedAt: Date.now() });
+  
+  // Send welcome message
+  ws.send(JSON.stringify({
+    type: 'connected',
+    message: 'WebSocket connection established',
+    timestamp: new Date().toISOString()
+  }));
+  
+  // Handle incoming messages
+  ws.on('message', (data) => {
+    try {
+      const message = JSON.parse(data);
+      console.log('📨 WebSocket message received:', message);
+      
+      // Handle ping/pong for keepalive
+      if (message.type === 'ping') {
+        ws.send(JSON.stringify({ type: 'pong', timestamp: new Date().toISOString() }));
+      }
+    } catch (error) {
+      console.error('❌ Error parsing WebSocket message:', error);
+    }
+  });
+  
+  // Handle client disconnect
+  ws.on('close', () => {
+    const clientInfo = connectedClients.get(ws);
+    console.log(`🔌 WebSocket disconnected: userId=${clientInfo?.userId}`);
+    connectedClients.delete(ws);
+  });
+  
+  // Handle errors
+  ws.on('error', (error) => {
+    console.error('❌ WebSocket error:', error);
+    connectedClients.delete(ws);
+  });
+});
+
+// Function to broadcast user role updates
+function broadcastUserRoleUpdate(updatedUser) {
+  const message = {
+    type: 'user_role_updated',
+    data: {
+      userId: updatedUser.id,
+      newRole: updatedUser.role,
+      email: updatedUser.email,
+      updatedAt: new Date().toISOString()
+    }
+  };
+  
+  // Send to all connected admin clients
+  connectedClients.forEach((clientInfo, ws) => {
+    if (clientInfo.userRole === 'admin' && ws.readyState === 1) { // OPEN
+      ws.send(JSON.stringify(message));
+    }
+  });
+  
+  // Also send to the specific user whose role was changed
+  connectedClients.forEach((clientInfo, ws) => {
+    if (clientInfo.userId == updatedUser.id && ws.readyState === 1) {
+      ws.send(JSON.stringify({
+        type: 'your_role_updated',
+        data: {
+          newRole: updatedUser.role,
+          message: `สิทธิ์ของคุณถูกเปลี่ยนเป็น ${updatedUser.role}`,
+          updatedAt: new Date().toISOString()
+        }
+      }));
+    }
+  });
+  
+  console.log(`📡 Broadcasted role update for user ${updatedUser.id} to ${connectedClients.size} clients`);
+}
+
+console.log(`🔌 WebSocket server initialized on ws://localhost:${PORT}/ws`);
 
 // Error handling
 process.on('uncaughtException', (error) => {
