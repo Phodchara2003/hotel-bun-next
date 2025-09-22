@@ -450,9 +450,9 @@ async function getBookings(userId = null) {
   }
 }
 
-async function getDetailedBookingsForAdmin(userId = null) {
+async function getDetailedBookingsForAdmin(userId = null, date = null) {
   try {
-    console.log(`🔍 Fetching detailed bookings for admin, user: ${userId || 'all users'}`);
+    console.log(`🔍 Fetching detailed bookings for admin, user: ${userId || 'all users'}, date: ${date || 'all dates'}`);
     
     let query = `
       SELECT 
@@ -501,9 +501,20 @@ async function getDetailedBookingsForAdmin(userId = null) {
     `;
     
     const params = [];
+    const whereConditions = [];
+    
     if (userId) {
-      query += ' WHERE b.user_id = ?';
+      whereConditions.push('b.user_id = ?');
       params.push(userId);
+    }
+    
+    if (date) {
+      whereConditions.push('DATE(?) BETWEEN DATE(b.check_in_date) AND DATE(b.check_out_date)');
+      params.push(date);
+    }
+    
+    if (whereConditions.length > 0) {
+      query += ' WHERE ' + whereConditions.join(' AND ');
     }
     
     query += ' ORDER BY b.created_at DESC LIMIT 50';
@@ -3152,9 +3163,13 @@ const server = createServer(async (req, res) => {
           try {
             setCorsHeaders(res);
             const userId = query.user_id;
-            console.log('🔍 Admin requesting detailed bookings for user:', userId || 'all users');
+            const date = query.date;
+            console.log('🔍 Admin requesting detailed bookings for user:', userId || 'all users', 'date:', date || 'all dates');
             
-            const detailedBookings = await getDetailedBookingsForAdmin(userId ? parseInt(userId) : null);
+            const detailedBookings = await getDetailedBookingsForAdmin(
+              userId ? parseInt(userId) : null, 
+              date || null
+            );
             
             sendJSON(res, 200, {
               success: true,

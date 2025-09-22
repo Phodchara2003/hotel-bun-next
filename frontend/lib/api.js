@@ -365,36 +365,72 @@ export const bookingAPI = {
   },
 
   // Admin APIs
-  getAllBookings: async (params = {}) => {
+  getAdminBookings: async (params = {}) => {
     return retryRequest(async () => {
-      console.log('📞 Fetching all bookings with params:', params);
-      const response = await api.get('/bookings', { params });
-      console.log('✅ Get all bookings response:', response.data);
+      console.log('📞 Fetching admin bookings with params:', params);
+      const response = await api.get('/admin/bookings/detailed', { params });
+      console.log('✅ Get admin bookings response:', response.data);
       
-      // Handle backend response format: {success: true, count: number, data: bookings[]}
+      // Handle backend response format: {success: true, count: number, data: [...]}
       if (response.data.success && response.data.data) {
         return {
           success: true,
-          data: response.data.data,
+          bookings: response.data.data,
           total: response.data.count || response.data.data.length
         };
       } else if (response.data.bookings) {
         return {
           success: true,
-          data: response.data.bookings,
+          bookings: response.data.bookings,
           pagination: response.data.pagination,
           total: response.data.pagination?.total || response.data.bookings.length
         };
       } else if (Array.isArray(response.data)) {
         return {
           success: true,
-          data: response.data,
+          bookings: response.data,
           total: response.data.length
         };
       } else {
         return {
           success: true,
-          data: response.data.data || [],
+          bookings: response.data.data || [],
+          total: response.data.total || 0
+        };
+      }
+    });
+  },
+
+  getAllBookings: async (params = {}) => {
+    return retryRequest(async () => {
+      console.log('📞 Fetching all bookings with params:', params);
+      const response = await api.get('/bookings', { params });
+      console.log('✅ Get all bookings response:', response.data);
+      
+      // Handle backend response format: {success: true, count: number, data: [...]}
+      if (response.data.success && response.data.data) {
+        return {
+          success: true,
+          bookings: response.data.data,
+          total: response.data.count || response.data.data.length
+        };
+      } else if (response.data.bookings) {
+        return {
+          success: true,
+          bookings: response.data.bookings,
+          pagination: response.data.pagination,
+          total: response.data.pagination?.total || response.data.bookings.length
+        };
+      } else if (Array.isArray(response.data)) {
+        return {
+          success: true,
+          bookings: response.data,
+          total: response.data.length
+        };
+      } else {
+        return {
+          success: true,
+          bookings: response.data.data || [],
           total: response.data.total || 0
         };
       }

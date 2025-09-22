@@ -3,9 +3,120 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { isStaffOrAdmin } from '../../../lib/roles';
+import { bookingAPI } from '../../../lib/api';
 
 export default function AdminDashboard() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const [recentBookings, setRecentBookings] = useState([]);
+  const [bookingsLoading, setBookingsLoading] = useState(true);
+  
+  // Calendar states
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [dateBookings, setDateBookings] = useState([]);
+  const [dateBookingsLoading, setDateBookingsLoading] = useState(false);
+
+  // Fetch recent bookings
+  useEffect(() => {
+    const fetchRecentBookings = async () => {
+      try {
+        setBookingsLoading(true);
+        console.log('🔄 Fetching recent bookings...');
+        
+        const response = await bookingAPI.getAdminBookings({ 
+          page: 1, 
+          limit: 4, 
+          sortBy: 'created_at',
+          sortOrder: 'DESC'
+        });
+        
+        console.log('📥 Bookings API response:', response);
+        
+        // Handle different response formats
+        let bookings = [];
+        if (response.success && response.bookings) {
+          bookings = response.bookings;
+        } else if (response.bookings) {
+          bookings = response.bookings;
+        } else if (response.data) {
+          bookings = response.data;
+        } else if (Array.isArray(response)) {
+          bookings = response;
+        }
+        
+        console.log('📋 Processed bookings:', bookings);
+        setRecentBookings(bookings);
+        
+      } catch (error) {
+        console.error('❌ Error fetching recent bookings:', error);
+        setRecentBookings([]);
+      } finally {
+        setBookingsLoading(false);
+      }
+    };
+
+    if (isAuthenticated && isStaffOrAdmin(user)) {
+      fetchRecentBookings();
+    }
+  }, [isAuthenticated, user]);
+
+  // Fetch bookings for selected date
+  const fetchBookingsForDate = async (date) => {
+    try {
+      setDateBookingsLoading(true);
+      console.log('🔄 Fetching bookings for date:', date);
+      
+      const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+      
+      const response = await bookingAPI.getAdminBookings({ 
+        page: 1, 
+        limit: 50,
+        date: dateString  // Use the new date filter
+      });
+      
+      console.log('📥 Date bookings API response:', response);
+      console.log('🎯 Expected format check:', {
+        hasSuccess: !!response.success,
+        hasBookings: !!response.bookings,
+        hasData: !!response.data,
+        dataLength: response.data?.length,
+        count: response.count
+      });
+      
+      // Handle different response formats
+      let bookings = [];
+      if (response.success && response.data) {
+        bookings = response.data;
+        console.log('✅ Using response.data:', bookings);
+      } else if (response.success && response.bookings) {
+        bookings = response.bookings;
+        console.log('✅ Using response.bookings:', bookings);
+      } else if (response.bookings) {
+        bookings = response.bookings;
+        console.log('✅ Using fallback response.bookings:', bookings);
+      } else if (response.data) {
+        bookings = response.data;
+        console.log('✅ Using fallback response.data:', bookings);
+      }
+      
+      console.log('📋 Final bookings for date:', bookings);
+      console.log('🔢 Bookings count:', bookings.length);
+      setDateBookings(bookings);
+      
+    } catch (error) {
+      console.error('❌ Error fetching bookings for date:', error);
+      setDateBookings([]);
+    } finally {
+      setDateBookingsLoading(false);
+    }
+  };
+
+  // Fetch bookings when selected date changes
+  useEffect(() => {
+    if (isAuthenticated && isStaffOrAdmin(user) && selectedDate) {
+      console.log('🔔 useEffect triggered for date:', selectedDate.toISOString().split('T')[0]);
+      fetchBookingsForDate(selectedDate);
+    }
+  }, [selectedDate, isAuthenticated, user]);
 
   if (!isAuthenticated || !isStaffOrAdmin(user)) {
     return (
@@ -22,56 +133,8 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-gray-50">
       {/* Top Navigation */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          </div>
-          
-          {/* Search and User Info */}
-          <div className="flex items-center gap-4">
-            {/* Search */}
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search here"
-                className="bg-gray-100 text-gray-900 placeholder-gray-500 px-4 py-2 pr-10 rounded-lg border border-gray-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 w-64"
-              />
-              <svg className="absolute right-3 top-2.5 w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-            
-            {/* Notifications */}
-            <div className="relative">
-              <button className="bg-gray-100 p-2 rounded-lg hover:bg-gray-200 transition-colors">
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-5 5-5-5h5z" />
-                </svg>
-              </button>
-              <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
-            </div>
-
-            {/* Settings */}
-            <button className="bg-gray-100 p-2 rounded-lg hover:bg-gray-200 transition-colors">
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </button>
-
-            {/* User Profile */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                <span className="text-white font-semibold text-sm">
-                  {user?.username?.charAt(0).toUpperCase() || 'J'}
-                </span>
-              </div>
-              <div>
-                <p className="text-gray-900 text-sm font-medium">{user?.username || 'John Doe'}</p>
-                <p className="text-gray-600 text-xs">Superadmin</p>
-              </div>
-            </div>
-          </div>
+        <div className="flex items-center">
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         </div>
       </div>
 
@@ -306,7 +369,9 @@ export default function AdminDashboard() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
-                <h3 className="text-gray-900 font-semibold">September 2025</h3>
+                <h3 className="text-gray-900 font-semibold">
+                  {selectedDate.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}
+                </h3>
                 <button className="text-gray-600 hover:text-gray-900 transition-colors">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
@@ -324,35 +389,86 @@ export default function AdminDashboard() {
                 {Array.from({ length: 35 }, (_, i) => {
                   const day = i - 5; // Adjust for month start
                   const isCurrentMonth = day > 0 && day <= 30;
-                  const isToday = day === 22;
+                  const today = new Date();
+                  const isToday = day === today.getDate() && 
+                                selectedDate.getMonth() === today.getMonth() && 
+                                selectedDate.getFullYear() === today.getFullYear();
+                  const isSelected = day === selectedDate.getDate() && isCurrentMonth;
+                  
+                  const handleDateClick = () => {
+                    if (isCurrentMonth) {
+                      // Create date at noon to avoid timezone issues
+                      const newDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), day, 12, 0, 0);
+                      console.log('📅 Calendar date clicked:', {
+                        day,
+                        newDate: newDate.toISOString().split('T')[0],
+                        dateObject: newDate,
+                        isCurrentMonth,
+                        formattedDate: newDate.toLocaleDateString('th-TH')
+                      });
+                      setSelectedDate(newDate);
+                    }
+                  };
                   
                   return (
                     <div
                       key={i}
+                      onClick={handleDateClick}
                       className={`p-2 rounded transition-colors cursor-pointer ${
-                        isToday
+                        isSelected
                           ? 'bg-blue-600 text-white font-bold'
+                          : isToday
+                          ? 'bg-blue-100 text-blue-600 font-bold'
                           : isCurrentMonth
                           ? 'text-gray-700 hover:bg-gray-100'
-                          : 'text-gray-400'
+                          : 'text-gray-400 cursor-not-allowed'
                       }`}
                     >
                       {isCurrentMonth ? day : day <= 0 ? 31 + day : day - 30}
-                      {isToday && <div className="w-1 h-1 bg-yellow-400 rounded-full mx-auto mt-1"></div>}
+                      {isToday && !isSelected && <div className="w-1 h-1 bg-blue-600 rounded-full mx-auto mt-1"></div>}
                     </div>
                   );
                 })}
               </div>
 
-              {/* Occupancy indicators */}
-              <div className="mt-4 flex items-center gap-4 text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
-                  <span className="text-gray-600">70% Check In</span>
+              {/* Selected Date Bookings */}
+              <div className="mt-4 border-t border-gray-200 pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-medium text-gray-900">
+                    การจองวันที่ {selectedDate.toLocaleDateString('th-TH')}
+                  </h4>
+                  {dateBookingsLoading && (
+                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                  <span className="text-gray-600">30% Check Out</span>
+                
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {dateBookingsLoading ? (
+                    <div className="text-sm text-gray-500">กำลังโหลด...</div>
+                  ) : dateBookings.length > 0 ? (
+                    dateBookings.map((booking) => (
+                      <div key={booking.id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs">
+                        <div>
+                          <p className="font-medium text-gray-900">{booking.guest_name}</p>
+                          <p className="text-gray-600">{booking.room_type_name} • {booking.guests} คน</p>
+                        </div>
+                        <div className="text-right">
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                            booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                            booking.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {booking.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-sm text-gray-500 text-center py-2">
+                      ไม่มีการจองในวันนี้
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -365,34 +481,70 @@ export default function AdminDashboard() {
               </div>
               
               <div className="space-y-4">
-                {[
-                  { name: 'Samantha Humble', date: 'October 3th, 2020', room: 'Room A-21', persons: '3-5 Person', status: 'online' },
-                  { name: 'Louise Marquee', date: 'October 3th, 2020', room: 'Room A-21', persons: '3-5 Person', status: 'away' },
-                  { name: 'Richard Smile', date: 'October 3th, 2020', room: 'Room A-21', persons: '3-5 Person', status: 'online' },
-                  { name: 'Bella Yen', date: 'October 3th, 2020', room: 'Room A-21', persons: '3-5 Person', status: 'offline' }
-                ].map((booking, index) => (
-                  <div key={index} className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                    <div className="relative">
-                      <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                        <span className="text-white text-sm font-medium">
-                          {booking.name.split(' ').map(n => n[0]).join('')}
-                        </span>
+                {bookingsLoading ? (
+                  // Loading state
+                  Array.from({ length: 4 }, (_, index) => (
+                    <div key={index} className="flex items-center gap-3 p-3 animate-pulse">
+                      <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
+                      <div className="flex-1">
+                        <div className="h-4 bg-gray-200 rounded w-32 mb-2"></div>
+                        <div className="h-3 bg-gray-200 rounded w-24"></div>
                       </div>
-                      <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
-                        booking.status === 'online' ? 'bg-green-500' : 
-                        booking.status === 'away' ? 'bg-yellow-500' : 'bg-gray-500'
-                      }`}></div>
+                      <div className="text-right">
+                        <div className="h-3 bg-gray-200 rounded w-20 mb-2"></div>
+                        <div className="h-3 bg-gray-200 rounded w-16"></div>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <p className="text-gray-900 font-medium">{booking.name}</p>
-                      <p className="text-gray-600 text-sm">{booking.date}</p>
+                  ))
+                ) : recentBookings.length > 0 ? (
+                  recentBookings.map((booking) => {
+                    const guestName = booking.guest_name || `${booking.guest_email ? booking.guest_email.split('@')[0] : 'Guest'}`;
+                    const bookingDate = new Date(booking.created_at).toLocaleDateString('th-TH', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    });
+                    const roomName = booking.room_type_name || 'ไม่ระบุห้อง';
+                    const guestCount = `${booking.guests} คน`;
+                    
+                    return (
+                      <div key={booking.id} className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                        <div className="relative">
+                          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                            <span className="text-white text-sm font-medium">
+                              {guestName.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
+                            booking.status === 'confirmed' ? 'bg-green-500' : 
+                            booking.status === 'pending' ? 'bg-yellow-500' : 
+                            booking.status === 'completed' ? 'bg-blue-500' : 'bg-gray-500'
+                          }`}></div>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-gray-900 font-medium">{guestName}</p>
+                          <p className="text-gray-600 text-sm">{bookingDate}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-gray-700 text-sm">{roomName}</p>
+                          <p className="text-gray-600 text-xs">{guestCount}</p>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  // Empty state
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
                     </div>
-                    <div className="text-right">
-                      <p className="text-gray-700 text-sm">{booking.room}</p>
-                      <p className="text-gray-600 text-xs">{booking.persons}</p>
-                    </div>
+                    <p className="text-gray-500 text-sm">ยังไม่มีการจองใหม่</p>
                   </div>
-                ))}
+                )}
               </div>
             </div>
           </div>

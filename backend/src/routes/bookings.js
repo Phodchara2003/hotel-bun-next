@@ -22,18 +22,43 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
       
       console.log('Authenticated user:', { id: user.id, role: user.role });
       
-      const { page = 1, limit = 50, status } = query;
+      const { page = 1, limit = 50, status, checkInDate, checkOutDate, date } = query;
       const offset = (page - 1) * limit;
       
-      console.log('Query params:', { page, limit, status, offset });
+      console.log('Query params:', { page, limit, status, checkInDate, checkOutDate, date, offset });
       
-      let whereCondition = '';
+      let whereConditions = [];
       let params = [];
+      let paramIndex = 1;
       
       if (status) {
-        whereCondition = 'WHERE b.status = $1';
+        whereConditions.push(`b.status = $${paramIndex}`);
         params.push(status);
+        paramIndex++;
       }
+      
+      // Filter by specific date (check if booking covers this date)
+      if (date) {
+        whereConditions.push(`DATE($${paramIndex}) BETWEEN DATE(b.check_in_date) AND DATE(b.check_out_date)`);
+        params.push(date);
+        paramIndex++;
+      }
+      
+      // Filter by check-in date
+      if (checkInDate) {
+        whereConditions.push(`DATE(b.check_in_date) = DATE($${paramIndex})`);
+        params.push(checkInDate);
+        paramIndex++;
+      }
+      
+      // Filter by check-out date  
+      if (checkOutDate) {
+        whereConditions.push(`DATE(b.check_out_date) = DATE($${paramIndex})`);
+        params.push(checkOutDate);
+        paramIndex++;
+      }
+      
+      const whereCondition = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
       
       console.log('Executing bookings query...');
       
@@ -46,7 +71,7 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
         LEFT JOIN users u ON b.user_id = u.id
         ${whereCondition}
         ORDER BY b.created_at DESC
-        LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `, [...params, limit, offset]);
       
       console.log('Bookings query result count:', bookings.length);
@@ -54,7 +79,11 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
       // Get total count
       console.log('Executing count query...');
       const countResult = await sql.unsafe(`
-        SELECT COUNT(*) as total FROM bookings b ${whereCondition}
+        SELECT COUNT(*) as total FROM bookings b 
+        LEFT JOIN hotels h ON b.hotel_id = h.id
+        LEFT JOIN room_types rt ON b.room_type_id = rt.id
+        LEFT JOIN users u ON b.user_id = u.id
+        ${whereCondition}
       `, params);
       
       const total = parseInt(countResult[0].total);
