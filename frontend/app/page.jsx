@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Calendar, MapPin, Star, Users, Wifi, Car, Coffee, Tv, Wind, Phone, Mail, Globe, Facebook, MessageCircle } from 'lucide-react';
+import { Calendar, MapPin, Users, Wifi, Car, Coffee, Tv, Wind, Phone, Mail, Globe, Facebook, MessageCircle, Bed, Square } from 'lucide-react';
 import { hotelAPI } from '../lib/api';
 import { getRoomImageUrl, getFallbackRoomImages, getPlaceholderImageUrl, getRoomImageUrlWithCache } from '../lib/imageUtils';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,8 +12,16 @@ export default function HomePage() {
   const { user } = useAuth();
   const [hotel, setHotel] = useState(null);
   const [roomTypes, setRoomTypes] = useState([]);
+  const [filteredRoomTypes, setFilteredRoomTypes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [contactInfo, setContactInfo] = useState(null);
+  const [selectedBedType, setSelectedBedType] = useState('');
+  const [checkInDate, setCheckInDate] = useState('');
+  const [checkOutDate, setCheckOutDate] = useState('');
+  const [availabilityMessage, setAvailabilityMessage] = useState('');
+  
+  // รายการประเภทเตียงทั้งหมดที่คงที่ (เฉพาะที่มีในระบบ)
+  const allBedTypes = ['single', 'double'];
 
   // แสดงสถานะ authentication ใน console
   useEffect(() => {
@@ -103,10 +111,22 @@ export default function HomePage() {
     return room.price_per_night || room.pricePerNight || room.price || 1500;
   };
 
-  const fetchHotelAndRooms = async () => {
+  // Helper function to get bed type label
+  const getBedTypeLabel = (bedType) => {
+    const bedTypes = {
+      'single': 'เตียงเดี่ยว',
+      'double': 'เตียงคู่',
+      'queen': 'เตียงควีน',
+      'king': 'เตียงคิง',
+      'twin': 'เตียงแฝด'
+    };
+    return bedTypes[bedType] || bedType;
+  };
+
+  const fetchHotelAndRooms = async (bedTypeFilter = '') => {
     try {
       setIsLoading(true);
-      console.log('🚀 Starting to fetch hotel and room data...');
+      console.log('🚀 Starting to fetch hotel and room data...', bedTypeFilter ? `with bed type filter: ${bedTypeFilter}` : '');
       
       // Get global pricing first
       let uniformPrice = 1500; // Default fallback price
@@ -126,8 +146,14 @@ export default function HomePage() {
       const hotelsData = await hotelsResponse.json();
       console.log('🏨 Hotels response:', hotelsData);
       
-      console.log('🏠 Fetching room types with images directly...');
-      const roomTypesResponse = await fetch(`http://localhost:3001/api/room-types-with-images?t=${Date.now()}`, {
+      // Build URL with bed type filter if provided
+      let roomTypesUrl = `http://localhost:3001/api/room-types-with-images?t=${Date.now()}`;
+      if (bedTypeFilter) {
+        roomTypesUrl += `&bed_type=${encodeURIComponent(bedTypeFilter)}`;
+      }
+      
+      console.log('🏠 Fetching room types with images directly...', roomTypesUrl);
+      const roomTypesResponse = await fetch(roomTypesUrl, {
         cache: 'no-cache',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -148,7 +174,10 @@ export default function HomePage() {
         }));
         
         setRoomTypes(roomTypesWithUniformPricing);
+        setFilteredRoomTypes(roomTypesWithUniformPricing);
+        
         console.log('✅ Homepage: Data loaded successfully from direct API calls');
+        console.log('🛏️ Available bed types:', allBedTypes);
       } else {
         throw new Error('API response failed');
       }
@@ -164,6 +193,7 @@ export default function HomePage() {
       }));
       
       setRoomTypes(fallbackRoomsWithUniformPricing);
+      setFilteredRoomTypes(fallbackRoomsWithUniformPricing);
       // ไม่แสดง toast error เพราะ user ยังได้เห็นข้อมูลอยู่
     } finally {
       setIsLoading(false);
@@ -225,6 +255,79 @@ export default function HomePage() {
     return () => window.removeEventListener('focus', handleFocus);
   }, [isLoading]);
 
+  // ฟังก์ชันตรวจสอบความพร้อมของห้องพัก
+  const checkRoomAvailability = async () => {
+    if (!checkInDate || !checkOutDate) {
+      // หากไม่มีวันที่ ให้แสดงห้องพักทั้งหมด
+      if (selectedBedType === '') {
+        setFilteredRoomTypes(roomTypes);
+      } else {
+        const filtered = roomTypes.filter(room => room.bed_type === selectedBedType);
+        setFilteredRoomTypes(filtered);
+      }
+      setAvailabilityMessage('');
+      return;
+    }
+
+    // ตรวจสอบว่าวันที่เช็คอินต้องเป็นก่อนวันที่เช็คเอาท์
+    if (new Date(checkInDate) >= new Date(checkOutDate)) {
+      setAvailabilityMessage('⚠️ วันที่เช็คอินต้องเป็นก่อนวันที่เช็คเอาท์');
+      setFilteredRoomTypes([]);
+      return;
+    }
+
+    try {
+      console.log('🔍 Checking availability for:', { checkInDate, checkOutDate, selectedBedType });
+      
+      let apiUrl = `http://localhost:3001/api/check-room-availability?check_in_date=${checkInDate}&check_out_date=${checkOutDate}`;
+      if (selectedBedType) {
+        apiUrl += `&bed_type=${selectedBedType}`;
+      }
+
+      const response = await fetch(apiUrl);
+      const result = await response.json();
+
+      if (result.success) {
+        if (result.data.length === 0) {
+          setAvailabilityMessage('❌ ขออภัย ไม่มีห้องว่างในช่วงวันที่ที่เลือก กรุณาเลือกวันอื่น');
+          setFilteredRoomTypes([]);
+        } else {
+          // Get global pricing for uniform price
+          let uniformPrice = 1500; // Default fallback price
+          try {
+            const globalPriceRes = await fetch('http://localhost:3001/api/global-settings');
+            const globalPriceData = await globalPriceRes.json();
+            uniformPrice = parseFloat(globalPriceData.data?.room_price_per_night || '1500');
+          } catch (priceError) {
+            console.log('⚠️ Could not fetch global price for availability check, using default 1500');
+          }
+
+          // Apply uniform pricing to available rooms
+          const roomsWithUniformPricing = result.data.map(room => ({
+            ...room,
+            price: uniformPrice
+          }));
+
+          setAvailabilityMessage(`✅ พบห้องว่าง ${result.data.length} ห้อง ในช่วงวันที่ ${checkInDate} ถึง ${checkOutDate}`);
+          setFilteredRoomTypes(roomsWithUniformPricing);
+          console.log('🖼️ Available rooms with images:', roomsWithUniformPricing);
+        }
+      } else {
+        setAvailabilityMessage('❌ เกิดข้อผิดพลาดในการตรวจสอบความพร้อม');
+        setFilteredRoomTypes([]);
+      }
+    } catch (error) {
+      console.error('Error checking availability:', error);
+      setAvailabilityMessage('❌ เกิดข้อผิดพลาดในการตรวจสอบความพร้อม');
+      setFilteredRoomTypes([]);
+    }
+  };
+
+  // กรองห้องพักตามเงื่อนไขต่างๆ
+  useEffect(() => {
+    checkRoomAvailability();
+  }, [selectedBedType, checkInDate, checkOutDate, roomTypes]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -249,14 +352,10 @@ export default function HomePage() {
               <p className="text-gray-600 mb-2">
                 {hotel?.description || 'โรงแรมสุดหรูใจกลางเมือง'}
               </p>
-              <div className="flex items-center text-sm text-gray-500 space-x-4">
+              <div className="flex items-center text-sm text-gray-500">
                 <div className="flex items-center">
                   <MapPin className="h-4 w-4 mr-1" />
                   <span>{hotel?.address || 'กรุงเทพฯ'}</span>
-                </div>
-                <div className="flex items-center">
-                  <Star className="h-4 w-4 mr-1 fill-yellow-400 text-yellow-400" />
-                  <span>{hotel?.rating || '4.5'} คะแนน</span>
                 </div>
               </div>
             </div>
@@ -271,11 +370,13 @@ export default function HomePage() {
 
         {/* Quick Booking Form */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">วันที่เช็คอิน</label>
               <input 
                 type="date" 
+                value={checkInDate}
+                onChange={(e) => setCheckInDate(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -283,6 +384,8 @@ export default function HomePage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">วันที่เช็คเอาท์</label>
               <input 
                 type="date" 
+                value={checkOutDate}
+                onChange={(e) => setCheckOutDate(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -293,6 +396,21 @@ export default function HomePage() {
                 <option value="2">2 คน</option>
                 <option value="3">3 คน</option>
                 <option value="4">4 คน</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">ประเภทเตียง</label>
+              <select 
+                value={selectedBedType}
+                onChange={(e) => setSelectedBedType(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">ทุกประเภท</option>
+                {allBedTypes.map((bedType) => (
+                  <option key={bedType} value={bedType}>
+                    {getBedTypeLabel(bedType)}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="flex items-end">
@@ -306,21 +424,39 @@ export default function HomePage() {
           </div>
         </div>
 
+        {/* Availability Message */}
+        {availabilityMessage && (
+          <div className={`mb-6 p-4 rounded-lg ${
+            availabilityMessage.includes('❌') || availabilityMessage.includes('⚠️') 
+              ? 'bg-red-50 border border-red-200 text-red-800' 
+              : 'bg-green-50 border border-green-200 text-green-800'
+          }`}>
+            <p className="font-medium">{availabilityMessage}</p>
+          </div>
+        )}
+
         {/* Room Types Section */}
-        {roomTypes.length > 0 ? (
+        {filteredRoomTypes.length > 0 ? (
           <div>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-gray-900">ประเภทห้องพัก</h3>
+              <h3 className="text-2xl font-bold text-gray-900">
+                ประเภทห้องพัก
+                {selectedBedType && (
+                  <span className="text-lg font-normal text-blue-600 ml-2">
+                    ({getBedTypeLabel(selectedBedType)})
+                  </span>
+                )}
+              </h3>
               <div className="text-sm text-gray-600">
-                              <p className="text-gray-600 mb-4">
-                ราคาเริ่มต้น ฿{roomTypes.length > 0 ? Math.min(...roomTypes.map(r => getPrice(r))).toLocaleString() : '1,500'} - ฿{roomTypes.length > 0 ? Math.max(...roomTypes.map(r => getPrice(r))).toLocaleString() : '2,500'}
-              </p>
+                <p className="text-gray-600 mb-4">
+                  ราคาเริ่มต้น ฿{filteredRoomTypes.length > 0 ? Math.min(...filteredRoomTypes.map(r => getPrice(r))).toLocaleString() : '1,500'} - ฿{filteredRoomTypes.length > 0 ? Math.max(...filteredRoomTypes.map(r => getPrice(r))).toLocaleString() : '2,500'}
+                </p>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {roomTypes.map((room) => (
-                <div key={room.id} className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300 border border-gray-100">
-                  <div className="relative h-40 bg-gradient-to-br from-blue-100 to-blue-200 overflow-hidden">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredRoomTypes.map((room) => (
+                <div key={room.id} className="group bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100 overflow-hidden">
+                  <div className="relative h-48 bg-gradient-to-br from-blue-100 to-blue-200 overflow-hidden">
                     {(() => {
                       // Process images - simplified processing since backend now handles parsing
                       let imageArray = [];
@@ -363,7 +499,7 @@ export default function HomePage() {
                           <img 
                             src={getRoomImageSrc(imageArray[0], room.id)}
                             alt={room.name}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             onLoad={() => {
                               console.log('✅ Room image loaded successfully:', getRoomImageSrc(imageArray[0], room.id));
                             }}
@@ -395,7 +531,7 @@ export default function HomePage() {
                           <img 
                             src={getFallbackImageSrc(room.id, room.name)}
                             alt={room.name}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             onError={(e) => {
                               console.log('❌ Fallback image failed, showing placeholder icon');
                               e.target.style.display = 'none';
@@ -411,52 +547,73 @@ export default function HomePage() {
                         </div>
                       );
                     })()}
-                    {/* Price Badge */}
-                    <div className="absolute top-3 right-3 bg-blue-600 text-white px-2 py-1 rounded-lg text-sm font-semibold">
+                    {/* Price Badge - Enhanced */}
+                    <div className="absolute top-4 right-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 py-2 rounded-full text-sm font-bold shadow-lg backdrop-blur-sm">
                       ฿{getPrice(room).toLocaleString()}
+                      <span className="text-xs opacity-90 ml-1">/คืน</span>
+                    </div>
+                    {/* Room Type Badge */}
+                    <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm text-gray-700 px-3 py-1 rounded-full text-xs font-medium shadow-sm">
+                      {room.type === 'standard' ? 'ห้องมาตรฐาน' : 
+                       room.type === 'deluxe' ? 'ห้องดีลักซ์' : 
+                       room.type === 'suite' ? 'ห้องสวีท' : 
+                       room.type === 'family' ? 'ห้องแฟมิลี่' : room.type}
                     </div>
                   </div>
                   
-                  <div className="p-4">
-                    <div className="mb-2">
-                      <h4 className="text-base font-semibold text-gray-900 truncate">{room.name}</h4>
-                      <p className="text-xs text-gray-600 mt-1">{room.description}</p>
+                  <div className="p-6">
+                    <div className="mb-4">
+                      <h4 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors duration-200">
+                        {room.name}
+                      </h4>
+                      {room.bed_type && (
+                        <div className="mb-2">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            <Bed className="h-3 w-3 mr-1.5" />
+                            {getBedTypeLabel(room.bed_type)}
+                          </span>
+                        </div>
+                      )}
+                      <p className="text-sm text-gray-600 leading-relaxed line-clamp-2">{room.description}</p>
                     </div>
                     
-                    <div className="flex items-center justify-between text-xs text-gray-600 mb-3">
-                      <div className="flex items-center">
-                        <Users className="h-3 w-3 mr-1" />
-                        <span>{room.max_guests || room.maxGuests || 2} คน</span>
+                    {/* Room Details Grid */}
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Users className="h-4 w-4 mr-2 text-blue-500" />
+                        <span className="font-medium">{room.max_guests || room.maxGuests || 2} คน</span>
                       </div>
-                      <div>
-                        <span>{room.size_sqm || room.sizeSqm || 30} ตร.ม.</span>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Square className="h-4 w-4 mr-2 text-blue-500" />
+                        <span className="font-medium">{room.size_sqm || room.sizeSqm || 30} ตร.ม.</span>
                       </div>
                     </div>
 
-                    {/* Amenities - แสดงเฉพาะ 3 ตัวแรก */}
-                    <div className="flex flex-wrap gap-1 mb-3">
+                    {/* Amenities - Enhanced */}
+                    <div className="flex flex-wrap gap-1.5 mb-4">
                       {(room.amenities || []).slice(0, 3).map((amenity, index) => (
-                        <span key={index} className="inline-flex px-1.5 py-0.5 text-xs bg-blue-50 text-blue-600 rounded">
+                        <span key={index} className="inline-flex items-center px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded-md font-medium border border-blue-200">
                           {amenity}
                         </span>
                       ))}
                       {(room.amenities || []).length > 3 && (
-                        <span className="inline-flex px-1.5 py-0.5 text-xs bg-gray-100 text-gray-500 rounded">
-                          +{room.amenities.length - 3}
+                        <span className="inline-flex items-center px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-md font-medium border border-gray-200">
+                          +{room.amenities.length - 3} อื่นๆ
                         </span>
                       )}
                     </div>
 
-                    <div className="flex space-x-2">
+                    {/* Enhanced Action Buttons */}
+                    <div className="flex space-x-3 pt-2 border-t border-gray-100">
                       <Link 
                         href={`/booking-step?roomId=${room.id}&hotelId=${room.hotel_id || hotel?.id || 1}`}
-                        className="flex-1 bg-blue-600 text-white text-center py-2 px-2 rounded text-xs font-semibold hover:bg-blue-700 transition-colors"
+                        className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-center py-3 px-4 rounded-lg text-sm font-semibold hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
                       >
-                        จองเลย
+                        จองห้องนี้
                       </Link>
                       <Link 
                         href={`/room-details/${room.id}`}
-                        className="px-3 py-2 border border-gray-300 text-gray-700 rounded text-xs hover:bg-gray-50 transition-colors text-center"
+                        className="px-4 py-3 border-2 border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 text-center"
                       >
                         ดูรายละเอียด
                       </Link>
@@ -471,37 +628,52 @@ export default function HomePage() {
             <div className="text-gray-400 mb-4">
               <Calendar className="h-12 w-12 mx-auto" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">ไม่พบข้อมูลห้องพัก</h3>
-            <p className="text-gray-600 mb-4">ขณะนี้ยังไม่มีข้อมูลห้องพักในระบบ</p>
-            <button
-              onClick={fetchHotelAndRooms}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              โหลดข้อมูลใหม่
-            </button>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">ไม่พบห้องพักที่ตรงกับเงื่อนไข</h3>
+            <p className="text-gray-600 mb-4">
+              {selectedBedType ? 
+                `ไม่มีห้องพักประเภท${getBedTypeLabel(selectedBedType)}ในขณะนี้` : 
+                'ขณะนี้ยังไม่มีข้อมูลห้องพักในระบบ'
+              }
+            </p>
+            <div className="space-x-4">
+              {selectedBedType && (
+                <button
+                  onClick={() => setSelectedBedType('')}
+                  className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  แสดงห้องทั้งหมด
+                </button>
+              )}
+              <button
+                onClick={() => fetchHotelAndRooms()}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                โหลดข้อมูลใหม่
+              </button>
+            </div>
           </div>
         )}
 
         {/* Room Statistics */}
-        {roomTypes.length > 0 && (
+        {filteredRoomTypes.length > 0 && (
           <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-white rounded-lg shadow-sm p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600">{roomTypes.length}</div>
+              <div className="text-2xl font-bold text-blue-600">{filteredRoomTypes.length}</div>
               <div className="text-sm text-gray-600">ประเภทห้องพัก</div>
             </div>
             <div className="bg-white rounded-lg shadow-sm p-4 text-center">
-              <div className="text-2xl font-bold text-green-600">฿{roomTypes.length > 0 ? Math.min(...roomTypes.map(r => getPrice(r))).toLocaleString() : '1,500'}</div>
+              <div className="text-2xl font-bold text-green-600">฿{filteredRoomTypes.length > 0 ? Math.min(...filteredRoomTypes.map(r => getPrice(r))).toLocaleString() : '1,500'}</div>
               <div className="text-sm text-gray-600">ราคาเริ่มต้น</div>
             </div>
             <div className="bg-white rounded-lg shadow-sm p-4 text-center">
               <div className="text-2xl font-bold text-purple-600">
-                {roomTypes.length > 0 ? Math.max(...roomTypes.map(r => r.max_guests || r.maxGuests || 2)) : '2'}
+                {filteredRoomTypes.length > 0 ? Math.max(...filteredRoomTypes.map(r => r.max_guests || r.maxGuests || 2)) : '2'}
               </div>
               <div className="text-sm text-gray-600">รองรับสูงสุด (คน)</div>
             </div>
             <div className="bg-white rounded-lg shadow-sm p-4 text-center">
               <div className="text-2xl font-bold text-orange-600">
-                {roomTypes.length > 0 ? Math.max(...roomTypes.map(r => r.size_sqm || r.sizeSqm || 30)) : '30'}
+                {filteredRoomTypes.length > 0 ? Math.max(...filteredRoomTypes.map(r => r.size_sqm || r.sizeSqm || 30)) : '30'}
               </div>
               <div className="text-sm text-gray-600">ขนาดใหญ่สุด (ตร.ม.)</div>
             </div>
@@ -509,27 +681,27 @@ export default function HomePage() {
         )}
 
         {/* Room Categories */}
-        {roomTypes.length > 0 && (
+        {filteredRoomTypes.length > 0 && (
           <div className="mt-8 bg-white rounded-lg shadow-sm p-6">
             <h4 className="text-lg font-semibold text-gray-900 mb-4">หมวดหมู่ห้องพัก</h4>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div className="text-center p-4 bg-blue-50 rounded-lg">
                 <div className="text-lg font-bold text-blue-600">
-                  {roomTypes.filter(r => getPrice(r) <= 2000).length}
+                  {filteredRoomTypes.filter(r => getPrice(r) <= 2000).length}
                 </div>
                 <div className="text-sm text-blue-800">ห้องราคาประหยัด</div>
                 <div className="text-xs text-blue-600">≤ ฿2,000</div>
               </div>
               <div className="text-center p-4 bg-green-50 rounded-lg">
                 <div className="text-lg font-bold text-green-600">
-                  {roomTypes.filter(r => getPrice(r) > 2000 && getPrice(r) <= 5000).length}
+                  {filteredRoomTypes.filter(r => getPrice(r) > 2000 && getPrice(r) <= 5000).length}
                 </div>
                 <div className="text-sm text-green-800">ห้องระดับกลาง</div>
                 <div className="text-xs text-green-600">฿2,001 - ฿5,000</div>
               </div>
               <div className="text-center p-4 bg-purple-50 rounded-lg">
                 <div className="text-lg font-bold text-purple-600">
-                  {roomTypes.filter(r => getPrice(r) > 5000).length}
+                  {filteredRoomTypes.filter(r => getPrice(r) > 5000).length}
                 </div>
                 <div className="text-sm text-purple-800">ห้องหรูหรา</div>
                 <div className="text-xs text-purple-600">&gt; ฿5,000</div>
@@ -555,18 +727,6 @@ export default function HomePage() {
               </div>
             ))}
           </div>
-        </div>
-
-        {/* Call to Action */}
-        <div className="mt-12 bg-gradient-to-r from-green-600 to-green-800 rounded-lg shadow-lg p-8 text-white text-center">
-          <h3 className="text-2xl font-bold mb-4">พร้อมจองห้องพักแล้วหรือยัง?</h3>
-          <p className="text-green-100 mb-6">เริ่มต้นการเดินทางที่น่าจดจำของคุณกับเรา</p>
-          <Link 
-            href="/booking" 
-            className="inline-block bg-white text-green-600 px-8 py-3 rounded-lg font-semibold hover:bg-green-50 transition-colors"
-          >
-            จองห้องพักตอนนี้
-          </Link>
         </div>
 
         {/* Hotel Contact Information */}

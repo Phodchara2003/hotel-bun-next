@@ -79,6 +79,7 @@ async function getRoomTypes(hotel_id = null) {
         rt.amenities,
         rt.images,
         rt.type,
+        rt.bed_type,
         h.name as hotel_name
       FROM room_types rt
       LEFT JOIN hotels h ON rt.hotel_id = h.id

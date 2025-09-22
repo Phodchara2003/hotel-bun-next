@@ -5,7 +5,6 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { bookingAPI } from '../../../lib/api';
 import { isStaffOrAdmin, canDelete, canManageBookings } from '../../../lib/roles';
 import ConfirmModal from '../../../components/ConfirmModal';
-import AdminNavigation from '../../../components/AdminNavigation';
 import Link from 'next/link';
 import { 
   Calendar, 
@@ -299,15 +298,7 @@ export default function BookingManagement() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-neutral-50 to-indigo-50 dark:from-neutral-900 dark:via-neutral-800 dark:to-neutral-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Admin Navigation */}
-        <div className={`mb-8 transform transition-all duration-700 ease-out ${
-          isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
-        }`}>
-          <AdminNavigation 
-            title="จัดการการจอง"
-            description="จัดการและติดตามการจองทั้งหมดในระบบ"
-          />
-        </div>
+
 
         {/* Action Buttons */}
         <div className={`mb-8 transform transition-all duration-700 ease-out ${

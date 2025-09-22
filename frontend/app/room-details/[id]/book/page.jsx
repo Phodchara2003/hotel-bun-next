@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, Users, MapPin, Wifi, Car, Coffee, Tv, Wind, CreditCard, User, Mail, Phone } from 'lucide-react';
+import { ArrowLeft, Calendar, Users, MapPin, Wifi, Car, Coffee, Tv, Wind, CreditCard, User, Mail, Phone, Bed } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../../../contexts/AuthContext';
 
@@ -289,6 +289,18 @@ export default function BookRoomPage() {
     }));
   };
 
+  // Helper function to get bed type label
+  const getBedTypeLabel = (bedType) => {
+    const bedTypes = {
+      'single': 'เตียงเดี่ยว',
+      'double': 'เตียงคู่',
+      'queen': 'เตียงควีน',
+      'king': 'เตียงคิง',
+      'twin': 'เตียงแฝด'
+    };
+    return bedTypes[bedType] || bedType;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -458,7 +470,9 @@ export default function BookRoomPage() {
             <div className="bg-white rounded-lg shadow-sm p-6">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">{room.name}</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                    {room.name}{room.bed_type ? ` - ${getBedTypeLabel(room.bed_type)}` : ''}
+                  </h2>
                   <p className="text-gray-600 mb-4">{room.description}</p>
                 </div>
                 <div className="text-right">

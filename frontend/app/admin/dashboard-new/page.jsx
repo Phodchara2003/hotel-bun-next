@@ -287,44 +287,7 @@ export default function AdminDashboard() {
 
 // Overview Tab Component
 function OverviewTab({ data, user }) {
-  const quickActions = [
-    {
-      title: 'จัดการการจอง',
-      description: 'ดูและจัดการการจองทั้งหมด',
-      icon: Calendar,
-      href: '/admin/bookings',
-      color: 'blue',
-      count: data.stats.pendingBookings,
-      label: 'รอดำเนินการ'
-    },
-    {
-      title: 'จัดการผู้ใช้',
-      description: 'เพิ่ม แก้ไข ลบผู้ใช้งาน',
-      icon: Users,
-      href: '/admin/users',
-      color: 'green',
-      count: data.stats.newUsersThisMonth,
-      label: 'ใหม่เดือนนี้'
-    },
-    {
-      title: 'จัดการโรงแรม',
-      description: 'เพิ่มและแก้ไขข้อมูลโรงแรม',
-      icon: Hotel,
-      href: '/admin/hotels',
-      color: 'purple',
-      count: data.stats.totalHotels,
-      label: 'โรงแรมทั้งหมด'
-    },
-    {
-      title: 'รายงานรายได้',
-      description: 'ดูรายงานและวิเคราะห์ข้อมูล',
-      icon: TrendingUp,
-      href: '/admin/reports',
-      color: 'orange',
-      count: `฿${(data.stats.monthlyRevenue/1000).toFixed(0)}K`,
-      label: 'เดือนนี้'
-    }
-  ];
+
 
   return (
     <div className="space-y-8">
@@ -360,15 +323,7 @@ function OverviewTab({ data, user }) {
         />
       </div>
 
-      {/* Quick Actions */}
-      <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">การจัดการด่วน</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {quickActions.map((action, index) => (
-            <QuickActionCard key={index} action={action} />
-          ))}
-        </div>
-      </div>
+
 
       {/* Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -472,31 +427,7 @@ function StatsCard({ title, value, icon: Icon, color, change }) {
   );
 }
 
-// Quick Action Card Component
-function QuickActionCard({ action }) {
-  const colorClasses = {
-    blue: 'bg-blue-50 text-blue-600 border-blue-200',
-    green: 'bg-green-50 text-green-600 border-green-200',
-    purple: 'bg-purple-50 text-purple-600 border-purple-200',
-    orange: 'bg-orange-50 text-orange-600 border-orange-200',
-  };
 
-  return (
-    <Link href={action.href}>
-      <div className={`p-6 rounded-lg border-2 ${colorClasses[action.color]} hover:shadow-md transition-shadow cursor-pointer`}>
-        <div className="flex items-center justify-between mb-4">
-          <action.icon className="h-8 w-8" />
-          <div className="text-right">
-            <p className="text-2xl font-bold">{action.count}</p>
-            <p className="text-sm opacity-75">{action.label}</p>
-          </div>
-        </div>
-        <h3 className="font-semibold text-gray-900 mb-2">{action.title}</h3>
-        <p className="text-sm text-gray-600">{action.description}</p>
-      </div>
-    </Link>
-  );
-}
 
 // Placeholder components for other tabs
 function BookingsTab({ bookings, stats, user }) {

@@ -1,217 +1,18 @@
-'use client';
+﻿'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { useRouter } from 'next/navigation';
-import { dashboardAPI, usersAPI, bookingAPI } from '../../../lib/api';
-import { isStaffOrAdmin, canEdit, canDelete, canCreate, isReadOnly } from '../../../lib/roles';
-import Cookies from 'js-cookie';
-import Link from 'next/link';
-import TokenStatus from '../../../components/admin/TokenStatus';
-import PerformanceDashboard from '../../../components/admin/PerformanceDashboard';
-import { 
-  Calendar, 
-  Users, 
-  User,
-  CreditCard, 
-  TrendingUp, 
-  Hotel,
-  Bed,
-  CheckCircle,
-  XCircle,
-  Clock,
-  Eye,
-  Edit,
-  Trash2,
-  Plus,
-  Settings,
-  FileText,
-  BarChart3,
-  UserCheck,
-  Building,
-  DollarSign,
-  Activity,
-  Search,
-  Filter,
-  Download,
-  RefreshCw,
-  AlertCircle,
-  Star,
-  Mail,
-  Phone,
-  MapPin,
-  QrCode,
-  Upload,
-  Smartphone
-} from 'lucide-react';
-import toast from 'react-hot-toast';
+import { isStaffOrAdmin } from '../../../lib/roles';
 
 export default function AdminDashboard() {
-  const { user, isAuthenticated } = useAuth();
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [dashboardData, setDashboardData] = useState({
-    stats: {
-      totalBookings: 0,
-      pendingBookings: 0,
-      confirmedBookings: 0,
-      completedBookings: 0,
-      cancelledBookings: 0,
-      totalUsers: 0,
-      newUsersThisMonth: 0,
-      activeUsers: 0,
-      totalRevenue: 0,
-      monthlyRevenue: 0,
-      revenueGrowth: 0,
-      totalHotels: 0,
-      totalRooms: 0,
-      occupancyRate: 0,
-      totalReviews: 0,
-      averageRating: 0,
-    },
-    recentBookings: [],
-    recentUsers: [],
-    recentReviews: [],
-    topHotels: [],
-    revenueChart: [],
-    bookingChart: [],
-  });
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
 
-  const [error, setError] = useState(null);
-  const [filters, setFilters] = useState({
-    dateRange: '30',
-    status: 'all',
-    search: ''
-  });
-
-  // Check authentication
-  useEffect(() => {
-    if (!isAuthenticated || !isStaffOrAdmin(user)) {
-      router.push('/login');
-      return;
-    }
-  }, [isAuthenticated, user, router]);
-
-  // Fetch dashboard data
-  useEffect(() => {
-    if (isAuthenticated && isStaffOrAdmin(user)) {
-      fetchDashboardData();
-    }
-  }, [isAuthenticated, user]);
-
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      console.log('🔄 Fetching dashboard data...');
-
-      const dashboardResponse = await dashboardAPI.getStats({
-        days: filters.dateRange
-      });
-
-      console.log('✅ Dashboard API response:', dashboardResponse);
-
-      const stats = dashboardResponse.stats || {
-        totalBookings: 0,
-        pendingBookings: 0,
-        confirmedBookings: 0,
-        completedBookings: 0,
-        cancelledBookings: 0,
-        totalUsers: 0,
-        newUsersThisMonth: 0,
-        activeUsers: 0,
-        totalRevenue: 0,
-        monthlyRevenue: 0,
-        revenueGrowth: 0,
-        totalHotels: 0,
-        totalRooms: 0,
-        occupancyRate: 0,
-        totalReviews: 0,
-        averageRating: 0,
-      };
-      
-      setDashboardData({
-        stats: {
-          ...stats,
-          totalBookings: Number(stats.totalBookings) || 0,
-          pendingBookings: Number(stats.pendingBookings) || 0,
-          confirmedBookings: Number(stats.confirmedBookings) || 0,
-          completedBookings: Number(stats.completedBookings) || 0,
-          cancelledBookings: Number(stats.cancelledBookings) || 0,
-          totalUsers: Number(stats.totalUsers) || 0,
-          newUsersThisMonth: Number(stats.newUsersThisMonth) || 0,
-          activeUsers: Number(stats.activeUsers) || 0,
-          totalRevenue: Number(stats.totalRevenue) || 0,
-          monthlyRevenue: Number(stats.monthlyRevenue) || 0,
-          revenueGrowth: Number(stats.revenueGrowth) || 0,
-          totalHotels: Number(stats.totalHotels) || 0,
-          totalRooms: Number(stats.totalRooms) || 0,
-          occupancyRate: Math.min(100, Math.max(0, Number(stats.occupancyRate) || 0)),
-          totalReviews: Number(stats.totalReviews) || 0,
-          averageRating: Number(stats.averageRating) || 0,
-        },
-        recentBookings: dashboardResponse.recentBookings || [],
-        recentUsers: dashboardResponse.recentUsers || [],
-        recentReviews: [],
-        topHotels: dashboardResponse.topHotels || [],
-        revenueChart: dashboardResponse.bookingTrends || [],
-        bookingChart: dashboardResponse.bookingTrends || [],
-      });
-
-      console.log('✅ Dashboard data loaded successfully');
-
-    } catch (error) {
-      console.error('❌ Error fetching dashboard data:', error);
-      setError({
-        status: error.response?.status,
-        message: error.response?.data?.error || error.message || 'Unknown error occurred',
-        timestamp: new Date().toISOString()
-      });
-      
-      if (error.response?.status === 401) {
-        toast.error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
-      } else {
-        toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูล');
-      }
-      
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const refreshData = () => {
-    fetchDashboardData();
-  };
-
-  // Don't render if not authenticated
   if (!isAuthenticated || !isStaffOrAdmin(user)) {
-    return null;
-  }
-
-  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
-          <p className="text-gray-600">กำลังโหลดข้อมูล Dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">เกิดข้อผิดพลาด</h2>
-          <p className="text-gray-600 mb-4">{error.message}</p>
-          <button
-            onClick={refreshData}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            ลองใหม่
-          </button>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">ไม่มีสิทธิ์เข้าถึง</h1>
+          <p className="text-gray-600">คุณไม่มีสิทธิ์เข้าถึงหน้านี้</p>
         </div>
       </div>
     );
@@ -219,272 +20,450 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">แดชบอร์ดแอดมิน</h1>
-              <p className="text-gray-600 mt-1">จัดการระบบโรงแรมครบวงจร</p>
+      {/* Top Navigation */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          </div>
+          
+          {/* Search and User Info */}
+          <div className="flex items-center gap-4">
+            {/* Search */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search here"
+                className="bg-gray-100 text-gray-900 placeholder-gray-500 px-4 py-2 pr-10 rounded-lg border border-gray-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 w-64"
+              />
+              <svg className="absolute right-3 top-2.5 w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
             </div>
             
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={refreshData}
-                className="flex items-center px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                รีเฟรช
+            {/* Notifications */}
+            <div className="relative">
+              <button className="bg-gray-100 p-2 rounded-lg hover:bg-gray-200 transition-colors">
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-5 5-5-5h5z" />
+                </svg>
               </button>
-              
-              <TokenStatus />
+              <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
+            </div>
+
+            {/* Settings */}
+            <button className="bg-gray-100 p-2 rounded-lg hover:bg-gray-200 transition-colors">
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+
+            {/* User Profile */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                <span className="text-white font-semibold text-sm">
+                  {user?.username?.charAt(0).toUpperCase() || 'J'}
+                </span>
+              </div>
+              <div>
+                <p className="text-gray-900 text-sm font-medium">{user?.username || 'John Doe'}</p>
+                <p className="text-gray-600 text-xs">Superadmin</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
-        {/* Stats Grid */}
+      <div className="p-6">
+        {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatsCard
-            title="การจองทั้งหมด"
-            value={dashboardData.stats.totalBookings}
-            icon={Calendar}
-            color="blue"
-            change={`+${dashboardData.stats.newUsersThisMonth}`}
-          />
-          <StatsCard
-            title="ผู้ใช้ทั้งหมด"
-            value={dashboardData.stats.totalUsers}
-            icon={Users}
-            color="green"
-            change={`+${dashboardData.stats.newUsersThisMonth}`}
-          />
-          <StatsCard
-            title="รายได้รวม"
-            value={`฿${dashboardData.stats.totalRevenue.toLocaleString()}`}
-            icon={DollarSign}
-            color="yellow"
-            change={`+${dashboardData.stats.revenueGrowth}%`}
-          />
-          <StatsCard
-            title="อัตราการเข้าพัก"
-            value={`${dashboardData.stats.occupancyRate}%`}
-            icon={Hotel}
-            color="purple"
-            change={`${dashboardData.stats.totalRooms} ห้อง`}
-          />
-        </div>
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <QuickActionCard
-            title="จัดการการจอง"
-            description="ดู แก้ไข และจัดการการจองทั้งหมด"
-            icon={Calendar}
-            href="/admin/bookings"
-            color="blue"
-          />
-          <QuickActionCard
-            title="จัดการผู้ใช้"
-            description="จัดการบัญชีผู้ใช้และสิทธิ์การเข้าถึง"
-            icon={Users}
-            href="/admin/users"
-            color="green"
-          />
-          <QuickActionCard
-            title="จัดการห้องพัก"
-            description="จัดการห้องพัก ราคา และความพร้อมใช้งาน"
-            icon={Bed}
-            href="/admin/rooms"
-            color="purple"
-          />
-          <QuickActionCard
-            title="รายงานรายได้"
-            description="ดูสถิติและรายงานรายได้"
-            icon={BarChart3}
-            href="/admin/reports"
-            color="yellow"
-          />
-          <QuickActionCard
-            title="การตั้งค่า"
-            description="จัดการการตั้งค่าระบบและการแจ้งเตือน"
-            icon={Settings}
-            href="/admin/settings"
-            color="gray"
-          />
-        </div>
-
-        {/* Recent Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          
-          {/* Recent Bookings */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="p-6 border-b border-gray-200">
+          {/* New Booking Card */}
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white relative overflow-hidden transform hover:scale-105 transition-transform duration-200">
+            <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+            <div className="relative z-10">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium text-gray-900">การจองล่าสุด</h3>
-                <Link
-                  href="/admin/bookings"
-                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                >
-                  ดูทั้งหมด →
-                </Link>
+                <div>
+                  <p className="text-4xl font-bold mb-2">872</p>
+                  <h3 className="text-blue-100 text-sm font-medium">New Booking</h3>
+                </div>
+                <div className="bg-white/20 p-3 rounded-lg">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                  </svg>
+                </div>
               </div>
             </div>
-            <div className="p-6">
-              {dashboardData.recentBookings.length > 0 ? (
-                <div className="space-y-4">
-                  {dashboardData.recentBookings.slice(0, 5).map((booking, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {booking.guest_name || 'ไม่ระบุชื่อ'}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          ห้อง: {booking.room_type_id || 'N/A'} | 
-                          วันที่: {booking.check_in_date ? new Date(booking.check_in_date).toLocaleDateString('th-TH') : 'N/A'}
-                        </p>
+          </div>
+
+          {/* Schedule Room Card */}
+          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-6 text-white relative overflow-hidden transform hover:scale-105 transition-transform duration-200">
+            <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-4xl font-bold mb-2">285</p>
+                  <h3 className="text-green-100 text-sm font-medium">Schedule Room</h3>
+                </div>
+                <div className="bg-white/20 p-3 rounded-lg">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Check In Card */}
+          <div className="bg-gradient-to-r from-orange-400 to-orange-500 rounded-xl p-6 text-white relative overflow-hidden transform hover:scale-105 transition-transform duration-200">
+            <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-4xl font-bold mb-2">53</p>
+                  <h3 className="text-orange-100 text-sm font-medium">Check In</h3>
+                </div>
+                <div className="bg-white/20 p-3 rounded-lg">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Check Out Card */}
+          <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-xl p-6 text-white relative overflow-hidden transform hover:scale-105 transition-transform duration-200">
+            <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-4xl font-bold mb-2">78</p>
+                  <h3 className="text-red-100 text-sm font-medium">Check Out</h3>
+                </div>
+                <div className="bg-white/20 p-3 rounded-lg">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Charts and Analytics Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Available Room Today - Circular Progress */}
+          <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+            <div className="text-center">
+              <div className="relative inline-flex items-center justify-center mb-6">
+                <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 36 36">
+                  <path
+                    d="M18 2.0845
+                      a 15.9155 15.9155 0 0 1 0 31.831
+                      a 15.9155 15.9155 0 0 1 0 -31.831"
+                    fill="none"
+                    stroke="#E5E7EB"
+                    strokeWidth="3"
+                  />
+                  <path
+                    d="M18 2.0845
+                      a 15.9155 15.9155 0 0 1 0 31.831
+                      a 15.9155 15.9155 0 0 1 0 -31.831"
+                    fill="none"
+                    stroke="#3B82F6"
+                    strokeWidth="3"
+                    strokeDasharray="75, 100"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center">
+                    <p className="text-4xl font-bold text-gray-900">785</p>
+                    <p className="text-gray-600 text-sm">Available Room Today</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Progress bars */}
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-gray-600 text-sm">Pending</span>
+                    <span className="text-gray-900 text-sm font-medium">234</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="bg-orange-500 h-2 rounded-full" style={{ width: '60%' }}></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-gray-600 text-sm">Done</span>
+                    <span className="text-gray-900 text-sm font-medium">65</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="bg-green-500 h-2 rounded-full" style={{ width: '40%' }}></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-gray-600 text-sm">Finish</span>
+                    <span className="text-gray-900 text-sm font-medium">763</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="bg-purple-500 h-2 rounded-full" style={{ width: '80%' }}></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Reservation Statistics */}
+          <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-gray-900 text-xl font-semibold">Reservation Statistic</h3>
+                <p className="text-gray-600 text-sm">Lorem ipsum dolor sit amet</p>
+              </div>
+              <div className="flex items-center gap-6">
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-gray-900">549</p>
+                  <p className="text-gray-600 text-sm">Check In</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-gray-900">327</p>
+                  <p className="text-gray-600 text-sm">Check Out</p>
+                </div>
+                <button className="text-gray-600 hover:text-gray-900">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            {/* Chart Area */}
+            <div className="h-48 bg-gray-50 rounded-lg flex items-end justify-center px-4 py-6 relative overflow-hidden">
+              {/* Mock Chart Lines */}
+              <svg className="absolute inset-0 w-full h-full" viewBox="0 0 400 200">
+                <defs>
+                  <linearGradient id="blueGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#3B82F6" stopOpacity="1"/>
+                    <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.1"/>
+                  </linearGradient>
+                  <linearGradient id="redGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#EF4444" stopOpacity="1"/>
+                    <stop offset="100%" stopColor="#EF4444" stopOpacity="0.1"/>
+                  </linearGradient>
+                </defs>
+                
+                {/* Blue line (Check In) */}
+                <path 
+                  d="M 20 150 Q 80 120 120 100 T 200 80 T 280 60 T 360 40" 
+                  stroke="#3B82F6" 
+                  strokeWidth="3" 
+                  fill="none"
+                />
+                <path 
+                  d="M 20 150 Q 80 120 120 100 T 200 80 T 280 60 T 360 40 L 360 180 L 20 180 Z" 
+                  fill="url(#blueGradient)"
+                />
+                
+                {/* Red line (Check Out) */}
+                <path 
+                  d="M 20 170 Q 80 160 120 140 T 200 120 T 280 110 T 360 100" 
+                  stroke="#EF4444" 
+                  strokeWidth="3" 
+                  fill="none"
+                />
+                <path 
+                  d="M 20 170 Q 80 160 120 140 T 200 120 T 280 110 T 360 100 L 360 180 L 20 180 Z" 
+                  fill="url(#redGradient)"
+                />
+              </svg>
+              
+              {/* Chart Labels */}
+              <div className="absolute bottom-2 left-0 right-0 flex justify-between text-xs text-gray-500 px-4">
+                {['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'].map((month, i) => (
+                  <span key={i} className="text-center">{month}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Section - Calendar, Bookings, and Reviews */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left Column - Calendar and Recent Bookings */}
+          <div className="space-y-6">
+            {/* Calendar */}
+            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <button className="text-gray-600 hover:text-gray-900 transition-colors">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <h3 className="text-gray-900 font-semibold">September 2025</h3>
+                <button className="text-gray-600 hover:text-gray-900 transition-colors">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+              
+              {/* Calendar Grid */}
+              <div className="grid grid-cols-7 gap-1 text-center text-sm">
+                {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
+                  <div key={day} className="text-gray-600 font-medium p-2">{day}</div>
+                ))}
+                
+                {/* Calendar Days */}
+                {Array.from({ length: 35 }, (_, i) => {
+                  const day = i - 5; // Adjust for month start
+                  const isCurrentMonth = day > 0 && day <= 30;
+                  const isToday = day === 22;
+                  
+                  return (
+                    <div
+                      key={i}
+                      className={`p-2 rounded transition-colors cursor-pointer ${
+                        isToday
+                          ? 'bg-blue-600 text-white font-bold'
+                          : isCurrentMonth
+                          ? 'text-gray-700 hover:bg-gray-100'
+                          : 'text-gray-400'
+                      }`}
+                    >
+                      {isCurrentMonth ? day : day <= 0 ? 31 + day : day - 30}
+                      {isToday && <div className="w-1 h-1 bg-yellow-400 rounded-full mx-auto mt-1"></div>}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Occupancy indicators */}
+              <div className="mt-4 flex items-center gap-4 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+                  <span className="text-gray-600">70% Check In</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                  <span className="text-gray-600">30% Check Out</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Bookings */}
+            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-gray-900 font-semibold">Newest Booking</h3>
+                <button className="text-blue-600 hover:text-blue-700 text-sm transition-colors">More</button>
+              </div>
+              
+              <div className="space-y-4">
+                {[
+                  { name: 'Samantha Humble', date: 'October 3th, 2020', room: 'Room A-21', persons: '3-5 Person', status: 'online' },
+                  { name: 'Louise Marquee', date: 'October 3th, 2020', room: 'Room A-21', persons: '3-5 Person', status: 'away' },
+                  { name: 'Richard Smile', date: 'October 3th, 2020', room: 'Room A-21', persons: '3-5 Person', status: 'online' },
+                  { name: 'Bella Yen', date: 'October 3th, 2020', room: 'Room A-21', persons: '3-5 Person', status: 'offline' }
+                ].map((booking, index) => (
+                  <div key={index} className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                    <div className="relative">
+                      <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                        <span className="text-white text-sm font-medium">
+                          {booking.name.split(' ').map(n => n[0]).join('')}
+                        </span>
                       </div>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                        booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {booking.status === 'confirmed' ? 'ยืนยันแล้ว' :
-                         booking.status === 'pending' ? 'รอดำเนินการ' :
-                         booking.status === 'cancelled' ? 'ยกเลิก' :
-                         booking.status || 'ไม่ระบุ'}
+                      <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
+                        booking.status === 'online' ? 'bg-green-500' : 
+                        booking.status === 'away' ? 'bg-yellow-500' : 'bg-gray-500'
+                      }`}></div>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-gray-900 font-medium">{booking.name}</p>
+                      <p className="text-gray-600 text-sm">{booking.date}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-gray-700 text-sm">{booking.room}</p>
+                      <p className="text-gray-600 text-xs">{booking.persons}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column - Customer Reviews */}
+          <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-gray-900 font-semibold">Latest Customer Review</h3>
+              <button className="text-gray-600 hover:text-gray-900 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-6 max-h-96 overflow-y-auto">
+              {[
+                { name: 'Ali Muzair', date: '26/04/2020, 12:42 AM', rating: 5 },
+                { name: 'Keanu Repes', date: '26/04/2020, 12:42 AM', rating: 4 },
+                { name: 'Chintya Clara', date: '26/04/2020, 12:42 AM', rating: 5 },
+                { name: 'Ali Muzair', date: '26/04/2020, 12:42 AM', rating: 5 }
+              ].map((review, index) => (
+                <div key={index} className="border-b border-gray-200 pb-4 last:border-b-0">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                      <span className="text-white text-sm font-medium">
+                        {review.name.split(' ').map(n => n[0]).join('')}
                       </span>
                     </div>
-                  ))}
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-gray-900 font-medium">{review.name}</h4>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: 5 }, (_, i) => (
+                            <svg
+                              key={i}
+                              className={`w-4 h-4 ${i < review.rating ? 'text-yellow-400' : 'text-gray-300'}`}
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-gray-600 text-sm mb-2">Posted on {review.date}</p>
+                      <p className="text-gray-700 text-sm leading-relaxed mb-3">
+                        I have been there many times.Rooms, Food and Service are excellent we did lots of
+                        Excursions and all the places are from the Hotel reachable. we visited Long Waterfall and
+                        was very helpful and excellent
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <button className="w-8 h-8 bg-green-600 hover:bg-green-700 rounded-full flex items-center justify-center transition-colors">
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </button>
+                        <button className="w-8 h-8 bg-red-600 hover:bg-red-700 rounded-full flex items-center justify-center transition-colors">
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p>ไม่มีการจองล่าสุด</p>
-                </div>
-              )}
+              ))}
             </div>
           </div>
-
-          {/* System Status */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">สถานะระบบ</h3>
-            </div>
-            <div className="p-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
-                    <span className="text-gray-900">ฐานข้อมูล</span>
-                  </div>
-                  <span className="text-green-600 text-sm font-medium">ออนไลน์</span>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
-                    <span className="text-gray-900">API Server</span>
-                  </div>
-                  <span className="text-green-600 text-sm font-medium">ทำงานปกติ</span>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full mr-3"></div>
-                    <span className="text-gray-900">การชำระเงิน</span>
-                  </div>
-                  <span className="text-yellow-600 text-sm font-medium">รอตรวจสอบ</span>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
-                    <span className="text-gray-900">การแจ้งเตือน</span>
-                  </div>
-                  <span className="text-green-600 text-sm font-medium">เปิดใช้งาน</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Performance Dashboard */}
-        <div className="mt-8">
-          <PerformanceDashboard />
         </div>
       </div>
     </div>
-  );
-}
-
-// Stats Card Component
-function StatsCard({ title, value, icon: Icon, color, change }) {
-  const colorClasses = {
-    blue: 'bg-blue-500',
-    green: 'bg-green-500',
-    yellow: 'bg-yellow-500',
-    purple: 'bg-purple-500',
-    red: 'bg-red-500',
-    gray: 'bg-gray-500'
-  };
-
-  return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex items-center">
-        <div className={`flex-shrink-0 ${colorClasses[color]} rounded-md p-3`}>
-          <Icon className="h-6 w-6 text-white" />
-        </div>
-        <div className="ml-5 w-0 flex-1">
-          <dl>
-            <dt className="text-sm font-medium text-gray-500 truncate">
-              {title}
-            </dt>
-            <dd className="flex items-baseline">
-              <div className="text-2xl font-semibold text-gray-900">
-                {value}
-              </div>
-              {change && (
-                <div className="ml-2 flex items-baseline text-sm font-semibold text-green-600">
-                  {change}
-                </div>
-              )}
-            </dd>
-          </dl>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Quick Action Card Component
-function QuickActionCard({ title, description, icon: Icon, href, color }) {
-  const colorClasses = {
-    blue: 'text-blue-600 bg-blue-100',
-    green: 'text-green-600 bg-green-100',
-    yellow: 'text-yellow-600 bg-yellow-100',
-    purple: 'text-purple-600 bg-purple-100',
-    red: 'text-red-600 bg-red-100',
-    gray: 'text-gray-600 bg-gray-100'
-  };
-
-  return (
-    <Link href={href} className="block">
-      <div className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow cursor-pointer">
-        <div className="flex items-center">
-          <div className={`flex-shrink-0 ${colorClasses[color]} rounded-md p-3`}>
-            <Icon className="h-6 w-6" />
-          </div>
-          <div className="ml-4">
-            <h3 className="text-lg font-medium text-gray-900">{title}</h3>
-            <p className="text-sm text-gray-600 mt-1">{description}</p>
-          </div>
-        </div>
-      </div>
-    </Link>
   );
 }

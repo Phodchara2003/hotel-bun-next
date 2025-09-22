@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { bookingAPI } from '../../../lib/api';
 import { isStaffOrAdmin } from '../../../lib/roles';
-import AdminNavigation from '../../../components/AdminNavigation';
 import { 
   Calendar, 
   ChevronLeft, 
@@ -218,11 +217,7 @@ export default function BookingCalendar() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-900 dark:to-neutral-800">
       <div className="container mx-auto px-4 py-8">
-        {/* Admin Navigation */}
-        <AdminNavigation 
-          title="ปฏิทินการจอง"
-          description="ดูภาพรวมการจองในรูปแบบปฏิทิน"
-        />
+
 
         {/* Quick Stats */}
         <div className={`grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 transform transition-all duration-700 ease-out ${

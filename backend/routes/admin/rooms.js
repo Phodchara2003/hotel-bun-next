@@ -67,14 +67,14 @@ router.get('/room-types', async (req, res) => {
 router.put('/room-types/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, max_guests, size_sqm, amenities, type } = req.body;
+    const { name, description, max_guests, size_sqm, amenities, type, bed_type } = req.body;
 
     await pool.query(`
       UPDATE room_types 
       SET name = $1, description = $2, max_guests = $3, size_sqm = $4, 
-          amenities = $5, type = $6, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $7
-    `, [name, description, max_guests, size_sqm, amenities, type, id]);
+          amenities = $5, type = $6, bed_type = $7, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $8
+    `, [name, description, max_guests, size_sqm, amenities, type, bed_type || 'single', id]);
 
     res.json({ success: true, message: 'Room type updated successfully' });
   } catch (error) {
@@ -100,6 +100,7 @@ router.get('/rooms-with-details', async (req, res) => {
         rt.amenities,
         rt.images,
         rt.type,
+        rt.bed_type,
         (SELECT setting_value::DECIMAL FROM global_settings WHERE setting_key = 'room_price_per_night') as price_per_night,
         h.id as hotel_id,
         h.name as hotel_name,
@@ -121,7 +122,7 @@ router.get('/rooms-with-details', async (req, res) => {
 // POST create new room type
 router.post('/room-types', async (req, res) => {
   try {
-    const { hotel_id, name, description, max_guests, size_sqm, amenities, type } = req.body;
+    const { hotel_id, name, description, max_guests, size_sqm, amenities, type, bed_type } = req.body;
     
     // ดึงราคาปัจจุบันจาก global settings
     const priceResult = await pool.query(
@@ -131,10 +132,10 @@ router.post('/room-types', async (req, res) => {
     const globalPrice = priceResult.rows[0]?.setting_value || '1500';
 
     const result = await pool.query(`
-      INSERT INTO room_types (hotel_id, name, description, price_per_night, max_guests, size_sqm, amenities, type)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      INSERT INTO room_types (hotel_id, name, description, price_per_night, max_guests, size_sqm, amenities, type, bed_type)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
-    `, [hotel_id, name, description, parseFloat(globalPrice), max_guests, size_sqm, amenities, type]);
+    `, [hotel_id, name, description, parseFloat(globalPrice), max_guests, size_sqm, amenities, type, bed_type || 'single']);
 
     res.status(201).json(result.rows[0]);
   } catch (error) {

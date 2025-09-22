@@ -5,7 +5,6 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { roomsAPI } from '../../../lib/api';
 import { isStaffOrAdmin } from '../../../lib/roles';
 import { invalidateRoomImageCache } from '../../../lib/imageUtils';
-import AdminNavigation from '../../../components/AdminNavigation';
 import Link from 'next/link';
 import { 
   Plus, 
@@ -88,7 +87,9 @@ export default function RoomsManagement() {
     { value: 'deluxe', label: 'ห้องดีลักซ์' },
     { value: 'suite', label: 'ห้องสวีท' },
     { value: 'family', label: 'ห้องครอบครัว' },
-    { value: 'executive', label: 'ห้องเอกซ์เซกคิวทีฟ' }
+    { value: 'executive', label: 'ห้องเอกซ์เซกคิวทีฟ' },
+    { value: 'single', label: 'เตียงเดี่ยว' },
+    { value: 'double', label: 'เตียงคู่' }
   ];
 
   const roomStatuses = [
@@ -97,6 +98,20 @@ export default function RoomsManagement() {
     { value: 'maintenance', label: 'ซ่อมบำรุง', color: 'yellow' },
     { value: 'cleaning', label: 'ทำความสะอาด', color: 'blue' }
   ];
+
+  const bedTypes = [
+    { value: 'single', label: 'เตียงเดี่ยว' },
+    { value: 'double', label: 'เตียงคู่' },
+    { value: 'queen', label: 'เตียงควีน' },
+    { value: 'king', label: 'เตียงคิง' },
+    { value: 'twin', label: 'เตียงแฝด' }
+  ];
+
+  // Helper function to get bed type label
+  const getBedTypeLabel = (bedType) => {
+    const bedTypeObj = bedTypes.find(bt => bt.value === bedType);
+    return bedTypeObj ? bedTypeObj.label : bedType;
+  };
 
   const amenitiesOptions = [
     'WiFi ฟรี',
@@ -233,6 +248,7 @@ export default function RoomsManagement() {
       const mappedFormData = {
         name: room.name || '',
         type: room.type || 'standard',
+        bed_type: room.bed_type || 'single', // Map bed_type field
         number: room.room_number || room.number || `R${room.id || ''}`, // Generate room number if not exists
         floor: room.floor || '1', // Default floor if not available
         capacity: room.max_guests || room.capacity || 2, // Map max_guests to capacity
@@ -727,11 +743,7 @@ export default function RoomsManagement() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-900 dark:to-neutral-800">
       <div className="container mx-auto px-4 py-8">
-        {/* Admin Navigation */}
-        <AdminNavigation 
-          title="จัดการห้องพัก"
-          description="จัดการข้อมูลห้องพัก สถานะ และสิ่งอำนวยความสะดวก"
-        />
+
 
         {/* Action Buttons */}
         <div className={`mb-8 transform transition-all duration-700 ease-out ${
@@ -1019,6 +1031,15 @@ export default function RoomsManagement() {
                         <MapPin className="h-4 w-4 mr-1" />
                         {roomTypes.find(t => t.value === room.type)?.label || room.type || 'ห้องมาตรฐาน'}
                       </div>
+                      {/* Bed Type */}
+                      {room.bed_type && (
+                        <div className="flex items-center text-sm text-emerald-600 dark:text-emerald-400 mb-2">
+                          <Bed className="h-4 w-4 mr-1" />
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
+                            {getBedTypeLabel(room.bed_type)}
+                          </span>
+                        </div>
+                      )}
                       {/* Hotel Name */}
                       {room.hotel_name && (
                         <div className="flex items-center text-xs text-neutral-500 dark:text-neutral-400">
@@ -1052,6 +1073,12 @@ export default function RoomsManagement() {
                         <Square className="h-4 w-4 mr-2" />
                         <span>{room.size_sqm || room.size || '25'} ตร.ม.</span>
                       </div>
+                      {room.bed_type && (
+                        <div className="flex items-center text-sm text-neutral-600 dark:text-neutral-400">
+                          <Bed className="h-4 w-4 mr-2" />
+                          <span>{bedTypes.find(b => b.value === room.bed_type)?.label || room.bed_type}</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Amenities */}
@@ -1186,6 +1213,17 @@ export default function RoomsManagement() {
                       <p className="text-neutral-900 dark:text-white">
                         {roomTypes.find(t => t.value === selectedRoom?.type)?.label || selectedRoom?.type || 'ห้องมาตรฐาน'}
                       </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                        ประเภทเตียง
+                      </label>
+                      <div className="flex items-center">
+                        <Bed className="h-4 w-4 mr-2 text-emerald-600" />
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
+                          {getBedTypeLabel(selectedRoom?.bed_type || 'single')}
+                        </span>
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
@@ -1422,6 +1460,22 @@ export default function RoomsManagement() {
                       >
                         {roomStatuses.map(status => (
                           <option key={status.value} value={status.value}>{status.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                        ประเภทเตียง
+                      </label>
+                      <select
+                        name="bed_type"
+                        value={formData.bed_type}
+                        onChange={handleInputChange}
+                        className="input-field"
+                      >
+                        <option value="">เลือกประเภทเตียง</option>
+                        {bedTypes.map(bedType => (
+                          <option key={bedType.value} value={bedType.value}>{bedType.label}</option>
                         ))}
                       </select>
                     </div>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, Users, MapPin, Wifi, Car, Coffee, Tv, Wind } from 'lucide-react';
+import { ArrowLeft, Calendar, Users, MapPin, Wifi, Car, Coffee, Tv, Wind, Bed } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export default function RoomDetailsPage() {
@@ -142,6 +142,18 @@ export default function RoomDetailsPage() {
     return () => window.removeEventListener('focus', handleFocus);
   }, [params.id, isLoading]);
 
+  // Helper function to get bed type label
+  const getBedTypeLabel = (bedType) => {
+    const bedTypes = {
+      'single': 'เตียงเดี่ยว',
+      'double': 'เตียงคู่',
+      'queen': 'เตียงควีน',
+      'king': 'เตียงคิง',
+      'twin': 'เตียงแฝด'
+    };
+    return bedTypes[bedType] || bedType;
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -181,7 +193,9 @@ export default function RoomDetailsPage() {
           
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">{room.name}</h1>
+              <h1 className="text-3xl font-bold text-gray-900">
+                {room.name}{room.bed_type ? ` - ${getBedTypeLabel(room.bed_type)}` : ''}
+              </h1>
               <div className="flex items-center text-gray-600 mt-2">
                 <MapPin className="h-4 w-4 mr-1" />
                 <span>{hotel?.name || 'โรงแรม'}</span>

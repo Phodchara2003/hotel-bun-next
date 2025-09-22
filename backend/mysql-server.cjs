@@ -266,6 +266,7 @@ async function getRoomTypes(hotel_id = null) {
         rt.amenities,
         rt.images,
         rt.type,
+        rt.bed_type,
         h.name as hotel_name
       FROM room_types rt
       LEFT JOIN hotels h ON rt.hotel_id = h.id
@@ -1490,6 +1491,7 @@ async function getAllRoomsForAdmin() {
         rt.amenities,
         rt.images,
         rt.type,
+        rt.bed_type,
         rt.created_at,
         rt.updated_at,
         h.name as hotel_name,
@@ -2196,6 +2198,7 @@ const server = createServer(async (req, res) => {
         console.log('📸 Fetching room types with images...');
         // Copy ทั้งหมดจาก /api/room-types แล้วเพิ่มข้อมูล hotel details
         const hotel_id_img = query.hotel_id ? parseInt(query.hotel_id) : null;
+        const bed_type_filter = query.bed_type || null;
         
         // ใช้ raw SQL query เหมือน /api/room-types ที่ทำงานได้
         try {
@@ -2211,15 +2214,27 @@ const server = createServer(async (req, res) => {
               rt.amenities,
               rt.images,
               rt.type,
+              rt.bed_type,
               h.name as hotel_name
             FROM room_types rt
             LEFT JOIN hotels h ON rt.hotel_id = h.id
           `;
           
           let params = [];
+          let whereConditions = [];
+          
           if (hotel_id_img) {
-            roomQuery += ' WHERE rt.hotel_id = ?';
-            params = [hotel_id_img];
+            whereConditions.push('rt.hotel_id = ?');
+            params.push(hotel_id_img);
+          }
+          
+          if (bed_type_filter) {
+            whereConditions.push('rt.bed_type = ?');
+            params.push(bed_type_filter);
+          }
+          
+          if (whereConditions.length > 0) {
+            roomQuery += ' WHERE ' + whereConditions.join(' AND ');
           }
           
           roomQuery += ' ORDER BY rt.price_per_night ASC';
@@ -2272,18 +2287,144 @@ const server = createServer(async (req, res) => {
           
           console.log(`🖼️ Raw room images sample:`, rawRows[0]?.images);
           console.log(`🖼️ Processed room images sample:`, roomTypesWithDetails[0]?.images);
+          console.log(`🛏️ Applied filters:`, { hotel_id: hotel_id_img, bed_type: bed_type_filter });
           
           sendJSON(res, 200, {
             success: true,
             count: roomTypesWithDetails.length,
             data: roomTypesWithDetails,
-            filter: hotel_id_img ? { hotel_id: hotel_id_img } : null
+            filter: { 
+              hotel_id: hotel_id_img, 
+              bed_type: bed_type_filter 
+            }
           });
         } catch (error) {
           console.error('❌ Error fetching room types with images:', error);
           sendJSON(res, 500, {
             success: false,
             message: 'เกิดข้อผิดพลาดในการดึงข้อมูลห้องพัก'
+          });
+        }
+        break;
+
+      case '/api/check-room-availability':
+        console.log('🔍 Checking room availability...');
+        const check_in_date = query.check_in_date;
+        const check_out_date = query.check_out_date;
+        const bed_type_avail = query.bed_type || null;
+        
+        if (!check_in_date || !check_out_date) {
+          sendJSON(res, 400, {
+            success: false,
+            message: 'กรุณาระบุวันที่เช็คอินและเช็คเอาท์'
+          });
+          break;
+        }
+        
+        try {
+          // ตรวจสอบการจองที่ซ้อนทับกับวันที่ที่ต้องการ
+          let availabilityQuery = `
+            SELECT DISTINCT rt.id, rt.hotel_id, rt.name, rt.description, rt.bed_type, rt.price_per_night, rt.max_guests, rt.size_sqm, rt.amenities, rt.images, rt.type
+            FROM room_types rt
+            WHERE rt.id NOT IN (
+              SELECT DISTINCT COALESCE(b.room_type_id, 0)
+              FROM bookings b 
+              WHERE b.status != 'cancelled' 
+              AND b.room_type_id IS NOT NULL
+              AND (
+                (b.check_in_date <= ? AND b.check_out_date > ?) OR
+                (b.check_in_date < ? AND b.check_out_date >= ?) OR
+                (b.check_in_date >= ? AND b.check_out_date <= ?)
+              )
+            )
+          `;
+          
+          let availParams = [
+            check_out_date, check_in_date,  // First condition
+            check_out_date, check_in_date,  // Second condition  
+            check_in_date, check_out_date   // Third condition
+          ];
+          
+          // เพิ่มเงื่อนไขกรองตามประเภทเตียงถ้ามี
+          if (bed_type_avail) {
+            availabilityQuery += ' AND rt.bed_type = ?';
+            availParams.push(bed_type_avail);
+          }
+          
+          availabilityQuery += ' ORDER BY rt.price_per_night ASC';
+          
+          const [availableRooms] = await connection.execute(availabilityQuery, availParams);
+          
+          // เพิ่มข้อมูล hotel details และ process images สำหรับแต่ละห้อง
+          const roomsWithFullDetails = await Promise.all(availableRooms.map(async (room) => {
+            try {
+              // ดึงข้อมูล hotel เพิ่มเติม
+              const [hotelRows] = await connection.execute(
+                'SELECT address, description FROM hotels WHERE id = ?', 
+                [room.hotel_id]
+              );
+              
+              // Process images to flatten nested arrays and parse JSON strings
+              let images = room.images || [];
+              
+              // Parse JSON string if it's a string
+              if (typeof images === 'string' && images.trim()) {
+                try {
+                  images = JSON.parse(images);
+                } catch (e) {
+                  console.log('Failed to parse images JSON:', images);
+                  // If it's a space-separated string, split it
+                  images = images.split(' ').filter(img => img.trim());
+                }
+              }
+              
+              if (Array.isArray(images) && images.length > 0) {
+                images = images.flat(3); // Flatten up to 3 levels deep
+                images = images.filter(img => img && typeof img === 'string'); // Remove nulls and non-strings
+              }
+              
+              return {
+                ...room,
+                images,
+                hotel_address: hotelRows[0]?.address || '',
+                hotel_description: hotelRows[0]?.description || ''
+              };
+            } catch (err) {
+              console.error('Error fetching hotel details for room:', room.id, err);
+              return {
+                ...room,
+                images: room.images || [],
+                hotel_address: '',
+                hotel_description: ''
+              };
+            }
+          }));
+          
+          console.log(`📅 Checking availability for ${check_in_date} to ${check_out_date}`);
+          console.log(`🛏️ Available rooms found: ${availableRooms.length}`);
+          console.log(`🖼️ Sample room with images:`, roomsWithFullDetails[0]?.images);
+          console.log(`🏨 Sample room full data:`, roomsWithFullDetails[0] ? {
+            id: roomsWithFullDetails[0].id,
+            name: roomsWithFullDetails[0].name,
+            bed_type: roomsWithFullDetails[0].bed_type,
+            images_count: roomsWithFullDetails[0].images?.length || 0
+          } : 'No rooms available');
+          
+          sendJSON(res, 200, {
+            success: true,
+            count: roomsWithFullDetails.length,
+            data: roomsWithFullDetails,
+            filters: {
+              check_in_date,
+              check_out_date,
+              bed_type: bed_type_avail
+            }
+          });
+        } catch (error) {
+          console.error('❌ Error checking room availability:', error);
+          sendJSON(res, 500, {
+            success: false,
+            message: 'เกิดข้อผิดพลาดในการตรวจสอบความพร้อมของห้องพัก'
           });
         }
         break;
@@ -3125,6 +3266,105 @@ const server = createServer(async (req, res) => {
             sendJSON(res, 500, { 
               success: false, 
               message: 'เกิดข้อผิดพลาดในการดึงข้อมูลสถิติ' 
+            });
+          }
+        } else {
+          setCorsHeaders(res);
+          sendJSON(res, 405, {
+            success: false,
+            message: 'Method not allowed'
+          });
+        }
+        break;
+
+      case '/api/admin/reports':
+        if (req.method === 'GET') {
+          try {
+            setCorsHeaders(res);
+            
+            const reportType = query.type || 'financial';
+            const period = query.period || 'monthly';
+            const startDate = query.start_date || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+            const endDate = query.end_date || new Date().toISOString().split('T')[0];
+            
+            console.log(`📊 Fetching ${reportType} reports for ${period} period: ${startDate} to ${endDate}`);
+            
+            let reportData = {};
+            
+            if (reportType === 'financial') {
+              // Financial report - simplified version
+              try {
+                const [summary] = await connection.execute(`
+                  SELECT 
+                    COUNT(*) as total_bookings,
+                    SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed_bookings,
+                    SUM(CASE WHEN status = 'confirmed' THEN CAST(total_price AS DECIMAL(10,2)) ELSE 0 END) as total_revenue,
+                    AVG(CASE WHEN status = 'confirmed' THEN CAST(total_price AS DECIMAL(10,2)) ELSE NULL END) as avg_booking_value
+                  FROM bookings 
+                  WHERE DATE(created_at) BETWEEN ? AND ?
+                `, [startDate, endDate]);
+                
+                reportData.summary = summary[0] || {
+                  total_bookings: 0,
+                  confirmed_bookings: 0,
+                  total_revenue: 0,
+                  avg_booking_value: 0
+                };
+                
+                console.log('📊 Financial summary:', reportData.summary);
+                
+              } catch (error) {
+                console.error('❌ Financial report error:', error);
+                reportData.summary = {
+                  total_bookings: 0,
+                  confirmed_bookings: 0,
+                  total_revenue: 0,
+                  avg_booking_value: 0
+                };
+              }
+            }
+            
+            if (reportType === 'occupancy') {
+              // Occupancy report - simplified version
+              try {
+                const [dailyOccupancy] = await connection.execute(`
+                  SELECT 
+                    DATE(check_in_date) as date,
+                    COUNT(*) as total_bookings,
+                    SUM(CAST(guests AS SIGNED)) as total_guests
+                  FROM bookings 
+                  WHERE status = 'confirmed' 
+                  AND check_in_date IS NOT NULL
+                  AND DATE(check_in_date) BETWEEN ? AND ?
+                  GROUP BY DATE(check_in_date)
+                  ORDER BY DATE(check_in_date) DESC
+                `, [startDate, endDate]);
+                
+                reportData.daily_occupancy = dailyOccupancy || [];
+                console.log('🏨 Occupancy data:', reportData.daily_occupancy);
+                
+              } catch (error) {
+                console.error('❌ Occupancy report error:', error);
+                reportData.daily_occupancy = [];
+              }
+            }
+            
+            sendJSON(res, 200, {
+              success: true,
+              data: reportData,
+              filters: {
+                type: reportType,
+                period: period,
+                start_date: startDate,
+                end_date: endDate
+              }
+            });
+          } catch (error) {
+            console.error('❌ Error fetching reports:', error);
+            setCorsHeaders(res);
+            sendJSON(res, 500, { 
+              success: false, 
+              message: 'เกิดข้อผิดพลาดในการดึงข้อมูลรายงาน' 
             });
           }
         } else {
@@ -4633,6 +4873,7 @@ server.listen(PORT, () => {
   console.log('   GET /api/room-types          - Room types from database');
   console.log('   GET /api/rooms               - Rooms from database');
   console.log('   GET /api/rooms/availability  - Check room availability');
+  console.log('   GET /api/check-room-availability - Check room availability by date');
   console.log('   GET /api/room-types-with-images - Room types with images for user');
   console.log('   GET /api/bookings            - Bookings from database');
   console.log('   PUT /api/bookings/{id}/status - Update booking status');
@@ -4648,6 +4889,7 @@ server.listen(PORT, () => {
   console.log('   GET /api/cancellation-requests - Cancellation requests');
   console.log('   PUT /api/cancellation-requests - Process cancellation requests');
   console.log('   GET /api/admin/dashboard/stats - Admin dashboard statistics');
+  console.log('   GET /api/admin/reports       - Admin reports (financial, occupancy)');
   console.log('   GET /api/admin/users         - Get all users (admin)');
   console.log('   POST /api/admin/users        - Create new user (admin)');
   console.log('   GET /api/admin/users/{id}    - Get user by ID (admin)');
