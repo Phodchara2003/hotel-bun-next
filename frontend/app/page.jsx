@@ -20,6 +20,9 @@ export default function HomePage() {
   const [checkOutDate, setCheckOutDate] = useState('');
   const [availabilityMessage, setAvailabilityMessage] = useState('');
   
+  // State สำหรับการเลื่อนรูปอัตโนมัติ
+  const [currentImageIndex, setCurrentImageIndex] = useState({});
+  
   // รายการประเภทเตียงทั้งหมดที่คงที่ (เฉพาะที่มีในระบบ)
   const allBedTypes = ['single', 'double'];
 
@@ -122,6 +125,27 @@ export default function HomePage() {
     };
     return bedTypes[bedType] || bedType;
   };
+
+  // Auto slide images effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImageIndex(prev => {
+        const newIndex = { ...prev };
+        
+        // วนลูปผ่านห้องพักทั้งหมดที่มีรูปมากกว่า 1 รูป
+        filteredRoomTypes.forEach(room => {
+          if (room.images && Array.isArray(room.images) && room.images.length > 1) {
+            const currentIndex = newIndex[room.id] || 0;
+            newIndex[room.id] = (currentIndex + 1) % room.images.length;
+          }
+        });
+        
+        return newIndex;
+      });
+    }, 3000); // เปลี่ยนรูปทุก 3 วินาที
+
+    return () => clearInterval(interval);
+  }, [filteredRoomTypes]);
 
   const fetchHotelAndRooms = async (bedTypeFilter = '') => {
     try {
@@ -497,11 +521,11 @@ export default function HomePage() {
                       return imageArray.length > 0 ? (
                         <>
                           <img 
-                            src={getRoomImageSrc(imageArray[0], room.id)}
+                            src={getRoomImageSrc(imageArray[currentImageIndex[room.id] || 0], room.id)}
                             alt={room.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500"
                             onLoad={() => {
-                              console.log('✅ Room image loaded successfully:', getRoomImageSrc(imageArray[0], room.id));
+                              console.log('✅ Room image loaded successfully:', getRoomImageSrc(imageArray[currentImageIndex[room.id] || 0], room.id));
                             }}
                             onError={(e) => {
                               console.log('❌ Room image failed to load:', e.target.src);
@@ -519,6 +543,36 @@ export default function HomePage() {
                               }
                             }}
                           />
+                          
+                          {/* Image Indicators - แสดงเฉพาะเมื่อมีรูปมากกว่า 1 รูป */}
+                          {imageArray.length > 1 && (
+                            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2 z-10">
+                              {imageArray.map((_, index) => (
+                                <button
+                                  key={index}
+                                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                                    index === (currentImageIndex[room.id] || 0)
+                                      ? 'bg-white shadow-lg scale-125'
+                                      : 'bg-white/60 hover:bg-white/80'
+                                  }`}
+                                  onClick={() => {
+                                    setCurrentImageIndex(prev => ({
+                                      ...prev,
+                                      [room.id]: index
+                                    }));
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Image Counter - แสดงเฉพาะเมื่อมีรูปมากกว่า 1 รูป */}
+                          {imageArray.length > 1 && (
+                            <div className="absolute bottom-4 right-4 bg-black/50 text-white px-2 py-1 rounded-full text-xs font-medium">
+                              {(currentImageIndex[room.id] || 0) + 1}/{imageArray.length}
+                            </div>
+                          )}
+                          
                           <div className="absolute inset-0 hidden items-center justify-center text-blue-600 bg-gradient-to-br from-blue-100 to-blue-200">
                             <div className="text-center">
                               <Calendar className="h-8 w-8 mx-auto mb-1" />

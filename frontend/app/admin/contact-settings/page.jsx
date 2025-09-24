@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { isStaffOrAdmin } from '../../../lib/roles';
+import { isStaffOrAdmin } from '../../../lib/permissions';
 import { Phone, Mail, MapPin, Globe, Facebook, MessageCircle, Save, AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Link from 'next/link';

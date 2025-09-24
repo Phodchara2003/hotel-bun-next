@@ -28,7 +28,31 @@ export default function BookingsPage() {
     try {
       const params = filter !== 'all' ? { status: filter } : {};
       const response = await bookingAPI.getBookings(params);
-      setBookings(response.bookings || []);
+      
+      // Filter out bookings where check-in date has passed
+      const currentDate = new Date();
+      currentDate.setHours(0, 0, 0, 0); // Set to start of day for comparison
+      
+      const activeBookings = (response.bookings || []).filter(booking => {
+        // Only filter if booking is not completed or cancelled
+        if (booking.status === 'completed' || booking.status === 'cancelled') {
+          return true; // Show completed/cancelled bookings for history
+        }
+        
+        // Try different possible field names for check-in date
+        const checkInDateValue = booking.check_in_date || booking.checkInDate || booking.checkin_date;
+        if (!checkInDateValue) {
+          return true; // Keep booking if no check-in date found
+        }
+        
+        const checkInDate = new Date(checkInDateValue);
+        checkInDate.setHours(0, 0, 0, 0);
+        
+        // Hide active bookings that have passed check-in date
+        return checkInDate >= currentDate;
+      });
+      
+      setBookings(activeBookings);
     } catch (error) {
       console.error('Error fetching bookings:', error);
       toast.error('ไม่สามารถโหลดข้อมูลการจองได้');
@@ -68,6 +92,31 @@ export default function BookingsPage() {
 
   const closeCancelModal = () => {
     setCancelModal({ isOpen: false, bookingId: null, bookingRef: '', roomName: '', hotelName: '' });
+  };
+
+  // Check if booking can be cancelled (check-in date hasn't passed)
+  const canCancelBooking = (booking) => {
+    if (booking.status === 'cancelled' || booking.status === 'completed') {
+      return false;
+    }
+    
+    const currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0);
+    
+    // Try different possible field names for check-in date
+    const checkInDateValue = booking.check_in_date || booking.checkInDate || booking.checkin_date;
+    if (!checkInDateValue) {
+      console.warn('No check-in date found for booking:', booking);
+      return false;
+    }
+    
+    const checkInDate = new Date(checkInDateValue);
+    checkInDate.setHours(0, 0, 0, 0);
+    
+    // Debug log
+    console.log('Booking ID:', booking.id, 'Check-in date:', checkInDate, 'Current date:', currentDate, 'Can cancel:', checkInDate >= currentDate);
+    
+    return checkInDate >= currentDate;
   };
 
   const getStatusIcon = (status) => {
@@ -198,9 +247,14 @@ export default function BookingsPage() {
           <div className="text-center py-12">
             <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-600 mb-2">
-              {filter === 'all' ? 'ยังไม่มีการจอง' : `ไม่มีการจอง${getStatusText(filter)}`}
+              {filter === 'all' ? 'ไม่มีการจองที่แสดงได้' : `ไม่มีการจอง${getStatusText(filter)}`}
             </h3>
-            <p className="text-gray-500">เริ่มจองโรงแรมเพื่อเริ่มต้นการเดินทางของคุณ</p>
+            <p className="text-gray-500">
+              {filter === 'all' 
+                ? 'การจองที่เลยวันที่เช็คอินแล้วจะไม่แสดงในรายการ' 
+                : 'เริ่มจองโรงแรมเพื่อเริ่มต้นการเดินทางของคุณ'
+              }
+            </p>
           </div>
         ) : (
           <div className="space-y-6">
@@ -230,7 +284,7 @@ export default function BookingsPage() {
                         วันที่เข้าพัก
                       </div>
                       <div className="font-semibold text-gray-900">
-                        {new Date(booking.checkInDate).toLocaleDateString('th-TH')}
+                        {new Date(booking.check_in_date || booking.checkInDate || booking.checkin_date).toLocaleDateString('th-TH')}
                       </div>
                     </div>
                     <div className="bg-gray-50 rounded-lg p-4">
@@ -239,7 +293,7 @@ export default function BookingsPage() {
                         วันที่ออก
                       </div>
                       <div className="font-semibold text-gray-900">
-                        {new Date(booking.checkOutDate).toLocaleDateString('th-TH')}
+                        {new Date(booking.check_out_date || booking.checkOutDate || booking.checkout_date).toLocaleDateString('th-TH')}
                       </div>
                     </div>
                     <div className="bg-gray-50 rounded-lg p-4">
@@ -286,10 +340,10 @@ export default function BookingsPage() {
                   )}
 
                   {/* Actions */}
-                  {booking.status === 'pending' || booking.status === 'confirmed' ? (
-                    <div className="mt-4 pt-4 border-t border-gray-200 flex justify-end space-x-3">
+                  {(booking.status === 'pending' || booking.status === 'confirmed') ? (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
                       {booking.status === 'confirmed' && (
-                        <>
+                        <div className="flex justify-end space-x-3 mb-3">
                           <button
                             onClick={() => window.open(`/payment/${booking.id}`, '_blank')}
                             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
@@ -315,19 +369,34 @@ export default function BookingsPage() {
                               ✅ ชำระเงินแล้ว
                             </span>
                           )}
-                        </>
+                        </div>
                       )}
-                      <button
-                        onClick={() => openCancelModal(
-                          booking.id, 
-                          booking.bookingReference, 
-                          booking.roomTypeName, 
-                          booking.hotelName
-                        )}
-                        className="px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition-colors"
-                      >
-                        ยกเลิกการจอง
-                      </button>
+                      
+                      {/* Show cancel button only if booking can be cancelled */}
+                      {(() => {
+                        const canCancel = canCancelBooking(booking);
+                        console.log(`Booking ${booking.id}: canCancel = ${canCancel}, status = ${booking.status}`);
+                        return canCancel;
+                      })() ? (
+                        <div className="flex justify-end">
+                          <button
+                            onClick={() => openCancelModal(
+                              booking.id, 
+                              booking.bookingReference, 
+                              booking.roomTypeName, 
+                              booking.hotelName
+                            )}
+                            className="px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition-colors"
+                          >
+                            ยกเลิกการจอง
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="bg-orange-50 p-3 rounded-lg">
+                          <p className="text-orange-800 text-sm font-medium">🏨 ถึงวันเช็คอินแล้ว</p>
+                          <p className="text-orange-600 text-xs mt-1">หากต้องการยกเลิกการจอง กรุณาติดต่อโรงแรมโดยตรง</p>
+                        </div>
+                      )}
                     </div>
                   ) : booking.status === 'completed' ? (
                     <div className="mt-4 pt-4 border-t border-gray-200">

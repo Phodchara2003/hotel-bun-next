@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { notificationAPI } from '../lib/api';
 import { useAuth } from './AuthContext';
 import toast from 'react-hot-toast';
@@ -21,12 +21,24 @@ export const NotificationProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const { user, isAuthenticated } = useAuth();
 
+  // Rate limiting for API calls - Increased to reduce database load
+  const lastNotificationsFetch = useRef(0);
+  const NOTIFICATIONS_RATE_LIMIT = 120000; // 2 minutes minimum between calls (increased from 30s)
+
   // Fetch notifications (delayed for better initial load performance)
   const fetchNotifications = async (params = {}) => {
     if (!isAuthenticated || !user) return;
     
+    // Rate limiting: Don't fetch if called within the last 2 minutes
+    const now = Date.now();
+    if (now - lastNotificationsFetch.current < NOTIFICATIONS_RATE_LIMIT) {
+      console.log('🚫 Notifications: Rate limited, skipping fetch (2min cooldown)');
+      return;
+    }
+    
     try {
       setLoading(true);
+      lastNotificationsFetch.current = now;
       const response = await notificationAPI.getNotifications(params);
       setNotifications(response.notifications || []);
       setUnreadCount(response.summary?.unreadCount || 0);
@@ -49,11 +61,23 @@ export const NotificationProvider = ({ children }) => {
     }
   };
 
+  // Rate limiting for unread count API - Increased significantly
+  const lastUnreadCountFetch = useRef(0);
+  const UNREAD_COUNT_RATE_LIMIT = 300000; // 5 minutes minimum between calls (increased from 1min)
+
   // Fetch unread count only
   const fetchUnreadCount = async () => {
     if (!isAuthenticated || !user) return;
     
+    // Rate limiting: Don't fetch if called within the last 5 minutes
+    const now = Date.now();
+    if (now - lastUnreadCountFetch.current < UNREAD_COUNT_RATE_LIMIT) {
+      console.log('🚫 Unread Count: Rate limited, skipping fetch (5min cooldown)');
+      return;
+    }
+    
     try {
+      lastUnreadCountFetch.current = now;
       const response = await notificationAPI.getUnreadCount();
       setUnreadCount(response.unreadCount || 0);
     } catch (error) {
@@ -212,11 +236,11 @@ export const NotificationProvider = ({ children }) => {
     if (isAuthenticated && user) {
       fetchNotifications();
       
-      // Reduced polling frequency due to database quota issues
-      // Only poll unread count every 5 minutes instead of 30 seconds
+      // Significantly reduced polling frequency due to database quota issues
+      // Only poll unread count every 10 minutes instead of 5 minutes
       const interval = setInterval(() => {
         fetchUnreadCount();
-      }, 300000); // 5 minutes = 300000ms
+      }, 600000); // 10 minutes = 600000ms
       
       return () => clearInterval(interval);
     } else {
@@ -235,6 +259,14 @@ export const NotificationProvider = ({ children }) => {
     // Actions
     fetchNotifications,
     fetchUnreadCount,
+    refreshNotifications: (force = false) => {
+      if (force) {
+        // Bypass rate limiting if forced
+        lastNotificationsFetch.current = 0;
+        lastUnreadCountFetch.current = 0;
+      }
+      fetchNotifications();
+    },
     markAsRead,
     markAllAsRead,
     deleteNotification,

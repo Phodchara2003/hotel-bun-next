@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { roomsAPI } from '../../../lib/api';
-import { isStaffOrAdmin } from '../../../lib/roles';
+import { isStaffOrAdmin } from '../../../lib/permissions';
 import { invalidateRoomImageCache } from '../../../lib/imageUtils';
 import Link from 'next/link';
 import { 

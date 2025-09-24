@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { 
   Hotel, Calendar, User, Users, Settings, BarChart3, 
   DollarSign, MessageSquare, Star, LogOut, Menu, X, 
-  ChevronRight, Bed, CreditCard, Bell,
+  ChevronRight, Bed, CreditCard, Bell, Home,
   Shield, UserCheck, FileText, Database, UserPlus
 } from 'lucide-react';
 import { useTranslation } from '../translations';
@@ -98,13 +98,6 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }) {
       active: pathname === '/admin/bookings'
     },
     {
-      key: 'booking-calendar',
-      label: 'ปฏิทินการจอง',
-      icon: Calendar,
-      href: '/admin/calendar',
-      active: pathname === '/admin/calendar'
-    },
-    {
       key: 'rooms-management',
       label: 'จัดการห้องพัก',
       icon: Bed,
@@ -173,12 +166,67 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }) {
     }
   ];
 
+  // Manager Menu Items (Dedicated manager interface)
+  const managerMenuItems = [
+    {
+      key: 'manager-home',
+      label: 'หน้าแรกผู้บริหาร',
+      icon: Home,
+      href: '/manager',
+      active: pathname === '/manager'
+    },
+    {
+      key: 'manager-dashboard',
+      label: 'แดชบอร์ดเต็ม',
+      icon: BarChart3,
+      href: '/manager/dashboard',
+      active: pathname === '/manager/dashboard'
+    },
+    {
+      key: 'bookings-view',
+      label: 'จัดการการจอง',
+      icon: Calendar,
+      href: '/admin/bookings',
+      active: pathname === '/admin/bookings'
+    },
+    {
+      key: 'rooms-view',
+      label: 'จัดการห้องพัก',
+      icon: Bed,
+      href: '/admin/rooms',
+      active: pathname === '/admin/rooms'
+    },
+    {
+      key: 'users-view',
+      label: 'จัดการผู้ใช้',
+      icon: Users,
+      href: '/admin/user-management',
+      active: pathname === '/admin/user-management'
+    },
+    {
+      key: 'reports-view',
+      label: 'รายงาน',
+      icon: FileText,
+      href: '/admin/reports',
+      active: pathname === '/admin/reports'
+    },
+    {
+      key: 'contact-view',
+      label: 'ดูข้อมูลติดต่อ',
+      icon: MessageSquare,
+      href: '/admin/contact-settings',
+      active: pathname === '/admin/contact-settings'
+    }
+  ];
+
   const getMenuItems = () => {
     if (!isAuthenticated) return guestMenuItems;
     
     switch (user?.role) {
       case 'admin':
         return adminMenuItems;
+      case 'manager':
+        return managerMenuItems;
       case 'staff':
         return staffMenuItems;
       default:
@@ -230,6 +278,7 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }) {
                 <p className="text-gray-400 text-xs">
                   {!isAuthenticated ? 'ยินดีต้อนรับ' :
                    user?.role === 'admin' ? 'ผู้ดูแลระบบ' : 
+                   user?.role === 'manager' ? 'ผู้บริหาร' :
                    user?.role === 'staff' ? 'พนักงาน' : 'ลูกค้า'}
                 </p>
               </div>

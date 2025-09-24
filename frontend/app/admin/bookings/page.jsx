@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { bookingAPI } from '../../../lib/api';
-import { isStaffOrAdmin, canDelete, canManageBookings } from '../../../lib/roles';
+import { isStaffOrAdmin, canDeleteBookings, canEditBookings, canManageBookings } from '../../../lib/permissions';
 import ConfirmModal from '../../../components/ConfirmModal';
 import Link from 'next/link';
 import { 
@@ -764,7 +764,7 @@ export default function BookingManagement() {
                             </>
                           )}
                           
-                          {canDelete(user) && (
+                          {canDeleteBookings(user).all && (
                             <button
                               onClick={() => {
                                 setConfirmAction(() => () => handleDeleteBooking(booking.id));
@@ -893,7 +893,7 @@ export default function BookingManagement() {
                         </button>
                       )}
 
-                      {canDelete(user) && (
+                      {canDeleteBookings(user).all && (
                         <button
                           onClick={() => {
                             setConfirmAction(() => () => handleDeleteBooking(booking.id));

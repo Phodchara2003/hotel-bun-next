@@ -11,24 +11,29 @@
 
 export const ROLES = {
   USER: 'user',
-  STAFF: 'staff', 
+  GUEST: 'guest',
+  STAFF: 'staff',
+  MANAGER: 'manager', 
   ADMIN: 'admin',
   SUPER_ADMIN: 'super_admin'
 };
 
 // ตรวจสอบบทบาท
 export const isUser = (user) => user?.role === ROLES.USER;
+export const isGuest = (user) => user?.role === ROLES.GUEST;
 export const isStaff = (user) => user?.role === ROLES.STAFF;
+export const isManager = (user) => user?.role === ROLES.MANAGER;
 export const isAdmin = (user) => user?.role === ROLES.ADMIN;
 export const isSuperAdmin = (user) => user?.role === ROLES.SUPER_ADMIN;
 
 // ตรวจสอบกลุ่มสิทธิ์
-export const isStaffOrAdmin = (user) => [ROLES.STAFF, ROLES.ADMIN, ROLES.SUPER_ADMIN].includes(user?.role);
+export const isStaffOrAdmin = (user) => [ROLES.STAFF, ROLES.MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN].includes(user?.role);
 export const isAdminOrSuper = (user) => [ROLES.ADMIN, ROLES.SUPER_ADMIN].includes(user?.role);
+export const isManagerOrAdmin = (user) => [ROLES.MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN].includes(user?.role);
 
 // สิทธิ์การเข้าถึงหน้าต่างๆ
 export const canAccessAdminDashboard = (user) => isStaffOrAdmin(user);
-export const canAccessUserManagement = (user) => isAdminOrSuper(user);
+export const canAccessUserManagement = (user) => isManagerOrAdmin(user); // Manager can view users (read-only)
 export const canAccessReports = (user) => isStaffOrAdmin(user);
 export const canAccessSettings = (user) => isAdminOrSuper(user);
 export const canAccessPaymentSettings = (user) => isAdminOrSuper(user);
@@ -70,6 +75,11 @@ export const canCreateRooms = (user) => isAdminOrSuper(user);
 export const canEditRooms = (user) => isAdminOrSuper(user);
 export const canDeleteRooms = (user) => isAdminOrSuper(user);
 export const canManageRoomStatus = (user) => isStaffOrAdmin(user);
+
+// สิทธิ์การจัดการการจอง (Booking Management)
+export const canManageBookings = (user) => isStaffOrAdmin(user); // Staff, Manager, Admin can manage bookings
+export const canConfirmBookings = (user) => isStaffOrAdmin(user);
+export const canCancelBookings = (user) => isStaffOrAdmin(user);
 
 // สิทธิ์การจัดการการเงิน
 export const canViewPayments = (user) => {
@@ -173,11 +183,17 @@ export const getUserPermissionSummary = (user) => {
 export default {
   ROLES,
   isUser,
+  isGuest,
   isStaff,
+  isManager,
   isAdmin,
   isSuperAdmin,
   isStaffOrAdmin,
   isAdminOrSuper,
+  isManagerOrAdmin,
+  canAccessAdminDashboard,
+  canAccessUserManagement,
+  canAccessReports,
   hasPermission,
   getUserPermissionSummary,
   getRoleDisplayName,

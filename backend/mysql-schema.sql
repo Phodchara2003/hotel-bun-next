@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS users (
     first_name VARCHAR(100),
     last_name VARCHAR(100),
     phone VARCHAR(20),
-    role ENUM('guest', 'staff', 'admin') DEFAULT 'guest',
+    role ENUM('guest', 'staff', 'manager', 'admin') DEFAULT 'guest',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );

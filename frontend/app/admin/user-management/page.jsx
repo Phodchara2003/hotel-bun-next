@@ -23,7 +23,7 @@ import {
 import toast from 'react-hot-toast';
 
 export default function UserManagement() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, canManageUsers, canViewReports } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -50,6 +50,7 @@ export default function UserManagement() {
   const roles = [
     { value: 'guest', label: 'ผู้ใช้ทั่วไป', color: 'bg-blue-500' },
     { value: 'staff', label: 'พนักงาน', color: 'bg-green-500' },
+    { value: 'manager', label: 'ผู้บริหาร', color: 'bg-orange-500' },
     { value: 'admin', label: 'ผู้ดูแล', color: 'bg-purple-500' }
   ];
 
@@ -266,7 +267,7 @@ export default function UserManagement() {
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
-    if (!autoRefresh || !isAuthenticated || user?.role !== 'admin') return;
+    if (!autoRefresh || !isAuthenticated || !['admin', 'manager'].includes(user?.role)) return;
     
     const interval = setInterval(() => {
       fetchUsers();
@@ -277,7 +278,7 @@ export default function UserManagement() {
 
   // WebSocket connection for real-time updates
   useEffect(() => {
-    if (!isAuthenticated || !user || user.role !== 'admin') return;
+    if (!isAuthenticated || !user || !['admin', 'manager'].includes(user.role)) return;
 
     const wsUrl = `ws://localhost:3001/ws?userId=${user.id}&role=${user.role}`;
     const websocket = new WebSocket(wsUrl);
@@ -332,7 +333,7 @@ export default function UserManagement() {
 
   // WebSocket connection for real-time updates
   useEffect(() => {
-    if (!isAuthenticated || user?.role !== 'admin') return;
+    if (!isAuthenticated || !['admin', 'manager'].includes(user?.role)) return;
 
     const ws = new WebSocket('ws://localhost:3001/ws');
     
@@ -408,7 +409,7 @@ export default function UserManagement() {
     );
   }
 
-  if (!user || !['admin', 'staff', 'super_admin'].includes(user.role)) {
+  if (!user || !['admin', 'manager'].includes(user.role)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -418,6 +419,8 @@ export default function UserManagement() {
       </div>
     );
   }
+
+  const isReadOnly = user.role === 'manager';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -430,7 +433,14 @@ export default function UserManagement() {
                 <Users className="w-8 h-8 mr-3 text-blue-600" />
                 จัดการผู้ใช้
               </h1>
-              <p className="text-gray-600 mt-2">จัดการข้อมูลผู้ใช้ในระบบ</p>
+              <p className="text-gray-600 mt-2">
+                จัดการข้อมูลผู้ใช้ในระบบ
+                {isReadOnly && (
+                  <span className="ml-2 px-2 py-1 bg-orange-100 text-orange-800 text-sm rounded-full">
+                    โหมดดูอย่างเดียว (ผู้บริหาร)
+                  </span>
+                )}
+              </p>
             </div>
             <div className="flex items-center space-x-4">
               {/* WebSocket Status */}
@@ -460,7 +470,12 @@ export default function UserManagement() {
               
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
+                disabled={isReadOnly}
+                className={`px-4 py-2 rounded-lg flex items-center transition-colors ${
+                  isReadOnly 
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
               >
                 <Plus className="w-5 h-5 mr-2" />
                 เพิ่มผู้ใช้ใหม่
@@ -584,18 +599,20 @@ export default function UserManagement() {
                               </span>
                               
                               {/* Quick Role Change Dropdown */}
-                              <select
-                                value={userItem.role}
-                                onChange={(e) => handleQuickRoleChange(userItem.id, e.target.value)}
-                                className="text-xs border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                title="เปลี่ยนสิทธิ์"
-                              >
-                                {roles.map(role => (
-                                  <option key={role.value} value={role.value}>
-                                    {role.label}
-                                  </option>
-                                ))}
-                              </select>
+                              {!isReadOnly && (
+                                <select
+                                  value={userItem.role}
+                                  onChange={(e) => handleQuickRoleChange(userItem.id, e.target.value)}
+                                  className="text-xs border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  title="เปลี่ยนสิทธิ์"
+                                >
+                                  {roles.map(role => (
+                                    <option key={role.value} value={role.value}>
+                                      {role.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -612,20 +629,27 @@ export default function UserManagement() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div className="flex items-center justify-end space-x-2">
-                              <button
-                                onClick={() => openEditModal(userItem)}
-                                className="text-blue-600 hover:text-blue-900 p-1 rounded"
-                                title="แก้ไข"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteUser(userItem.id)}
-                                className="text-red-600 hover:text-red-900 p-1 rounded"
-                                title="ลบ"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              {!isReadOnly && (
+                                <>
+                                  <button
+                                    onClick={() => openEditModal(userItem)}
+                                    className="text-blue-600 hover:text-blue-900 p-1 rounded"
+                                    title="แก้ไข"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteUser(userItem.id)}
+                                    className="text-red-600 hover:text-red-900 p-1 rounded"
+                                    title="ลบ"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </>
+                              )}
+                              {isReadOnly && (
+                                <span className="text-gray-400 text-xs">ดูอย่างเดียว</span>
+                              )}
                             </div>
                           </td>
                         </tr>

@@ -3,129 +3,22 @@
 import { useState, useEffect } from 'react';
 import { Bell, X, Check, CheckCheck, AlertCircle, Info, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotifications } from '../contexts/NotificationContext';
 import toast from 'react-hot-toast';
 
 export default function NotificationCenter() {
   const { user } = useAuth();
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const { 
+    notifications,
+    unreadCount,
+    loading,
+    markAsRead,
+    markAllAsRead,
+    refreshNotifications
+  } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      loadNotifications();
-      loadUnreadCount();
-      
-      // Auto-refresh every 30 seconds
-      const interval = setInterval(() => {
-        loadNotifications();
-        loadUnreadCount();
-      }, 30000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [user]);
-
-  const loadNotifications = async () => {
-    try {
-      const token = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('auth_token='))
-        ?.split('=')[1];
-
-      const response = await fetch('/api/notifications?limit=20', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setNotifications(data.data || []);
-      }
-    } catch (error) {
-      console.error('Error loading notifications:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadUnreadCount = async () => {
-    try {
-      const token = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('auth_token='))
-        ?.split('=')[1];
-
-      const response = await fetch('http://localhost:3001/api/notifications/unread-count', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUnreadCount(data.count || 0);
-      }
-    } catch (error) {
-      console.error('Error loading unread count:', error);
-    }
-  };
-
-  const markAsRead = async (notificationId) => {
-    try {
-      const token = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('auth_token='))
-        ?.split('=')[1];
-
-      const response = await fetch('/api/notifications', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          id: notificationId,
-          read_status: true
-        })
-      });
-
-      if (response.ok) {
-        // Update local state
-        setNotifications(prev =>
-          prev.map(notif =>
-            notif.id === notificationId
-              ? { ...notif, read_status: true }
-              : notif
-          )
-        );
-        setUnreadCount(prev => Math.max(0, prev - 1));
-        toast.success('ทำเครื่องหมายเป็นอ่านแล้ว');
-      }
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-      toast.error('ไม่สามารถอัปเดตสถานะได้');
-    }
-  };
-
-  const markAllAsRead = async () => {
-    try {
-      const unreadNotifications = notifications.filter(n => !n.read_status);
-      
-      for (const notif of unreadNotifications) {
-        await markAsRead(notif.id);
-      }
-      
-      toast.success('ทำเครื่องหมายทั้งหมดเป็นอ่านแล้ว');
-    } catch (error) {
-      console.error('Error marking all as read:', error);
-      toast.error('ไม่สามารถอัปเดตสถานะได้');
-    }
-  };
+  // Note: We don't need to refresh on mount as NotificationContext handles auto-refresh
 
   const getNotificationIcon = (type) => {
     switch (type) {

@@ -115,6 +115,28 @@ export default function BookingDetailsPage() {
     });
   };
 
+  // Check if booking can be cancelled (check-in date hasn't passed)
+  const canCancelBooking = (booking) => {
+    if (!booking || booking.status === 'cancelled' || booking.status === 'completed') {
+      return false;
+    }
+    
+    const currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0);
+    
+    const checkInDateValue = booking.check_in_date || booking.checkInDate || booking.checkin_date;
+    if (!checkInDateValue) {
+      console.warn('No check-in date found for booking:', booking);
+      return false;
+    }
+    
+    const checkInDate = new Date(checkInDateValue);
+    checkInDate.setHours(0, 0, 0, 0);
+    
+    // Only allow cancellation if check-in date hasn't passed
+    return checkInDate >= currentDate;
+  };
+
   // Mock room amenities (เนื่องจากในฐานข้อมูลยังไม่มี)
   const roomAmenities = [
     { icon: Wifi, label: 'Wi-Fi ฟรี' },
@@ -237,41 +259,13 @@ export default function BookingDetailsPage() {
         {/* Hotel Information */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-2xl font-semibold text-gray-800 mb-4">ข้อมูลโรงแรม</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div>
-              <h3 className="text-xl font-bold text-blue-600 mb-2">
-                {booking.hotel_name || 'โรงแรม'}
-              </h3>
-              <div className="flex items-start space-x-2 text-gray-600 mb-4">
-                <MapPin className="w-5 h-5 mt-1 flex-shrink-0" />
-                <p>{booking.hotel_address || 'ที่อยู่โรงแรม'}</p>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Phone className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm">{booking.hotel_phone || '02-xxx-xxxx'}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Mail className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm">{booking.hotel_email || 'info@hotel.com'}</span>
-                </div>
-              </div>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold text-gray-800 mb-3">สิ่งอำนวยความสะดวก</h4>
-              <div className="grid grid-cols-2 gap-3">
-                {hotelFacilities.map((facility, index) => {
-                  const Icon = facility.icon;
-                  return (
-                    <div key={index} className="flex items-center space-x-2 text-sm text-gray-600">
-                      <Icon className="w-4 h-4 text-blue-500" />
-                      <span>{facility.label}</span>
-                    </div>
-                  );
-                })}
-              </div>
+          <div>
+            <h3 className="text-xl font-bold text-blue-600 mb-2">
+              {booking.hotel_name || 'โรงแรม'}
+            </h3>
+            <div className="flex items-start space-x-2 text-gray-600 mb-4">
+              <MapPin className="w-5 h-5 mt-1 flex-shrink-0" />
+              <p>{booking.hotel_address || 'ที่อยู่โรงแรม'}</p>
             </div>
           </div>
         </div>
@@ -279,46 +273,29 @@ export default function BookingDetailsPage() {
         {/* Room Information */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-2xl font-semibold text-gray-800 mb-4">ข้อมูลห้องพัก</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div>
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="bg-green-100 p-2 rounded-lg">
-                  <Bed className="w-6 h-6 text-green-600" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-gray-800">
-                    {booking.room_type_name || 'ห้องพัก'}
-                  </h3>
-                  <p className="text-gray-600">ห้องหมายเลข {booking.room_number || 'จะแจ้งในวันเข้าพัก'}</p>
-                </div>
+          <div>
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="bg-green-100 p-2 rounded-lg">
+                <Bed className="w-6 h-6 text-green-600" />
               </div>
-              
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <span className="text-sm text-gray-500">ราคาต่อคืน</span>
-                  <p className="text-lg font-semibold text-green-600">
-                    ฿{booking.room_price?.toLocaleString() || '0'}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-sm text-gray-500">จำนวนผู้เข้าพัก</span>
-                  <p className="text-lg font-semibold">{booking.guests} คน</p>
-                </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-800">
+                  {booking.room_type_name || 'ห้องพัก'}
+                </h3>
+                <p className="text-gray-600">ห้องหมายเลข {booking.room_number || 'จะแจ้งในวันเข้าพัก'}</p>
               </div>
             </div>
             
-            <div>
-              <h4 className="font-semibold text-gray-800 mb-3">สิ่งอำนวยความสะดวกในห้อง</h4>
-              <div className="grid grid-cols-1 gap-2">
-                {roomAmenities.map((amenity, index) => {
-                  const Icon = amenity.icon;
-                  return (
-                    <div key={index} className="flex items-center space-x-2 text-sm text-gray-600">
-                      <Icon className="w-4 h-4 text-blue-500" />
-                      <span>{amenity.label}</span>
-                    </div>
-                  );
-                })}
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <span className="text-sm text-gray-500">ราคาต่อคืน</span>
+                <p className="text-lg font-semibold text-green-600">
+                  ฿{booking.room_price?.toLocaleString() || '0'}
+                </p>
+              </div>
+              <div>
+                <span className="text-sm text-gray-500">จำนวนผู้เข้าพัก</span>
+                <p className="text-lg font-semibold">{booking.guests} คน</p>
               </div>
             </div>
           </div>
@@ -451,40 +428,6 @@ export default function BookingDetailsPage() {
                 )}
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">การดำเนินการ</h2>
-          <div className="flex flex-wrap gap-3">
-            {booking.status === 'pending' && (
-              <button
-                onClick={() => router.push(`/payment-step?bookingId=${booking.id}&amount=${booking.total_price}`)}
-                className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold"
-              >
-                ชำระเงิน
-              </button>
-            )}
-            
-            <button
-              onClick={() => window.print()}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-            >
-              พิมพ์ใบจอง
-            </button>
-            
-            <button
-              className="border border-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-50 transition-colors font-semibold"
-            >
-              ติดต่อโรงแรม
-            </button>
-            
-            <button
-              className="border border-red-300 text-red-700 px-6 py-3 rounded-lg hover:bg-red-50 transition-colors font-semibold"
-            >
-              ขอยกเลิกการจอง
-            </button>
           </div>
         </div>
       </div>

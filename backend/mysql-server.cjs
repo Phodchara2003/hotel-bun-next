@@ -3482,7 +3482,7 @@ const server = createServer(async (req, res) => {
           // Create new user
           try {
             const body = await getRequestBody(req);
-            const { email, password, first_name, last_name, phone, role = 'user' } = body;
+            const { email, password, first_name, last_name, phone, role = 'guest' } = body;
             
             console.log(`👤 Creating new user: ${email}`);
             
@@ -4585,7 +4585,7 @@ const server = createServer(async (req, res) => {
               console.log(`👤 Updating user role: ${userId} -> ${role}`);
               
               // Validate role
-              const validRoles = ['guest', 'staff', 'admin'];
+              const validRoles = ['guest', 'staff', 'manager', 'admin'];
               if (!validRoles.includes(role)) {
                 return sendJSON(res, 400, {
                   success: false,

@@ -585,7 +585,20 @@ export const AuthProvider = ({ children }) => {
     getTimeRemaining: () => {
       const tokenInfo = getTokenInfo();
       return tokenInfo ? tokenInfo.timeRemaining : 0;
-    }
+    },
+
+    // Role checking functions
+    isAdmin: () => user?.role === 'admin',
+    isManager: () => user?.role === 'manager',
+    isStaff: () => user?.role === 'staff',
+    isGuest: () => user?.role === 'guest',
+    
+    // Permission checking functions
+    canManageUsers: () => ['admin', 'manager'].includes(user?.role), // Allow both admin and manager to access user management
+    canViewReports: () => ['admin', 'manager'].includes(user?.role),
+    canManageRooms: () => ['admin', 'staff'].includes(user?.role),
+    canViewDashboard: () => ['admin', 'manager', 'staff'].includes(user?.role),
+    hasReadOnlyAccess: () => user?.role === 'manager'
   };
 
   return (

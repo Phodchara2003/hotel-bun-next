@@ -8,6 +8,7 @@ import LayoutWrapper from '../components/LayoutWrapper'
 import GlobalLanguageThemeHandler from '../components/GlobalLanguageThemeHandler'
 import SessionManager from '../components/auth/SessionManager'
 import { Toaster } from 'react-hot-toast'
+import '../lib/apiMonitor' // Initialize API monitoring
 
 const inter = Inter({ subsets: ['latin'] })
 

@@ -90,8 +90,24 @@ export default function MyBookings() {
       return false;
     }
     
-    // Allow cancellation request for any non-cancelled/completed booking
-    return true;
+    // Check if check-in date has passed
+    const currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0);
+    
+    const checkInDateValue = booking.check_in_date || booking.checkInDate || booking.checkin_date;
+    if (!checkInDateValue) {
+      console.warn('No check-in date found for booking:', booking);
+      return false;
+    }
+    
+    const checkInDate = new Date(checkInDateValue);
+    checkInDate.setHours(0, 0, 0, 0);
+    
+    // Debug log
+    console.log('Booking ID:', booking.id, 'Check-in date:', checkInDate, 'Current date:', currentDate, 'Can cancel:', checkInDate >= currentDate);
+    
+    // Only allow cancellation if check-in date hasn't passed
+    return checkInDate >= currentDate;
   };
 
   const handleCancelBooking = async (bookingId) => {
