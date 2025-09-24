@@ -134,15 +134,20 @@ export default function HomePage() {
         
         // วนลูปผ่านห้องพักทั้งหมดที่มีรูปมากกว่า 1 รูป
         filteredRoomTypes.forEach(room => {
-          if (room.images && Array.isArray(room.images) && room.images.length > 1) {
-            const currentIndex = newIndex[room.id] || 0;
-            newIndex[room.id] = (currentIndex + 1) % room.images.length;
+          if (room.images && Array.isArray(room.images)) {
+            // Filter images same as in render
+            const imageArray = room.images.filter(img => img && typeof img === 'string' && img.trim());
+            
+            if (imageArray.length > 1) {
+              const currentIndex = newIndex[room.id] || 0;
+              newIndex[room.id] = (currentIndex + 1) % imageArray.length;
+            }
           }
         });
         
         return newIndex;
       });
-    }, 3000); // เปลี่ยนรูปทุก 3 วินาที
+    }, 4000); // เปลี่ยนรูปทุก 4 วินาที
 
     return () => clearInterval(interval);
   }, [filteredRoomTypes]);
@@ -520,29 +525,47 @@ export default function HomePage() {
 
                       return imageArray.length > 0 ? (
                         <>
-                          <img 
-                            src={getRoomImageSrc(imageArray[currentImageIndex[room.id] || 0], room.id)}
-                            alt={room.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500"
-                            onLoad={() => {
-                              console.log('✅ Room image loaded successfully:', getRoomImageSrc(imageArray[currentImageIndex[room.id] || 0], room.id));
-                            }}
-                            onError={(e) => {
-                              console.log('❌ Room image failed to load:', e.target.src);
-                              console.log('❌ Available images for room:', room.name, ':', imageArray);
-                              // Try fallback image
-                              const fallbackSrc = getFallbackImageSrc(room.id, room.name);
-                              if (e.target.src !== fallbackSrc) {
-                                console.log('🔄 Trying fallback image:', fallbackSrc);
-                                e.target.src = fallbackSrc;
-                              } else {
-                                // Final fallback to placeholder
-                                console.log('❌ All images failed, showing placeholder');
-                                e.target.style.display = 'none';
-                                e.target.nextSibling.style.display = 'flex';
-                              }
-                            }}
-                          />
+                          {/* Image Slider Container */}
+                          <div className="relative w-full h-full overflow-hidden">
+                            <div 
+                              className="flex transition-transform duration-700 ease-in-out"
+                              style={{
+                                transform: `translateX(-${(currentImageIndex[room.id] || 0) * (100 / imageArray.length)}%)`,
+                                width: `${imageArray.length * 100}%`
+                              }}
+                            >
+                              {imageArray.map((imageName, imageIndex) => (
+                                <div 
+                                  key={`${room.id}-${imageIndex}`}
+                                  className="flex-shrink-0 w-full h-full"
+                                  style={{ width: `${100 / imageArray.length}%` }}
+                                >
+                                  <img 
+                                    src={getRoomImageSrc(imageName, room.id)}
+                                    alt={`${room.name} - รูปที่ ${imageIndex + 1}`}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500"
+                                    onLoad={() => {
+                                      console.log('✅ Room image loaded successfully:', getRoomImageSrc(imageName, room.id));
+                                    }}
+                                    onError={(e) => {
+                                      console.log('❌ Room image failed to load:', e.target.src);
+                                      console.log('❌ Available images for room:', room.name, ':', imageArray);
+                                      // Try fallback image
+                                      const fallbackSrc = getFallbackImageSrc(room.id, room.name);
+                                      if (e.target.src !== fallbackSrc) {
+                                        console.log('🔄 Trying fallback image:', fallbackSrc);
+                                        e.target.src = fallbackSrc;
+                                      } else {
+                                        // Final fallback to placeholder
+                                        console.log('❌ All images failed, showing placeholder');
+                                        e.target.style.display = 'none';
+                                      }
+                                    }}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                           
                           {/* Image Indicators - แสดงเฉพาะเมื่อมีรูปมากกว่า 1 รูป */}
                           {imageArray.length > 1 && (

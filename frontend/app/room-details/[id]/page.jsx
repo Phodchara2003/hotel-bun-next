@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, Users, MapPin, Wifi, Car, Coffee, Tv, Wind, Bed } from 'lucide-react';
+import { ArrowLeft, Calendar, Users, MapPin, Wifi, Car, Coffee, Tv, Wind, Bed, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export default function RoomDetailsPage() {
@@ -12,6 +12,8 @@ export default function RoomDetailsPage() {
   const [room, setRoom] = useState(null);
   const [hotel, setHotel] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const fetchRoomDetails = async () => {
     try {
@@ -154,6 +156,51 @@ export default function RoomDetailsPage() {
     return bedTypes[bedType] || bedType;
   };
 
+  // Image zoom functions
+  const openImageModal = (index) => {
+    setCurrentImageIndex(index);
+    setShowImageModal(true);
+    document.body.style.overflow = 'hidden'; // Prevent background scrolling
+  };
+
+  const closeImageModal = () => {
+    setShowImageModal(false);
+    document.body.style.overflow = 'auto'; // Restore scrolling
+  };
+
+  const goToPreviousImage = () => {
+    setCurrentImageIndex((prevIndex) => 
+      prevIndex === 0 ? room.images.length - 1 : prevIndex - 1
+    );
+  };
+
+  const goToNextImage = () => {
+    setCurrentImageIndex((prevIndex) => 
+      prevIndex === room.images.length - 1 ? 0 : prevIndex + 1
+    );
+  };
+
+  // Close modal on escape key
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        closeImageModal();
+      } else if (event.key === 'ArrowLeft') {
+        goToPreviousImage();
+      } else if (event.key === 'ArrowRight') {
+        goToNextImage();
+      }
+    };
+
+    if (showImageModal) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showImageModal, room?.images?.length]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -215,7 +262,11 @@ export default function RoomDetailsPage() {
           {room.images.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {room.images.map((image, index) => (
-                <div key={index} className="relative aspect-w-16 aspect-h-9 rounded-lg overflow-hidden bg-gray-200">
+                <div 
+                  key={index} 
+                  className="relative aspect-w-16 aspect-h-9 rounded-lg overflow-hidden bg-gray-200 cursor-pointer group"
+                  onClick={() => openImageModal(index)}
+                >
                   <img 
                     src={image} 
                     alt={`${room.name} - รูปที่ ${index + 1}`}
@@ -234,6 +285,16 @@ export default function RoomDetailsPage() {
                       }
                     }}
                   />
+                  {/* Overlay for click indication */}
+                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center">
+                    <div className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <div className="bg-black bg-opacity-50 rounded-full p-2">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
                   <div className="absolute inset-0 hidden items-center justify-center bg-gradient-to-br from-blue-100 to-blue-200 text-blue-600">
                     <div className="text-center">
                       <Calendar className="h-8 w-8 mx-auto mb-1" />
@@ -353,6 +414,82 @@ export default function RoomDetailsPage() {
           </div>
         </div>
       </div>
+
+      {/* Image Modal */}
+      {showImageModal && room && room.images && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90" onClick={closeImageModal}>
+          <div className="relative max-w-7xl max-h-full p-4" onClick={(e) => e.stopPropagation()}>
+            {/* Close button */}
+            <button
+              onClick={closeImageModal}
+              className="absolute top-4 right-4 z-10 text-white hover:text-gray-300 transition-colors"
+            >
+              <X className="h-8 w-8" />
+            </button>
+
+            {/* Navigation buttons */}
+            {room.images.length > 1 && (
+              <>
+                <button
+                  onClick={goToPreviousImage}
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 text-white hover:text-gray-300 transition-colors"
+                >
+                  <ChevronLeft className="h-10 w-10" />
+                </button>
+                <button
+                  onClick={goToNextImage}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 z-10 text-white hover:text-gray-300 transition-colors"
+                >
+                  <ChevronRight className="h-10 w-10" />
+                </button>
+              </>
+            )}
+
+            {/* Main image */}
+            <div className="flex items-center justify-center">
+              <img
+                src={room.images[currentImageIndex]}
+                alt={`${room.name} - รูปที่ ${currentImageIndex + 1}`}
+                className="max-w-full max-h-screen object-contain"
+                onError={(e) => {
+                  console.log('❌ Modal image failed to load:', e.target.src);
+                  const fallbackImages = ['/images/rooms/room1.jpg', '/images/rooms/room2.jpg', '/images/rooms/suite1.jpg'];
+                  const fallbackSrc = fallbackImages[currentImageIndex % fallbackImages.length] || '/images/rooms/placeholder.svg';
+                  if (e.target.src !== fallbackSrc) {
+                    e.target.src = fallbackSrc;
+                  }
+                }}
+              />
+            </div>
+
+            {/* Image counter */}
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white text-sm bg-black bg-opacity-50 rounded-full px-3 py-1">
+              {currentImageIndex + 1} / {room.images.length}
+            </div>
+
+            {/* Thumbnail strip */}
+            {room.images.length > 1 && (
+              <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 flex space-x-2 bg-black bg-opacity-50 rounded-lg p-2">
+                {room.images.map((image, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentImageIndex(index)}
+                    className={`w-12 h-12 rounded border-2 overflow-hidden ${
+                      index === currentImageIndex ? 'border-white' : 'border-gray-400 opacity-60'
+                    }`}
+                  >
+                    <img
+                      src={image}
+                      alt={`Thumbnail ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
