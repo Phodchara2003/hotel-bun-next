@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Calendar, MapPin, Users, Wifi, Car, Coffee, Tv, Wind, Phone, Mail, Globe, Facebook, MessageCircle, Bed, Square } from 'lucide-react';
+import { Calendar, MapPin, Users, Wifi, Car, Coffee, Tv, Wind, Phone, Mail, Globe, Facebook, MessageCircle, Bed, Square, Bell } from 'lucide-react';
 import { hotelAPI } from '../lib/api';
 import { getRoomImageUrl, getFallbackRoomImages, getPlaceholderImageUrl, getRoomImageUrlWithCache } from '../lib/imageUtils';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,15 +16,521 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [contactInfo, setContactInfo] = useState(null);
   const [selectedBedType, setSelectedBedType] = useState('');
+  const [selectedGuests, setSelectedGuests] = useState('');
   const [checkInDate, setCheckInDate] = useState('');
   const [checkOutDate, setCheckOutDate] = useState('');
   const [availabilityMessage, setAvailabilityMessage] = useState('');
+  
+  // State สำหรับการแจ้งเตือน (แยกระหว่างใหม่และเก่า)
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [newNotificationsCount, setNewNotificationsCount] = useState(0); // เฉพาะการแจ้งเตือนใหม่
+  const [lastSeenNotificationTime, setLastSeenNotificationTime] = useState(Date.now().toString());
+  
+  // Helper function สำหรับการเรียกใช้ localStorage อย่างปลอดภัย
+  const safeLocalStorage = {
+    getItem: (key) => {
+      if (typeof window !== 'undefined') {
+        return localStorage.getItem(key);
+      }
+      return null;
+    },
+    setItem: (key, value) => {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(key, value);
+      }
+    },
+    removeItem: (key) => {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(key);
+      }
+    }
+  };
+
+  const safeSessionStorage = {
+    getItem: (key) => {
+      if (typeof window !== 'undefined') {
+        return sessionStorage.getItem(key);
+      }
+      return null;
+    }
+  };
+
+  // Helper function สำหรับดึง auth token
+  const getAuthToken = () => {
+    return safeLocalStorage.getItem('auth_token') || 
+           safeLocalStorage.getItem('auth_token_persistent') ||
+           safeSessionStorage.getItem('auth_token');
+  };
   
   // State สำหรับการเลื่อนรูปอัตโนมัติ
   const [currentImageIndex, setCurrentImageIndex] = useState({});
   
   // รายการประเภทเตียงทั้งหมดที่คงที่ (เฉพาะที่มีในระบบ)
   const allBedTypes = ['single', 'double'];
+
+  // ฟังก์ชันกรองห้องพักตามเงื่อนไข
+  const applyRoomFilters = (rooms, bedType = '', guestCount = '') => {
+    if (!rooms || rooms.length === 0) return [];
+    
+    let filtered = rooms;
+    
+    // กรองตามประเภทเตียง
+    if (bedType) {
+      filtered = filtered.filter(room => room.bed_type === bedType);
+    }
+    
+    // กรองตามจำนวนผู้เข้าพัก - ใช้ max_guests จากฐานข้อมูล
+    if (guestCount) {
+      const requestedGuests = parseInt(guestCount);
+      filtered = filtered.filter(room => {
+        const maxGuests = parseInt(room.max_guests) || parseInt(room.maxGuests) || 2;
+        return maxGuests >= requestedGuests;
+      });
+    }
+    
+    return filtered;
+  };
+
+  // ฟังก์ชันจัดการการแจ้งเตือน
+  const fetchNotifications = async (unreadOnly = false) => {
+    if (!user) return;
+
+    try {
+      // ดึง token จาก localStorage หรือ sessionStorage
+      const token = getAuthToken();
+
+      if (!token) {
+        console.log('No auth token found for notifications');
+        return;
+      }
+
+      const url = `http://localhost:3001/api/notifications${unreadOnly ? '?unread_only=true' : ''}`;
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.notifications) {
+          const previousCount = unreadCount;
+          const notifications = data.notifications.map(n => ({
+            id: n.id,
+            type: n.type,
+            title: n.title,
+            message: n.message,
+            read: n.isRead,
+            createdAt: n.createdAt,
+            updatedAt: n.updatedAt,
+            booking: n.booking
+          }));
+          
+          setNotifications(notifications);
+          const unread = notifications.filter(n => !n.read).length;
+          
+          // ตรวจสอบว่าเพิ่งล้างการแจ้งเตือนไปหรือไม่
+          const clearedAt = safeLocalStorage.getItem('notifications_cleared_at');
+          const now = Date.now();
+          
+          if (clearedAt && (now - parseInt(clearedAt)) < 30000) {
+            // เพิ่งล้างไปไม่เกิน 30 วินาที
+            console.log('⏰ Recently cleared notifications, forcing 0 count');
+            setUnreadCount(0);
+          } else {
+            setUnreadCount(unread);
+            
+            // ถ้ามีการแจ้งเตือนใหม่ ให้ลบสถานะการล้าง
+            if (unread > 0) {
+              safeLocalStorage.removeItem('notifications_cleared_at');
+            }
+          }
+          
+          // แสดง toast เมื่อมีการแจ้งเตือนใหม่เข้ามา (เพิ่มขึ้นจากเดิม)
+          const displayedUnread = (clearedAt && (now - parseInt(clearedAt)) < 30000) ? 0 : unread;
+          if (previousCount > 0 && displayedUnread > previousCount && !unreadOnly) {
+            toast.info(`🔔 มีการแจ้งเตือนใหม่ ${displayedUnread - previousCount} รายการ`);
+          }
+          
+          console.log(`📨 Loaded ${notifications.length} notifications, ${unread} unread`);
+        } else if (data.success && data.data) {
+          // Legacy data format support
+          const previousCount = unreadCount;
+          setNotifications(data.data);
+          const unread = data.data.filter(n => !n.read).length;
+          setUnreadCount(unread);
+          
+          if (previousCount > 0 && unread > previousCount && !unreadOnly) {
+            toast.info(`🔔 มีการแจ้งเตือนใหม่ ${unread - previousCount} รายการ`);
+          }
+        }
+      } else if (response.status === 401) {
+        console.log('Token expired or invalid for notifications');
+      }
+    } catch (error) {
+      console.log('Could not fetch notifications:', error);
+    }
+  };
+
+  // ลบ lastNotificationCheck เก่าออก เนื่องจากใช้ lastSeenNotificationTime แทนแล้ว
+
+  const checkForNewNotifications = async () => {
+    if (!user || isRefreshing) return;
+
+    try {
+      const token = getAuthToken();
+      if (!token) return;
+
+      // ดึงการแจ้งเตือนที่สร้างหลังจาก lastSeenNotificationTime
+      const response = await fetch(`http://localhost:3001/api/notifications?limit=10&created_after=${lastSeenNotificationTime}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const newNotifications = data.data || data.notifications || [];
+        
+        // กรองเฉพาะการแจ้งเตือนใหม่จริงๆ (หลังจาก lastSeenNotificationTime)
+        const actualNewNotifications = newNotifications.filter(n => {
+          const notificationTime = new Date(n.createdAt || n.created_at).getTime();
+          return notificationTime > parseInt(lastSeenNotificationTime);
+        });
+
+        if (actualNewNotifications.length > 0) {
+          // มีการแจ้งเตือนใหม่จริงๆ
+          const newCount = actualNewNotifications.filter(n => !n.read && !n.isRead).length;
+          
+          if (newCount > 0) {
+            setNewNotificationsCount(newCount);
+            
+            toast.info(`🔔 มีการแจ้งเตือนใหม่ ${newCount} รายการ`, {
+              position: "top-right",
+              autoClose: 5000,
+            });
+          }
+          
+          // อัปเดต timestamp ล่าสุด
+          const latestNotificationTime = Math.max(
+            ...actualNewNotifications.map(n => new Date(n.createdAt || n.created_at).getTime())
+          );
+          
+          const newTimestamp = latestNotificationTime.toString();
+          setLastSeenNotificationTime(newTimestamp);
+          safeLocalStorage.setItem('last_seen_notification_time', newTimestamp);
+          
+          console.log(`📨 Found ${actualNewNotifications.length} new notifications, ${newCount} unread`);
+        }
+      }
+    } catch (error) {
+      console.log('Could not check for new notifications:', error);
+    }
+  };
+
+  const fetchUnreadCount = async () => {
+    if (!user || isRefreshing) return;
+
+    // ตรวจสอบ cooldown
+    const now = Date.now();
+    if (now - lastFetchTime < FETCH_COOLDOWN) {
+      console.log(`⏳ Skipping fetch, cooldown active (${Math.ceil((FETCH_COOLDOWN - (now - lastFetchTime)) / 1000)}s remaining)`);
+      return;
+    }
+
+    setIsRefreshing(true);
+    setLastFetchTime(now);
+
+    try {
+      const token = getAuthToken();
+
+      if (!token) {
+        setIsRefreshing(false);
+        return;
+      }
+
+      const response = await fetch('http://localhost:3001/api/notifications/unread-count', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const actualUnreadCount = data.unreadCount || 0;
+        
+        // ตรวจสอบว่าเพิ่งล้างการแจ้งเตือนไปหรือไม่
+        const clearedAt = safeLocalStorage.getItem('notifications_cleared_at');
+        const now = Date.now();
+        
+        // ถ้าเพิ่งล้างไปไม่เกิน 30 วินาที ให้ใช้ค่า 0
+        if (clearedAt && (now - parseInt(clearedAt)) < 30000) {
+          console.log('⏰ Recently cleared notifications, showing 0 count');
+          setUnreadCount(0);
+        } else {
+          setUnreadCount(actualUnreadCount);
+          
+          // ถ้ามีการแจ้งเตือนใหม่ ให้ลบสถานะการล้าง
+          if (actualUnreadCount > 0) {
+            safeLocalStorage.removeItem('notifications_cleared_at');
+          }
+        }
+        
+        console.log(`📊 Unread count refreshed: ${actualUnreadCount} (displayed: ${clearedAt && (now - parseInt(clearedAt)) < 30000 ? 0 : actualUnreadCount})`);
+      } else if (response.status === 401) {
+        console.log('🔐 Token expired, clearing notification state');
+        setUnreadCount(0);
+        setNotifications([]);
+      }
+    } catch (error) {
+      console.log('Could not fetch unread count:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const markNotificationAsRead = async (notificationId) => {
+    try {
+      const token = getAuthToken();
+
+      if (!token) return;
+
+      const response = await fetch(`http://localhost:3001/api/notifications/${notificationId}/read`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        setNotifications(prev => 
+          prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+        );
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.log('Could not mark notification as read:', error);
+    }
+  };
+
+  const markAllNotificationsAsRead = async () => {
+    try {
+      const token = getAuthToken();
+
+      if (!token) {
+        console.log('❌ No token found for marking notifications as read');
+        return false;
+      }
+
+      const unreadNotifications = notifications.filter(n => !n.read);
+      
+      if (unreadNotifications.length === 0) {
+        console.log('ℹ️ No unread notifications to mark as read');
+        return true;
+      }
+
+      console.log(`🔄 Marking ${unreadNotifications.length} notifications as read...`);
+
+      // ใช้ endpoint สำหรับทำเครื่องหมายอ่านทั้งหมด
+      const response = await fetch(`http://localhost:3001/api/notifications/read-all`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('🎯 Backend response:', result);
+        
+        // อัปเดต state
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        setUnreadCount(0);
+        
+        console.log(`✅ Successfully marked ${result.updatedCount || unreadNotifications.length} notifications as read via bulk endpoint`);
+        
+        // บันทึกเวลาที่ทำเครื่องหมายอ่าน
+        safeLocalStorage.setItem('last_mark_read_time', Date.now().toString());
+        
+        return true;
+      } else {
+        console.error('❌ Failed to mark all notifications as read:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('Error details:', errorText);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Exception while marking all notifications as read:', error);
+      return false;
+    }
+  };
+
+  const handleNotificationDropdownToggle = async () => {
+    if (!showNotifications) {
+      // เมื่อเปิด dropdown
+      console.log('📂 Opening notification dropdown...');
+      
+      // โหลดการแจ้งเตือนทั้งหมด (รวมเก่า) เสมอ
+      await fetchNotifications();
+      setShowNotifications(true);
+      
+      // ล้างตัวเลขการแจ้งเตือนใหม่เมื่อเปิดดู
+      if (newNotificationsCount > 0) {
+        const now = Date.now().toString();
+        setNewNotificationsCount(0);
+        setLastSeenNotificationTime(now);
+        safeLocalStorage.setItem('last_seen_notification_time', now);
+        console.log('👁️ Marked new notifications as seen');
+      }
+    } else {
+      // เมื่อปิด dropdown
+      setShowNotifications(false);
+    }
+  };
+
+  const clearAllNotifications = async () => {
+    try {
+      console.log('🗑️ Clearing notification display (keeping notifications in database)...');
+      
+      // ล้างเฉพาะตัวเลขการแจ้งเตือนใหม่ โดยไม่ลบการแจ้งเตือนออกจากฐานข้อมูล
+      setNewNotificationsCount(0);
+      setShowNotifications(false);
+      
+      // อัปเดต timestamp ให้เป็นปัจจุบัน เพื่อไม่แสดงการแจ้งเตือนที่มีอยู่แล้วเป็นใหม่
+      const now = Date.now().toString();
+      setLastSeenNotificationTime(now);
+      safeLocalStorage.setItem('last_seen_notification_time', now);
+      
+      console.log('✅ Notification counter cleared, but notifications preserved in database');
+      
+      // แสดง message ให้ผู้ใช้ทราบ
+      toast.info('ตัวเลขการแจ้งเตือนถูกล้างแล้ว การแจ้งเตือนยังคงอยู่ในระบบ', {
+        position: "top-right",
+        autoClose: 3000,
+      });
+      
+    } catch (error) {
+      console.log('Could not clear notification display:', error);
+    }
+  };
+
+  // ปิด notification dropdown เมื่อคลิกข้างนอก
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.notification-dropdown')) {
+        setShowNotifications(false);
+      }
+    };
+
+    if (showNotifications) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showNotifications]);
+
+  // ตัวแปรสำหรับควบคุมการเรียก API
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastFetchTime, setLastFetchTime] = useState(0);
+  const FETCH_COOLDOWN = 5000; // 5 วินาที cooldown ระหว่างการเรียก API
+
+  // ตรวจสอบการแจ้งเตือนใหม่เป็นระยะ (ปรับปรุงประสิทธิภาพ)
+  useEffect(() => {
+    if (!user) return;
+
+    // โหลดจำนวนการแจ้งเตือนที่ยังไม่ได้อ่านครั้งแรก
+    fetchUnreadCount();
+
+    // ใช้ interval ที่ยาวขึ้นเพื่อประหยัดทรัพยากร (30 วินาที)
+    const intervalId = setInterval(() => {
+      const now = Date.now();
+      // ตรวจสอบ cooldown ก่อนเรียก API
+      if (now - lastFetchTime > FETCH_COOLDOWN && !isRefreshing) {
+        fetchUnreadCount();
+      }
+    }, 30000); // เพิ่มจาก 10 วินาที เป็น 30 วินาที
+
+    // ตรวจสอบการแจ้งเตือนใหม่ทุก 60 วินาที (แยกจากการดึงจำนวน)
+    const newNotificationCheckId = setInterval(() => {
+      checkForNewNotifications();
+    }, 60000);
+
+    return () => {
+      clearInterval(intervalId);
+      clearInterval(newNotificationCheckId);
+    };
+  }, [user, lastFetchTime, isRefreshing, lastSeenNotificationTime]);
+
+  // เพิ่ม focus event ให้โหลดการแจ้งเตือนเมื่อกลับมาที่หน้าต่าง (ปรับปรุง)
+  useEffect(() => {
+    if (!user) return;
+
+    const handleFocus = () => {
+      const now = Date.now();
+      // ตรวจสอบ cooldown ก่อนเรียก API
+      if (now - lastFetchTime > FETCH_COOLDOWN && !isRefreshing) {
+        fetchUnreadCount();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        handleFocus();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [user]);
+
+  // ฟังก์ชันสำหรับการค้นหา/กรองแบบ manual
+  const handleSearch = () => {
+    const filtered = applyRoomFilters(roomTypes, selectedBedType, selectedGuests);
+    setFilteredRoomTypes(filtered);
+    
+    console.log('🔍 Manual search applied:');
+    console.log('  - Bed type:', selectedBedType || 'ทั้งหมด');
+    console.log('  - Guests:', selectedGuests || 'ไม่ระบุ');
+    console.log('  - Results:', filtered.length, '/', roomTypes.length);
+    
+    // แสดงข้อความแจ้งผลการค้นหา
+    if (filtered.length === 0) {
+      setAvailabilityMessage('ไม่พบห้องพักที่ตรงกับเงื่อนไขที่ระบุ');
+    } else {
+      setAvailabilityMessage(`พบห้องพักที่ตรงกับเงื่อนไข ${filtered.length} ห้อง`);
+    }
+  };
+
+  // ฟังก์ชันล้างตัวกรอง
+  const clearFilters = () => {
+    setSelectedBedType('');
+    setSelectedGuests('');
+    setFilteredRoomTypes(roomTypes);
+    setAvailabilityMessage('');
+    console.log('🧹 Filters cleared');
+  };
+
+  // โหลด lastSeenNotificationTime จาก localStorage หลัง component mount
+  useEffect(() => {
+    const savedTime = safeLocalStorage.getItem('last_seen_notification_time');
+    if (savedTime) {
+      setLastSeenNotificationTime(savedTime);
+    }
+  }, []);
 
   // แสดงสถานะ authentication ใน console
   useEffect(() => {
@@ -203,10 +709,14 @@ export default function HomePage() {
         }));
         
         setRoomTypes(roomTypesWithUniformPricing);
-        setFilteredRoomTypes(roomTypesWithUniformPricing);
+        // ใช้ฟังก์ชันกรองใหม่แทนการตั้งค่าโดยตรง
+        const filtered = applyRoomFilters(roomTypesWithUniformPricing, selectedBedType, selectedGuests);
+        setFilteredRoomTypes(filtered);
         
         console.log('✅ Homepage: Data loaded successfully from direct API calls');
         console.log('🛏️ Available bed types:', allBedTypes);
+        console.log('🔍 Applied filters - Bed type:', selectedBedType, 'Guests:', selectedGuests);
+        console.log('📊 Total rooms:', roomTypesWithUniformPricing.length, 'Filtered rooms:', filtered.length);
       } else {
         throw new Error('API response failed');
       }
@@ -222,7 +732,9 @@ export default function HomePage() {
       }));
       
       setRoomTypes(fallbackRoomsWithUniformPricing);
-      setFilteredRoomTypes(fallbackRoomsWithUniformPricing);
+      // ใช้ฟังก์ชันกรองสำหรับ fallback data ด้วย
+      const filteredFallback = applyRoomFilters(fallbackRoomsWithUniformPricing, selectedBedType, selectedGuests);
+      setFilteredRoomTypes(filteredFallback);
       // ไม่แสดง toast error เพราะ user ยังได้เห็นข้อมูลอยู่
     } finally {
       setIsLoading(false);
@@ -267,9 +779,39 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    fetchHotelAndRooms();
-    fetchContactInfo();
-  }, []);
+    const initialLoad = async () => {
+      await fetchHotelAndRooms();
+      await fetchContactInfo();
+      if (user) {
+        await fetchNotifications();
+      }
+    };
+    
+    initialLoad();
+  }, [user]);
+
+  // ตรวจสอบการแจ้งเตือนใหม่ทุก ๆ 30 วินาที (สำหรับลูกค้า)
+  useEffect(() => {
+    if (!user) return;
+
+    const interval = setInterval(() => {
+      fetchNotifications();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [user]);
+
+  // ปิด notification dropdown เมื่อคลิกนอกพื้นที่
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showNotifications && !event.target.closest('.notification-dropdown')) {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showNotifications]);
 
   // Refresh data when page gets focus to show latest room images
   useEffect(() => {
@@ -284,16 +826,39 @@ export default function HomePage() {
     return () => window.removeEventListener('focus', handleFocus);
   }, [isLoading]);
 
+  // ฟังก์ชันกรองห้องพักตามเงื่อนไขที่เลือก
+  const filterRooms = () => {
+    let filtered = [...roomTypes];
+
+    // กรองตามประเภทเตียง
+    if (selectedBedType) {
+      filtered = filtered.filter(room => room.bed_type === selectedBedType);
+    }
+
+    // กรองตามจำนวนผู้เข้าพัก
+    if (selectedGuests) {
+      const guestCount = parseInt(selectedGuests);
+      filtered = filtered.filter(room => {
+        const maxGuests = room.max_guests || room.maxGuests || 2;
+        return maxGuests >= guestCount;
+      });
+    }
+
+    setFilteredRoomTypes(filtered);
+  };
+
+  // อัปเดตการกรองเมื่อมีการเปลี่ยนแปลงตัวเลือก
+  useEffect(() => {
+    if (roomTypes.length > 0) {
+      filterRooms();
+    }
+  }, [selectedBedType, selectedGuests, roomTypes]);
+
   // ฟังก์ชันตรวจสอบความพร้อมของห้องพัก
   const checkRoomAvailability = async () => {
     if (!checkInDate || !checkOutDate) {
-      // หากไม่มีวันที่ ให้แสดงห้องพักทั้งหมด
-      if (selectedBedType === '') {
-        setFilteredRoomTypes(roomTypes);
-      } else {
-        const filtered = roomTypes.filter(room => room.bed_type === selectedBedType);
-        setFilteredRoomTypes(filtered);
-      }
+      // หากไม่มีวันที่ ให้ใช้ฟังก์ชันกรองปกติ
+      filterRooms();
       setAvailabilityMessage('');
       return;
     }
@@ -306,7 +871,7 @@ export default function HomePage() {
     }
 
     try {
-      console.log('🔍 Checking availability for:', { checkInDate, checkOutDate, selectedBedType });
+      console.log('🔍 Checking availability for:', { checkInDate, checkOutDate, selectedBedType, selectedGuests });
       
       let apiUrl = `http://localhost:3001/api/check-room-availability?check_in_date=${checkInDate}&check_out_date=${checkOutDate}`;
       if (selectedBedType) {
@@ -332,14 +897,28 @@ export default function HomePage() {
           }
 
           // Apply uniform pricing to available rooms
-          const roomsWithUniformPricing = result.data.map(room => ({
+          let roomsWithUniformPricing = result.data.map(room => ({
             ...room,
             price: uniformPrice
           }));
 
-          setAvailabilityMessage(`✅ พบห้องว่าง ${result.data.length} ห้อง ในช่วงวันที่ ${checkInDate} ถึง ${checkOutDate}`);
-          setFilteredRoomTypes(roomsWithUniformPricing);
-          console.log('🖼️ Available rooms with images:', roomsWithUniformPricing);
+          // เพิ่มการกรองตามจำนวนผู้เข้าพักสำหรับห้องที่ว่าง
+          if (selectedGuests) {
+            const guestCount = parseInt(selectedGuests);
+            roomsWithUniformPricing = roomsWithUniformPricing.filter(room => {
+              const maxGuests = room.max_guests || room.maxGuests || 2;
+              return maxGuests >= guestCount;
+            });
+          }
+
+          if (roomsWithUniformPricing.length === 0) {
+            setAvailabilityMessage('❌ ไม่มีห้องที่รองรับจำนวนผู้เข้าพักที่เลือกในช่วงวันที่นี้');
+            setFilteredRoomTypes([]);
+          } else {
+            setAvailabilityMessage(`✅ พบห้องว่าง ${roomsWithUniformPricing.length} ห้อง ในช่วงวันที่ ${checkInDate} ถึง ${checkOutDate}`);
+            setFilteredRoomTypes(roomsWithUniformPricing);
+            console.log('🖼️ Available rooms with images:', roomsWithUniformPricing);
+          }
         }
       } else {
         setAvailabilityMessage('❌ เกิดข้อผิดพลาดในการตรวจสอบความพร้อม');
@@ -352,10 +931,24 @@ export default function HomePage() {
     }
   };
 
-  // กรองห้องพักตามเงื่อนไขต่างๆ
+  // กรองห้องพักอัตโนมัติเมื่อมีการเปลี่ยนแปลงตัวกรองหรือข้อมูลห้อง
   useEffect(() => {
-    checkRoomAvailability();
-  }, [selectedBedType, checkInDate, checkOutDate, roomTypes]);
+    if (roomTypes.length > 0) {
+      const filtered = applyRoomFilters(roomTypes, selectedBedType, selectedGuests);
+      setFilteredRoomTypes(filtered);
+      
+      // อัปเดตข้อความสถานะ
+      if (selectedBedType || selectedGuests) {
+        if (filtered.length === 0) {
+          setAvailabilityMessage('ไม่พบห้องพักที่ตรงกับเงื่อนไขที่ระบุ');
+        } else {
+          setAvailabilityMessage(`พบห้องพักที่ตรงกับเงื่อนไข ${filtered.length} ห้อง`);
+        }
+      } else {
+        setAvailabilityMessage('');
+      }
+    }
+  }, [selectedBedType, selectedGuests, roomTypes]);
 
   if (isLoading) {
     return (
@@ -388,11 +981,94 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold text-blue-600">
-                ห้องพักพร้อม {roomTypes.length} ประเภท
-              </p>
-              <p className="text-sm text-gray-500">ราคาเริ่มต้น ฿{roomTypes.length > 0 ? Math.min(...roomTypes.map(r => getPrice(r))).toLocaleString() : '1,500'}</p>
+            <div className="flex items-center space-x-6">
+              {/* Notification Bell - สำหรับลูกค้าที่ล็อกอินแล้ว */}
+              {user && (
+                <div className="relative notification-dropdown">
+                  <button
+                    onClick={handleNotificationDropdownToggle}
+                    className="relative p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                  >
+                    <Bell className="h-6 w-6" />
+                    {newNotificationsCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                        {newNotificationsCount > 9 ? '9+' : newNotificationsCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Notification Dropdown */}
+                  {showNotifications && (
+                    <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                      <div className="p-4 border-b border-gray-200">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-semibold text-gray-900">การแจ้งเตือน</h3>
+                          {notifications.length > 0 && (
+                            <button
+                              onClick={clearAllNotifications}
+                              className="text-sm text-red-600 hover:text-red-800"
+                            >
+                              ล้างทั้งหมด
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="max-h-96 overflow-y-auto">
+                        {notifications.length > 0 ? (
+                          notifications.slice(0, 10).map((notification) => (
+                            <div
+                              key={notification.id}
+                              className="p-4 border-b border-gray-100 hover:bg-gray-50"
+                            >
+                              <div className="flex items-start space-x-3">
+                                <div className={`w-2 h-2 rounded-full mt-2 ${
+                                  !notification.read ? 'bg-blue-500' : 'bg-transparent'
+                                }`}></div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-900">
+                                    {notification.title}
+                                  </p>
+                                  <p className="text-sm text-gray-600 mt-1">
+                                    {notification.message}
+                                  </p>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    {new Date(notification.created_at).toLocaleString('th-TH')}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="p-4 text-center text-gray-500">
+                            <Bell className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                            <p>ไม่มีการแจ้งเตือนใหม่</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {notifications.length > 10 && (
+                        <div className="p-3 border-t border-gray-200 text-center">
+                          <Link 
+                            href="/notifications"
+                            className="text-sm text-blue-600 hover:text-blue-800"
+                            onClick={() => setShowNotifications(false)}
+                          >
+                            ดูการแจ้งเตือนทั้งหมด
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="text-right">
+                <p className="text-2xl font-bold text-blue-600">
+                  ห้องพักพร้อม {roomTypes.length} ประเภท
+                </p>
+                <p className="text-sm text-gray-500">ราคาเริ่มต้น ฿{roomTypes.length > 0 ? Math.min(...roomTypes.map(r => getPrice(r))).toLocaleString() : '1,500'}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -420,11 +1096,22 @@ export default function HomePage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">จำนวนผู้เข้าพัก</label>
-              <select className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                <option value="1">1 คน</option>
-                <option value="2">2 คน</option>
-                <option value="3">3 คน</option>
-                <option value="4">4 คน</option>
+              <select 
+                value={selectedGuests}
+                onChange={(e) => setSelectedGuests(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">ทุกจำนวน</option>
+                {(() => {
+                  // คำนวณจำนวนผู้เข้าพักสูงสุดจากฐานข้อมูล room_types
+                  const maxGuestsFromDB = roomTypes.length > 0 
+                    ? Math.max(...roomTypes.map(r => parseInt(r.max_guests) || parseInt(r.maxGuests) || 2))
+                    : 8; // fallback เป็น 8 ถ้าไม่มีข้อมูล
+                  
+                  return Array.from({ length: maxGuestsFromDB }, (_, i) => i + 1).map(num => (
+                    <option key={num} value={num}>{num} คน</option>
+                  ));
+                })()}
               </select>
             </div>
             <div>
@@ -443,13 +1130,35 @@ export default function HomePage() {
               </select>
             </div>
             <div className="flex items-end">
-              <Link 
-                href="/booking-step" 
+              <button 
+                onClick={handleSearch}
                 className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-center font-semibold"
               >
                 ค้นหาห้องพัก
-              </Link>
+              </button>
             </div>
+          </div>
+          
+          {/* Filter Status and Clear Button */}
+          <div className="flex items-center justify-between mt-4">
+            <div className="text-sm text-gray-600">
+              {selectedBedType || selectedGuests ? (
+                <span>
+                  ตัวกรองที่ใช้: {selectedBedType && <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs mr-1">{getBedTypeLabel(selectedBedType)}</span>}
+                  {selectedGuests && <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs mr-1">{selectedGuests} คน</span>}
+                </span>
+              ) : (
+                <span>แสดงห้องพักทั้งหมด</span>
+              )}
+            </div>
+            {(selectedBedType || selectedGuests) && (
+              <button 
+                onClick={clearFilters}
+                className="text-sm text-red-600 hover:text-red-800 font-medium"
+              >
+                ล้างตัวกรอง
+              </button>
+            )}
           </div>
         </div>
 
@@ -468,14 +1177,20 @@ export default function HomePage() {
         {filteredRoomTypes.length > 0 ? (
           <div>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-gray-900">
-                ประเภทห้องพัก
-                {selectedBedType && (
-                  <span className="text-lg font-normal text-blue-600 ml-2">
-                    ({getBedTypeLabel(selectedBedType)})
-                  </span>
-                )}
-              </h3>
+              <div>
+                <h3 className="text-2xl font-bold text-gray-900">
+                  ประเภทห้องพัก
+                  {selectedBedType && (
+                    <span className="text-lg font-normal text-blue-600 ml-2">
+                      ({getBedTypeLabel(selectedBedType)})
+                    </span>
+                  )}
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  พบห้องพัก {filteredRoomTypes.length} ห้อง
+                  {selectedGuests && ` ที่รองรับ ${selectedGuests} คน`}
+                </p>
+              </div>
               <div className="text-sm text-gray-600">
                 <p className="text-gray-600 mb-4">
                   ราคาเริ่มต้น ฿{filteredRoomTypes.length > 0 ? Math.min(...filteredRoomTypes.map(r => getPrice(r))).toLocaleString() : '1,500'} - ฿{filteredRoomTypes.length > 0 ? Math.max(...filteredRoomTypes.map(r => getPrice(r))).toLocaleString() : '2,500'}
@@ -707,15 +1422,15 @@ export default function HomePage() {
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">ไม่พบห้องพักที่ตรงกับเงื่อนไข</h3>
             <p className="text-gray-600 mb-4">
-              {selectedBedType ? 
-                `ไม่มีห้องพักประเภท${getBedTypeLabel(selectedBedType)}ในขณะนี้` : 
+              {(selectedBedType || selectedGuests) ? 
+                `ไม่มีห้องพัก${selectedBedType ? `ประเภท${getBedTypeLabel(selectedBedType)}` : ''}${selectedGuests ? `ที่รองรับ ${selectedGuests} คน` : ''} ในขณะนี้` : 
                 'ขณะนี้ยังไม่มีข้อมูลห้องพักในระบบ'
               }
             </p>
             <div className="space-x-4">
-              {selectedBedType && (
+              {(selectedBedType || selectedGuests) && (
                 <button
-                  onClick={() => setSelectedBedType('')}
+                  onClick={clearFilters}
                   className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
                 >
                   แสดงห้องทั้งหมด

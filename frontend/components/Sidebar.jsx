@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { 
   Hotel, Calendar, User, Users, Settings, BarChart3, 
   DollarSign, MessageSquare, Star, LogOut, Menu, X, 
-  ChevronRight, Bed, CreditCard, Bell, Home,
+  ChevronRight, Bed, CreditCard, Home,
   Shield, UserCheck, FileText, Database, UserPlus
 } from 'lucide-react';
 import { useTranslation } from '../translations';
@@ -71,13 +71,6 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }) {
       icon: Calendar,
       href: '/my-bookings',
       active: pathname === '/my-bookings'
-    },
-    {
-      key: 'notifications',
-      label: 'การแจ้งเตือน',
-      icon: Bell,
-      href: '/notifications',
-      active: pathname === '/notifications'
     }
   ];
 

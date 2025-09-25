@@ -27,11 +27,54 @@ export default function AdminDashboard() {
   // Weekly revenue filter
   const [weeklyRevenueFilter, setWeeklyRevenueFilter] = useState('7days'); // 7days, 30days, 3months
   
-  // Notifications state
+  // Helper functions for localStorage (SSR safe)
+  const safeLocalStorage = {
+    getItem: (key) => {
+      if (typeof window !== 'undefined') {
+        return localStorage.getItem(key);
+      }
+      return null;
+    },
+    setItem: (key, value) => {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(key, value);
+      }
+    },
+    removeItem: (key) => {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(key);
+      }
+    }
+  };
+
+  const safeSessionStorage = {
+    getItem: (key) => {
+      if (typeof window !== 'undefined') {
+        return sessionStorage.getItem(key);
+      }
+      return null;
+    }
+  };
+
+  // Helper function สำหรับดึง auth token
+  const getAuthToken = () => {
+    return safeLocalStorage.getItem('auth_token') || 
+           safeLocalStorage.getItem('auth_token_persistent') ||
+           safeSessionStorage.getItem('auth_token');
+  };
+  
+  // Notifications state (แยกระหว่างใหม่และเก่า) - เหมือนในหน้าหลัก
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const [lastBookingCount, setLastBookingCount] = useState(0);
+  const [newNotificationsCount, setNewNotificationsCount] = useState(0); // เฉพาะการแจ้งเตือนใหม่
+  const [lastSeenNotificationTime, setLastSeenNotificationTime] = useState(Date.now().toString());
+  
+  // ตัวแปรสำหรับควบคุมการเรียก API
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastFetchTime, setLastFetchTime] = useState(0);
+  const FETCH_COOLDOWN = 5000; // 5 วินาที cooldown
   
   // Room statistics states
   const [roomStats, setRoomStats] = useState(null);
@@ -49,6 +92,215 @@ export default function AdminDashboard() {
     total: 0
   });
   const [roomStatusLoading, setRoomStatusLoading] = useState(true);
+
+  // โหลด lastSeenNotificationTime จาก localStorage หลัง component mount
+  useEffect(() => {
+    const savedTime = safeLocalStorage.getItem('admin_last_seen_notification_time');
+    if (savedTime) {
+      setLastSeenNotificationTime(savedTime);
+    }
+  }, []);
+
+  // ฟังก์ชันสำหรับตรวจสอบการแจ้งเตือนใหม่ (เฉพาะแอดมิน)
+  const checkForNewNotifications = async () => {
+    if (!user || isRefreshing || !canAccessAdminDashboard(user)) return;
+
+    try {
+      const token = getAuthToken();
+      if (!token) return;
+
+      // ดึงการแจ้งเตือนสำหรับแอดมินที่สร้างหลังจาก lastSeenNotificationTime
+      const response = await fetch(`http://localhost:3001/api/notifications?limit=10&admin_only=true&created_after=${lastSeenNotificationTime}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const newNotifications = data.data || data.notifications || [];
+        
+        // กรองเฉพาะการแจ้งเตือนใหม่จริงๆ (หลังจาก lastSeenNotificationTime)
+        const actualNewNotifications = newNotifications.filter(n => {
+          const notificationTime = new Date(n.createdAt || n.created_at).getTime();
+          return notificationTime > parseInt(lastSeenNotificationTime);
+        });
+
+        if (actualNewNotifications.length > 0) {
+          // มีการแจ้งเตือนใหม่จริงๆ
+          const newCount = actualNewNotifications.filter(n => !n.read && !n.isRead).length;
+          
+          if (newCount > 0) {
+            setNewNotificationsCount(newCount);
+            console.log(`🔔 Admin: ${newCount} new notifications`);
+          }
+          
+          // อัปเดต timestamp ล่าสุด
+          const latestNotificationTime = Math.max(
+            ...actualNewNotifications.map(n => new Date(n.createdAt || n.created_at).getTime())
+          );
+          
+          const newTimestamp = latestNotificationTime.toString();
+          setLastSeenNotificationTime(newTimestamp);
+          safeLocalStorage.setItem('admin_last_seen_notification_time', newTimestamp);
+          
+          console.log(`📨 Admin found ${actualNewNotifications.length} new notifications, ${newCount} unread`);
+        }
+      }
+    } catch (error) {
+      console.log('Admin: Could not check for new notifications:', error);
+    }
+  };
+
+  const fetchUnreadCount = async () => {
+    if (!user || isRefreshing || !canAccessAdminDashboard(user)) return;
+
+    // ตรวจสอบ cooldown
+    const now = Date.now();
+    if (now - lastFetchTime < FETCH_COOLDOWN) {
+      return;
+    }
+
+    setIsRefreshing(true);
+    setLastFetchTime(now);
+
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        setIsRefreshing(false);
+        return;
+      }
+
+      const response = await fetch('http://localhost:3001/api/notifications/unread-count?admin_only=true', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const actualUnreadCount = data.unreadCount || 0;
+        console.log(`📊 Admin unread count: ${actualUnreadCount} (displayed: ${newNotificationsCount})`);
+      } else if (response.status === 401) {
+        console.log('🔐 Admin token expired');
+        setNewNotificationsCount(0);
+        setNotifications([]);
+      }
+    } catch (error) {
+      console.log('Admin: Could not fetch unread count:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const fetchNotifications = async (unreadOnly = false) => {
+    if (!user || !canAccessAdminDashboard(user)) return;
+
+    try {
+      const token = getAuthToken();
+      if (!token) return;
+
+      const url = `http://localhost:3001/api/notifications?admin_only=true${unreadOnly ? '&unread_only=true' : ''}`;
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.notifications) {
+          const notifications = data.notifications.map(n => ({
+            id: n.id,
+            type: n.type,
+            title: n.title,
+            message: n.message,
+            read: n.isRead,
+            createdAt: n.createdAt,
+            updatedAt: n.updatedAt,
+            booking: n.booking
+          }));
+          
+          setNotifications(notifications);
+          console.log(`📨 Admin loaded ${notifications.length} notifications`);
+        }
+      }
+    } catch (error) {
+      console.log('Admin: Could not fetch notifications:', error);
+    }
+  };
+
+  const handleNotificationDropdownToggle = async () => {
+    if (!showNotifications) {
+      // เมื่อเปิด dropdown
+      console.log('📂 Admin: Opening notification dropdown...');
+      
+      // โหลดการแจ้งเตือนทั้งหมด (รวมเก่า) เสมอ
+      await fetchNotifications();
+      setShowNotifications(true);
+      
+      // ล้างตัวเลขการแจ้งเตือนใหม่เมื่อเปิดดู
+      if (newNotificationsCount > 0) {
+        const now = Date.now().toString();
+        setNewNotificationsCount(0);
+        setLastSeenNotificationTime(now);
+        safeLocalStorage.setItem('admin_last_seen_notification_time', now);
+        console.log('👁️ Admin: Marked new notifications as seen');
+      }
+    } else {
+      // เมื่อปิด dropdown
+      setShowNotifications(false);
+    }
+  };
+
+  const clearAllNotifications = async () => {
+    try {
+      console.log('🗑️ Admin: Clearing notification display...');
+      
+      // ล้างเฉพาะตัวเลขการแจ้งเตือนใหม่
+      setNewNotificationsCount(0);
+      setShowNotifications(false);
+      
+      // อัปเดต timestamp ให้เป็นปัจจุบัน
+      const now = Date.now().toString();
+      setLastSeenNotificationTime(now);
+      safeLocalStorage.setItem('admin_last_seen_notification_time', now);
+      
+      console.log('✅ Admin: Notification counter cleared');
+    } catch (error) {
+      console.log('Admin: Could not clear notification display:', error);
+    }
+  };
+
+  // ตรวจสอบการแจ้งเตือนใหม่เป็นระยะ (สำหรับแอดมิน)
+  useEffect(() => {
+    if (!user || !canAccessAdminDashboard(user)) return;
+
+    // โหลดจำนวนการแจ้งเตือนที่ยังไม่ได้อ่านครั้งแรก
+    fetchUnreadCount();
+
+    // ใช้ interval ที่ยาวขึ้นเพื่อประหยัดทรัพยากร (30 วินาที)
+    const intervalId = setInterval(() => {
+      const now = Date.now();
+      // ตรวจสอบ cooldown ก่อนเรียก API
+      if (now - lastFetchTime > FETCH_COOLDOWN && !isRefreshing) {
+        fetchUnreadCount();
+      }
+    }, 30000);
+
+    // ตรวจสอบการแจ้งเตือนใหม่ทุก 45 วินาที (แยกจากการดึงจำนวน)
+    const newNotificationCheckId = setInterval(() => {
+      checkForNewNotifications();
+    }, 45000);
+
+    return () => {
+      clearInterval(intervalId);
+      clearInterval(newNotificationCheckId);
+    };
+  }, [user, lastFetchTime, isRefreshing, lastSeenNotificationTime]);
 
   // Redirect if not authorized
   useEffect(() => {
@@ -398,7 +650,7 @@ export default function AdminDashboard() {
                   {/* Notification Bell */}
                   <div className="relative">
                     <button
-                      onClick={() => setShowNotifications(!showNotifications)}
+                      onClick={handleNotificationDropdownToggle}
                       className="relative p-2 text-gray-600 hover:text-blue-600 transition-colors duration-200"
                       title="การแจ้งเตือน"
                     >
@@ -416,9 +668,9 @@ export default function AdminDashboard() {
                           d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0a3.001 3.001 0 11-6 0m6 0H9"
                         />
                       </svg>
-                      {unreadCount > 0 && (
+                      {newNotificationsCount > 0 && (
                         <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                          {unreadCount > 9 ? '9+' : unreadCount}
+                          {newNotificationsCount > 9 ? '9+' : newNotificationsCount}
                         </span>
                       )}
                     </button>
@@ -431,10 +683,10 @@ export default function AdminDashboard() {
                             <h3 className="text-lg font-semibold text-gray-800">การแจ้งเตือน</h3>
                             {notifications.length > 0 && (
                               <button
-                                onClick={clearNotifications}
+                                onClick={clearAllNotifications}
                                 className="text-sm text-blue-600 hover:text-blue-800"
                               >
-                                ล้างทั้งหมด
+                                ล้างตัวเลข
                               </button>
                             )}
                           </div>

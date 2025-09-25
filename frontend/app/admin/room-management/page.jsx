@@ -89,28 +89,48 @@ export default function AdminRoomManagement() {
   };
 
   const handleSaveRoom = async () => {
+    if (!editingRoom) return;
+
     try {
+      console.log('🔄 Saving room data:', editingRoom);
+      
+      const roomData = {
+        name: editingRoom.name,
+        description: editingRoom.description,
+        max_guests: parseInt(editingRoom.max_guests) || 2,
+        size_sqm: parseInt(editingRoom.size_sqm) || 25,
+        amenities: Array.isArray(editingRoom.amenities) ? editingRoom.amenities : []
+      };
+
+      console.log('📤 Sending room data to server:', roomData);
+
       const response = await fetch(`http://localhost:3003/api/admin/room-types/${editingRoom.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
-        body: JSON.stringify(editingRoom)
+        body: JSON.stringify(roomData)
       });
 
       if (response.ok) {
+        const updatedRoom = await response.json();
+        console.log('✅ Room updated successfully:', updatedRoom);
+        
+        // อัปเดต state ด้วยข้อมูลที่ส่งไป
         setRoomTypes(roomTypes.map(room => 
-          room.id === editingRoom.id ? editingRoom : room
+          room.id === editingRoom.id ? { ...room, ...roomData } : room
         ));
         setEditingRoom(null);
         toast.success('อัปเดตข้อมูลห้องพักเรียบร้อยแล้ว');
       } else {
-        throw new Error('Failed to update room');
+        const errorData = await response.json();
+        console.error('❌ Failed to update room:', errorData);
+        throw new Error(errorData.message || 'Failed to update room');
       }
     } catch (error) {
       console.error('Error updating room:', error);
-      toast.error('ไม่สามารถอัปเดตข้อมูลห้องพักได้');
+      toast.error('ไม่สามารถอัปเดตข้อมูลห้องพักได้: ' + error.message);
     }
   };
 

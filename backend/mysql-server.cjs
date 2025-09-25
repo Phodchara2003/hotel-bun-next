@@ -2623,13 +2623,15 @@ const server = createServer(async (req, res) => {
             const offset = parseInt(query.offset) || 0;
             const userId = query.user_id || null;
             const unreadOnly = query.unread_only === 'true';
+            const adminOnly = query.admin_only === 'true';
+            const createdAfter = query.created_after || null;
             
-            const notifications = await getNotifications(limit, offset, userId, unreadOnly);
+            const notifications = await getNotifications(limit, offset, userId, unreadOnly, adminOnly, createdAfter);
             
             sendJSON(res, 200, {
               success: true,
               count: notifications.length,
-              data: notifications
+              notifications: notifications // ใช้ notifications แทน data เพื่อให้เหมือนกับหน้าหลัก
             });
           } catch (error) {
             console.error('Error fetching notifications:', error);
@@ -2743,7 +2745,8 @@ const server = createServer(async (req, res) => {
         if (req.method === 'GET') {
           try {
             const userId = query.user_id || null;
-            const count = await getUnreadNotificationsCount(userId);
+            const adminOnly = query.admin_only === 'true';
+            const count = await getUnreadNotificationsCount(userId, adminOnly);
             
             sendJSON(res, 200, {
               success: true,
@@ -2754,6 +2757,54 @@ const server = createServer(async (req, res) => {
             sendJSON(res, 500, {
               success: false,
               message: 'Failed to fetch unread notifications count'
+            });
+          }
+        } else {
+          sendJSON(res, 405, {
+            success: false,
+            message: 'Method not allowed'
+          });
+        }
+        break;
+
+      case '/api/notifications/read-all':
+        setCorsHeaders(res);
+        
+        if (req.method === 'PUT') {
+          try {
+            // Get user from authorization header
+            const authHeader = req.headers.authorization;
+            if (!authHeader || !authHeader.startsWith('Bearer ')) {
+              sendJSON(res, 401, {
+                success: false,
+                message: 'Authorization header required'
+              });
+              return;
+            }
+
+            const token = authHeader.split(' ')[1];
+            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+            const userId = decoded.id;
+
+            // Mark all unread notifications as read for this user
+            const [result] = await connection.execute(`
+              UPDATE notifications 
+              SET read_status = TRUE, updated_at = NOW()
+              WHERE user_id = ? AND read_status = FALSE
+            `, [userId]);
+
+            console.log(`✅ Marked ${result.affectedRows} notifications as read for user ${userId}`);
+
+            sendJSON(res, 200, {
+              success: true,
+              message: 'All notifications marked as read',
+              updatedCount: result.affectedRows
+            });
+          } catch (error) {
+            console.error('❌ Error marking all notifications as read:', error);
+            sendJSON(res, 500, {
+              success: false,
+              message: 'Failed to mark notifications as read'
             });
           }
         } else {
@@ -5224,29 +5275,32 @@ startServer().catch(console.error);
 // ==============================
 
 // Get notifications with filtering
-async function getNotifications(limit = 10, offset = 0, userId = null, unreadOnly = false) {
+async function getNotifications(limit = 10, offset = 0, userId = null, unreadOnly = false, adminOnly = false, createdAfter = null) {
   let query = `
     SELECT 
       id,
       title,
       message,
       type,
-      read_status,
+      read_status as isRead,
       user_id,
       related_id,
       related_type,
       priority,
       action_url,
       expires_at,
-      created_at,
-      updated_at
+      created_at as createdAt,
+      updated_at as updatedAt
     FROM notifications 
     WHERE (expires_at IS NULL OR expires_at > NOW())
   `;
   
   const params = [];
   
-  if (userId !== null) {
+  if (adminOnly) {
+    // การแจ้งเตือนสำหรับแอดมิน - แจ้งเตือนเกี่ยวกับการจอง, การชำระเงิน, etc.
+    query += ` AND (type IN ('booking_pending', 'payment_received', 'booking_cancelled', 'system_alert') OR user_id IS NULL)`;
+  } else if (userId !== null) {
     query += ` AND (user_id = ? OR user_id IS NULL)`;
     params.push(userId);
   } else {
@@ -5255,6 +5309,11 @@ async function getNotifications(limit = 10, offset = 0, userId = null, unreadOnl
   
   if (unreadOnly) {
     query += ` AND read_status = FALSE`;
+  }
+  
+  if (createdAfter) {
+    query += ` AND created_at > FROM_UNIXTIME(?)`;
+    params.push(Math.floor(parseInt(createdAfter) / 1000)); // Convert milliseconds to seconds
   }
   
   query += ` ORDER BY 
@@ -5396,7 +5455,7 @@ async function createBookingNotification(bookingData) {
 }
 
 // Get unread notifications count
-async function getUnreadNotificationsCount(userId = null) {
+async function getUnreadNotificationsCount(userId = null, adminOnly = false) {
   let query = `
     SELECT COUNT(*) as count 
     FROM notifications 
@@ -5406,7 +5465,10 @@ async function getUnreadNotificationsCount(userId = null) {
   
   const params = [];
   
-  if (userId !== null) {
+  if (adminOnly) {
+    // การแจ้งเตือนสำหรับแอดมิน
+    query += ` AND (type IN ('booking_pending', 'payment_received', 'booking_cancelled', 'system_alert') OR user_id IS NULL)`;
+  } else if (userId !== null) {
     query += ` AND (user_id = ? OR user_id IS NULL)`;
     params.push(userId);
   } else {
