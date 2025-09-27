@@ -628,31 +628,6 @@ export default function BookingStepPage() {
                             }
                           </span>
                         </div>
-                        
-                        {/* Existing bookings */}
-                        {availabilityData.existingBookings && availabilityData.existingBookings.length > 0 && (
-                          <div className="text-sm">
-                            <div className="font-medium text-gray-700 mb-2">การจองที่มีอยู่:</div>
-                            <div className="space-y-1 max-h-32 overflow-y-auto">
-                              {availabilityData.existingBookings.map((booking, index) => (
-                                <div key={index} className="bg-red-50 p-2 rounded text-xs">
-                                  <div className="flex justify-between">
-                                    <span>{booking.guestName}</span>
-                                    <span className={`px-2 py-0.5 rounded text-white text-xs ${
-                                      booking.status === 'confirmed' ? 'bg-green-500' :
-                                      booking.status === 'pending' ? 'bg-yellow-500' : 'bg-blue-500'
-                                    }`}>
-                                      {booking.status}
-                                    </span>
-                                  </div>
-                                  <div className="text-gray-600 mt-1">
-                                    {new Date(booking.checkIn).toLocaleDateString('th-TH')} - {new Date(booking.checkOut).toLocaleDateString('th-TH')}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     ) : null}
                   </div>

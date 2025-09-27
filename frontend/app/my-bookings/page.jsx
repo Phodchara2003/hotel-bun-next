@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
-import { Calendar, MapPin, Users, Clock, User, Mail, Phone } from 'lucide-react';
+import { Calendar, MapPin, Users, Clock, User, Mail, Phone, Edit, X } from 'lucide-react';
 
 export default function MyBookings() {
   const { user } = useAuth();
@@ -14,6 +14,13 @@ export default function MyBookings() {
   const [cancellingBookingId, setCancellingBookingId] = useState(null);
   const [cancelling, setCancelling] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  
+  // Date modification states
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingBookingId, setEditingBookingId] = useState(null);
+  const [newCheckIn, setNewCheckIn] = useState('');
+  const [newCheckOut, setNewCheckOut] = useState('');
+  const [modifying, setModifying] = useState(false);
 
 
   useEffect(() => {
@@ -110,6 +117,27 @@ export default function MyBookings() {
     return checkInDate >= currentDate;
   };
 
+  const canModifyBooking = (booking) => {
+    if (booking.status === 'cancelled' || booking.status === 'completed') {
+      return false;
+    }
+    
+    // Check if check-in date has passed
+    const currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0);
+    
+    const checkInDateValue = booking.check_in_date || booking.checkInDate || booking.checkin_date;
+    if (!checkInDateValue) {
+      return false;
+    }
+    
+    const checkInDate = new Date(checkInDateValue);
+    checkInDate.setHours(0, 0, 0, 0);
+    
+    // Only allow modification if check-in date hasn't passed
+    return checkInDate >= currentDate;
+  };
+
   const handleCancelBooking = async (bookingId) => {
     setCancelling(true);
     try {
@@ -146,9 +174,83 @@ export default function MyBookings() {
     }
   };
 
+  const handleModifyBooking = async (bookingId) => {
+    if (!newCheckIn || !newCheckOut) {
+      alert('กรุณาเลือกวันเข้าพักและวันออก');
+      return;
+    }
+
+    const checkIn = new Date(newCheckIn);
+    const checkOut = new Date(newCheckOut);
+
+    if (checkIn >= checkOut) {
+      alert('วันเข้าพักต้องก่อนวันออก');
+      return;
+    }
+
+    // Allow modification to current date or future dates
+    // Remove restriction on past dates since backend handles the validation based on original booking
+
+    setModifying(true);
+    try {
+      const response = await fetch(`http://localhost:3001/api/bookings/${bookingId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'modify_dates',
+          user_id: user.id,
+          check_in_date: checkIn.toISOString().split('T')[0], // Format as YYYY-MM-DD
+          check_out_date: checkOut.toISOString().split('T')[0]  // Format as YYYY-MM-DD
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        alert('แก้ไขการจองเรียบร้อยแล้ว');
+        
+        // Refresh bookings to show updated data
+        fetchMyBookings();
+        
+        // Close modal
+        setShowEditModal(false);
+        setEditingBookingId(null);
+        setNewCheckIn('');
+        setNewCheckOut('');
+      } else {
+        alert(result.message || 'เกิดข้อผิดพลาดในการแก้ไขการจอง');
+      }
+    } catch (error) {
+      console.error('Error modifying booking:', error);
+      alert('เกิดข้อผิดพลาดในการแก้ไขการจอง');
+    } finally {
+      setModifying(false);
+    }
+  };
+
   const openCancelModal = (bookingId) => {
     setCancellingBookingId(bookingId);
     setShowCancelModal(true);
+  };
+
+  const openEditModal = (booking) => {
+    setEditingBookingId(booking.id);
+    
+    // Set current dates as defaults using Thailand timezone
+    const checkInDate = new Date(booking.check_in_date);
+    const checkOutDate = new Date(booking.check_out_date);
+    
+    // Add Thailand timezone offset (+7 hours) to get correct local date
+    const formatDateForInput = (date) => {
+      const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+      return localDate.toISOString().split('T')[0];
+    };
+    
+    setNewCheckIn(formatDateForInput(checkInDate));
+    setNewCheckOut(formatDateForInput(checkOutDate));
+    setShowEditModal(true);
   };
 
   const formatDate = (dateString) => {
@@ -310,6 +412,17 @@ export default function MyBookings() {
                       </button>
                     )}
                     
+                    {canModifyBooking(booking) && (
+                      <button
+                        onClick={() => openEditModal(booking)}
+                        className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+                        disabled={modifying}
+                      >
+                        <Edit className="w-4 h-4" />
+                        แก้ไขวันที่
+                      </button>
+                    )}
+                    
                     {canCancelBooking(booking) && (
                       <button
                         onClick={() => openCancelModal(booking.id)}
@@ -359,6 +472,91 @@ export default function MyBookings() {
           </div>
         )}
       </div>
+
+      {/* Edit Booking Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">แก้ไขวันที่จอง</h3>
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingBookingId(null);
+                  setNewCheckIn('');
+                  setNewCheckOut('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+                disabled={modifying}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                วันเข้าพัก
+              </label>
+              <input
+                type="date"
+                value={newCheckIn}
+                onChange={(e) => setNewCheckIn(e.target.value)}
+                min={(() => {
+                  const today = new Date();
+                  const localDate = new Date(today.getTime() - today.getTimezoneOffset() * 60000);
+                  return localDate.toISOString().split('T')[0];
+                })()}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={modifying}
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                วันออก
+              </label>
+              <input
+                type="date"
+                value={newCheckOut}
+                onChange={(e) => setNewCheckOut(e.target.value)}
+                min={newCheckIn || (() => {
+                  const today = new Date();
+                  const localDate = new Date(today.getTime() - today.getTimezoneOffset() * 60000);
+                  return localDate.toISOString().split('T')[0];
+                })()}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={modifying}
+              />
+            </div>
+            
+            <p className="text-sm text-gray-500 mb-6">
+              หมายเหตุ: การแก้ไขวันที่จะมีการคำนวณราคาใหม่ตามจำนวนคืนที่เข้าพัก
+            </p>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingBookingId(null);
+                  setNewCheckIn('');
+                  setNewCheckOut('');
+                }}
+                className="flex-1 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                disabled={modifying}
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={() => handleModifyBooking(editingBookingId)}
+                className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                disabled={modifying || !newCheckIn || !newCheckOut}
+              >
+                {modifying ? 'กำลังแก้ไข...' : 'บันทึกการแก้ไข'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cancel Confirmation Modal */}
       {showCancelModal && (

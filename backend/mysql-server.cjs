@@ -4750,7 +4750,7 @@ const server = createServer(async (req, res) => {
               });
             }
           } else if (req.method === 'PUT') {
-            // Handle booking cancellation
+            // Handle booking cancellation and date modification
             let body = '';
             req.on('data', chunk => {
               body += chunk.toString();
@@ -4758,15 +4758,175 @@ const server = createServer(async (req, res) => {
             
             req.on('end', async () => {
               try {
-                const { action, user_id, reason } = JSON.parse(body);
+                const requestData = JSON.parse(body);
+                const { action, user_id, reason, check_in_date, check_out_date } = requestData;
                 
                 setCorsHeaders(res);
                 
                 if (action === 'cancel') {
-                  console.log(`� Cancellation request for booking ID: ${bookingId}, User: ${user_id}`);
+                  console.log(`📋 Cancellation request for booking ID: ${bookingId}, User: ${user_id}`);
                   const result = await createCancellationRequest(parseInt(bookingId), user_id, reason);
                   
                   sendJSON(res, result.success ? 200 : 400, result);
+                  
+                } else if (action === 'modify_dates') {
+                  console.log(`📅 Date modification request for booking ID: ${bookingId}, User: ${user_id}`);
+                  console.log(`📅 New dates: ${check_in_date} to ${check_out_date}`);
+                  
+                  // Get current booking details
+                  console.log(`🔍 Getting booking details for ID: ${bookingId}`);
+                  const currentBooking = await getBookingById(parseInt(bookingId));
+                  if (!currentBooking) {
+                    console.log(`❌ Booking not found: ${bookingId}`);
+                    sendJSON(res, 404, {
+                      success: false,
+                      message: 'ไม่พบการจองที่ระบุ'
+                    });
+                    return;
+                  }
+                  console.log(`✅ Found booking: ID=${currentBooking.id}, User=${currentBooking.user_id}, Status=${currentBooking.status}`);
+                  console.log(`📅 Current booking dates: ${currentBooking.check_in_date} to ${currentBooking.check_out_date}`);
+                  
+                  // Verify booking belongs to user
+                  if (currentBooking.user_id !== user_id) {
+                    console.log(`❌ User ${user_id} does not own booking ${bookingId} (owner: ${currentBooking.user_id})`);
+                    sendJSON(res, 403, {
+                      success: false,
+                      message: 'คุณไม่มีสิทธิ์แก้ไขการจองนี้'
+                    });
+                    return;
+                  }
+                  
+                  // Check if booking can be modified (not cancelled, not completed, and check-in date hasn't passed)
+                  if (currentBooking.status === 'cancelled' || currentBooking.status === 'completed') {
+                    console.log(`❌ Booking ${bookingId} cannot be modified (status: ${currentBooking.status})`);
+                    sendJSON(res, 400, {
+                      success: false,
+                      message: 'ไม่สามารถแก้ไขการจองที่ยกเลิกหรือเสร็จสิ้นแล้ว'
+                    });
+                    return;
+                  }
+                  
+                  // Check if current date is before original check-in date (allow modification on same day)
+                  const currentDate = new Date();
+                  currentDate.setHours(0, 0, 0, 0);
+                  const originalCheckIn = new Date(currentBooking.check_in_date);
+                  originalCheckIn.setHours(0, 0, 0, 0);
+                  
+                  console.log(`📅 Date comparison: Current=${currentDate.toDateString()}, Original Check-in=${originalCheckIn.toDateString()}`);
+                  console.log(`🔍 Can modify? Current > Original = ${currentDate > originalCheckIn}`);
+                  
+                  if (currentDate > originalCheckIn) { // Changed from >= to > to allow same day modification
+                    console.log(`❌ Cannot modify booking after check-in date has passed`);
+                    sendJSON(res, 400, {
+                      success: false,
+                      message: 'ไม่สามารถแก้ไขการจองที่ผ่านวันเข้าพักไปแล้ว'
+                    });
+                    return;
+                  }
+                  
+                  // Validate new dates
+                  if (!check_in_date || !check_out_date) {
+                    sendJSON(res, 400, {
+                      success: false,
+                      message: 'กรุณาระบุวันเข้าพักและวันออกที่ต้องการ'
+                    });
+                    return;
+                  }
+                  
+                  const newCheckIn = new Date(check_in_date);
+                  const newCheckOut = new Date(check_out_date);
+                  newCheckIn.setHours(0, 0, 0, 0);
+                  newCheckOut.setHours(0, 0, 0, 0);
+                  
+                  if (newCheckIn >= newCheckOut) {
+                    sendJSON(res, 400, {
+                      success: false,
+                      message: 'วันเข้าพักต้องก่อนวันออก'
+                    });
+                    return;
+                  }
+                  
+                  // Allow new check-in date to be today or future (remove restriction on past dates for new dates)
+                  // This allows users to modify to start today or in the future
+                  
+                  // Check room availability for new dates (excluding current booking)
+                  const availability = await checkRoomAvailabilityForModification(
+                    currentBooking.room_type_id, 
+                    check_in_date, 
+                    check_out_date,
+                    parseInt(bookingId)
+                  );
+                  
+                  if (!availability.available) {
+                    sendJSON(res, 400, {
+                      success: false,
+                      message: 'ห้องไม่ว่างในช่วงวันที่เลือก กรุณาเลือกวันอื่น'
+                    });
+                    return;
+                  }
+                  
+                  // Calculate new total price
+                  const nights = Math.ceil((newCheckOut - newCheckIn) / (1000 * 60 * 60 * 24));
+                  console.log(`💰 Price calculation: nights=${nights}, room_type_price=${currentBooking.room_type_price}`);
+                  
+                  // Get room type price if not available in booking
+                  let roomPrice = currentBooking.room_type_price;
+                  if (!roomPrice) {
+                    console.log(`🔍 Room price not in booking, getting from room_types table`);
+                    const [roomTypeData] = await connection.execute(
+                      'SELECT price_per_night FROM room_types WHERE id = ?',
+                      [currentBooking.room_type_id]
+                    );
+                    roomPrice = roomTypeData[0]?.price_per_night || 1000; // fallback price
+                    console.log(`💰 Got room price from room_types: ${roomPrice}`);
+                  }
+                  
+                  const newTotalPrice = roomPrice * nights;
+                  console.log(`💰 Final calculation: ${roomPrice} × ${nights} = ${newTotalPrice}`);
+                  
+                  // Update booking with new dates and price
+                  console.log(`🔄 Updating booking ${bookingId} with dates: ${check_in_date} to ${check_out_date}, price: ${newTotalPrice}`);
+                  const [result] = await connection.execute(
+                    'UPDATE bookings SET check_in_date = ?, check_out_date = ?, total_price = ?, updated_at = NOW() WHERE id = ?',
+                    [check_in_date, check_out_date, newTotalPrice, parseInt(bookingId)]
+                  );
+                  
+                  console.log(`🔄 Update result: affectedRows=${result.affectedRows}, changedRows=${result.changedRows}`);
+                  
+                  if (result.affectedRows === 0) {
+                    sendJSON(res, 500, {
+                      success: false,
+                      message: 'เกิดข้อผิดพลาดในการอัปเดตข้อมูล'
+                    });
+                    return;
+                  }
+                  
+                  // Get updated booking data
+                  const updatedBooking = await getBookingById(parseInt(bookingId));
+                  
+                  // Create notification for date modification
+                  try {
+                    await connection.execute(
+                      `INSERT INTO notifications (user_id, title, message, type, created_at) 
+                       VALUES (?, ?, ?, ?, NOW())`,
+                      [
+                        user_id,
+                        'แก้ไขการจองเรียบร้อย',
+                        `การจองหมายเลข #${bookingId} ได้รับการแก้ไขวันที่เรียบร้อยแล้ว วันเข้าพัก: ${new Date(check_in_date).toLocaleDateString('th-TH')} วันออก: ${new Date(check_out_date).toLocaleDateString('th-TH')}`,
+                        'booking_modified'
+                      ]
+                    );
+                  } catch (notificationError) {
+                    console.log('⚠️ Could not create notification:', notificationError.message);
+                  }
+                  
+                  sendJSON(res, 200, {
+                    success: true,
+                    message: 'แก้ไขการจองเรียบร้อยแล้ว',
+                    data: updatedBooking
+                  });
+                  
                 } else {
                   sendJSON(res, 400, { 
                     success: false, 
@@ -4774,7 +4934,7 @@ const server = createServer(async (req, res) => {
                   });
                 }
               } catch (error) {
-                console.error('❌ Error processing cancellation request:', error);
+                console.error('❌ Error processing booking request:', error);
                 setCorsHeaders(res);
                 sendJSON(res, 500, { 
                   success: false, 
@@ -5408,6 +5568,68 @@ async function checkRoomAvailability(roomTypeId, checkInDate, checkOutDate) {
     };
   } catch (error) {
     console.error('Error checking room availability:', error);
+    throw error;
+  }
+}
+
+// Check room availability for booking modification (excludes current booking from conflict check)
+async function checkRoomAvailabilityForModification(roomTypeId, checkInDate, checkOutDate, excludeBookingId) {
+  try {
+    // Get total number of rooms for this room type
+    const roomCountQuery = `
+      SELECT quantity as totalRooms
+      FROM room_types 
+      WHERE id = ?
+    `;
+    
+    const [roomCountRows] = await connection.execute(roomCountQuery, [roomTypeId]);
+    const totalAvailableRooms = roomCountRows[0]?.totalRooms || 0;
+    
+    // Get conflicting bookings for this room type and date range (excluding current booking)
+    const query = `
+      SELECT COUNT(*) as conflictCount
+      FROM bookings 
+      WHERE room_type_id = ? 
+      AND status IN ('confirmed', 'checked_in', 'pending')
+      AND id != ?
+      AND (
+        (check_in_date <= ? AND check_out_date > ?) OR
+        (check_in_date < ? AND check_out_date >= ?) OR
+        (check_in_date >= ? AND check_out_date <= ?)
+      )
+    `;
+    
+    const [rows] = await connection.execute(query, [
+      roomTypeId,
+      excludeBookingId,
+      checkInDate, checkInDate,  
+      checkOutDate, checkOutDate,  
+      checkInDate, checkOutDate   
+    ]);
+    
+    const conflictCount = rows[0].conflictCount;
+    
+    // Room is available if no conflicting bookings exist (excluding current booking)
+    const availableRooms = Math.max(0, totalAvailableRooms - conflictCount);
+    const isAvailable = conflictCount === 0;
+    
+    console.log(`🔍 Room availability check for modification:
+      - Room type ID: ${roomTypeId}
+      - Exclude booking ID: ${excludeBookingId}
+      - Total available rooms: ${totalAvailableRooms}
+      - Conflicting bookings: ${conflictCount}
+      - Available rooms: ${availableRooms}
+      - Is available: ${isAvailable}
+    `);
+    
+    return {
+      available: isAvailable,
+      totalRooms: totalAvailableRooms,
+      bookedRooms: conflictCount,
+      availableRooms
+    };
+  } catch (error) {
+    console.error('Error checking room availability for modification:', error);
     throw error;
   }
 }
