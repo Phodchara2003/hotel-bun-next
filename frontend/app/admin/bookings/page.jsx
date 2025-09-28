@@ -25,7 +25,10 @@ import {
   Trash2,
   Plus,
   Download,
-  RefreshCw
+  RefreshCw,
+  AlertTriangle,
+  Ban,
+  MessageSquare
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -34,6 +37,13 @@ export default function BookingManagement() {
   const [bookings, setBookings] = useState([]);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
+
+  // Cancellation request states
+  const [cancellationRequests, setCancellationRequests] = useState([]);
+  const [selectedCancellation, setSelectedCancellation] = useState(null);
+  const [showCancellationModal, setShowCancellationModal] = useState(false);
+  const [processingCancellation, setProcessingCancellation] = useState(false);
+  const [adminNotes, setAdminNotes] = useState('');
 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
@@ -61,6 +71,11 @@ export default function BookingManagement() {
   });
 
   const [isFilterVisible, setIsFilterVisible] = useState(true);
+  
+  // Image zoom modal states
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [currentImageUrl, setCurrentImageUrl] = useState('');
+  const [currentImageAlt, setCurrentImageAlt] = useState('');
 
   // Safe date parsing utility
   const safeParseDate = (dateString) => {
@@ -80,6 +95,7 @@ export default function BookingManagement() {
     setIsVisible(true);
     if (isAuthenticated && user && isStaffOrAdmin(user)) {
       fetchBookings();
+      fetchCancellationRequests();
     }
   }, [isAuthenticated, user]);
 
@@ -104,6 +120,68 @@ export default function BookingManagement() {
       toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูลการจอง');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCancellationRequests = async () => {
+    try {
+      console.log('🔍 Fetching cancellation requests for bookings...');
+      const response = await fetch('http://localhost:3001/api/cancellation-requests');
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        setCancellationRequests(result.data);
+        console.log('📋 Loaded cancellation requests:', result.data);
+      } else {
+        setCancellationRequests([]);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching cancellation requests:', error);
+      setCancellationRequests([]);
+    }
+  };
+
+  const processCancellationRequest = async (requestId, action) => {
+    try {
+      setProcessingCancellation(true);
+      console.log(`⚖️ Processing request ${requestId} with action: ${action}`);
+      
+      const response = await fetch('http://localhost:3001/api/cancellation-requests', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          request_id: requestId,
+          action: action,
+          admin_id: user.id,
+          admin_notes: adminNotes.trim() || null
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success(
+          action === 'approved' 
+            ? '🎉 อนุมัติคำขอยกเลิกการจองสำเร็จ' 
+            : '🚫 ปฏิเสธคำขอยกเลิกการจองสำเร็จ'
+        );
+        
+        // Refresh data
+        fetchCancellationRequests();
+        fetchBookings();
+        setShowCancellationModal(false);
+        setAdminNotes('');
+        setSelectedCancellation(null);
+      } else {
+        toast.error(result.message || 'เกิดข้อผิดพลาดในการดำเนินการ');
+      }
+    } catch (error) {
+      console.error('Error processing cancellation request:', error);
+      toast.error('ไม่สามารถดำเนินการได้ กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      setProcessingCancellation(false);
     }
   };
 
@@ -144,6 +222,13 @@ export default function BookingManagement() {
       dateTo: '',
       roomType: ''
     });
+  };
+
+  // Helper function to check if a booking has a pending cancellation request
+  const getCancellationRequest = (bookingId) => {
+    return cancellationRequests.find(req => 
+      req.booking_id === bookingId && req.status === 'pending'
+    );
   };
 
   const filteredBookings = bookings.filter(booking => {
@@ -205,6 +290,38 @@ export default function BookingManagement() {
       </span>
     );
   };
+
+  // Image modal functions
+  const openImageModal = (imageUrl, altText = 'Payment slip') => {
+    console.log('🖼️ Opening image modal with:', { imageUrl, altText });
+    setCurrentImageUrl(imageUrl);
+    setCurrentImageAlt(altText);
+    setShowImageModal(true);
+  };
+
+  const closeImageModal = () => {
+    console.log('❌ Closing image modal');
+    setShowImageModal(false);
+    setCurrentImageUrl('');
+    setCurrentImageAlt('');
+  };
+
+  // Handle keyboard navigation for image modal
+  const handleImageModalKeyPress = (e) => {
+    if (!showImageModal) return;
+    
+    if (e.key === 'Escape') {
+      closeImageModal();
+    }
+  };
+
+  // Add keyboard event listener for image modal
+  useEffect(() => {
+    document.addEventListener('keydown', handleImageModalKeyPress);
+    return () => {
+      document.removeEventListener('keydown', handleImageModalKeyPress);
+    };
+  }, [showImageModal]);
 
   const handleStatusUpdate = async (bookingId, newStatus) => {
     try {
@@ -297,6 +414,111 @@ export default function BookingManagement() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-neutral-50 to-indigo-50 dark:from-neutral-900 dark:via-neutral-800 dark:to-neutral-900">
+      
+      {/* Image Zoom Modal */}
+      {showImageModal && currentImageUrl && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-90 z-[100] flex items-center justify-center p-4"
+          onClick={closeImageModal}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999
+          }}
+        >
+          {console.log('🎭 Image modal is rendering:', { showImageModal, currentImageUrl, currentImageAlt })}
+          <div className="relative max-w-4xl max-h-full z-[101]">
+            {/* Close Button */}
+            <button
+              onClick={closeImageModal}
+              className="absolute top-4 right-4 text-white hover:text-gray-300 z-10 bg-black bg-opacity-50 rounded-full p-2 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Main Image */}
+            <img
+              src={currentImageUrl}
+              alt={currentImageAlt}
+              className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+              onError={(e) => {
+                console.log('Modal image failed to load:', currentImageUrl);
+                // Try alternative URLs
+                const alternativeUrls = [
+                  currentImageUrl.replace('/uploads/', '/uploads/payment-slips/'),
+                  currentImageUrl.replace('http://localhost:3001', ''),
+                  currentImageUrl.replace('/uploads/payment-slips/', '/uploads/')
+                ];
+                
+                let urlIndex = 0;
+                const tryNextUrl = () => {
+                  if (urlIndex < alternativeUrls.length) {
+                    console.log('Trying alternative URL:', alternativeUrls[urlIndex]);
+                    e.target.src = alternativeUrls[urlIndex];
+                    urlIndex++;
+                  } else {
+                    console.log('All modal URLs failed');
+                    // Show fallback content
+                    e.target.style.display = 'none';
+                    const fallback = e.target.nextElementSibling;
+                    if (fallback) fallback.style.display = 'flex';
+                  }
+                };
+                
+                e.target.onerror = tryNextUrl;
+                tryNextUrl();
+              }}
+            />
+
+            {/* Fallback content when image fails to load */}
+            <div 
+              className="max-w-full max-h-[80vh] bg-neutral-800 rounded-lg shadow-2xl flex items-center justify-center p-8 text-white min-h-[300px] min-w-[400px]" 
+              style={{display: 'none'}}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center">
+                <Receipt className="h-16 w-16 mx-auto mb-4 text-neutral-400" />
+                <h3 className="text-lg font-semibold mb-2">ไม่สามารถแสดงรูปภาพได้</h3>
+                <p className="text-sm text-neutral-300 mb-4">{currentImageAlt}</p>
+                <div className="space-y-2">
+                  <p className="text-xs text-neutral-400">URL: {currentImageUrl}</p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.open(currentImageUrl, '_blank');
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm transition-colors"
+                  >
+                    ลองเปิดในหน้าต่างใหม่
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Download/Open Button - Hidden to not obstruct the image */}
+            <div className="absolute bottom-4 right-4 opacity-0 hover:opacity-100 transition-opacity">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(currentImageUrl, '_blank');
+                }}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-full text-xs flex items-center gap-1 transition-colors"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
 
@@ -701,6 +923,26 @@ export default function BookingManagement() {
                       <td className="px-4 py-3">
                         <div className="flex items-center space-x-2">
                           {getStatusBadge(booking.status)}
+                          
+                          {/* Cancellation Request Badge */}
+                          {getCancellationRequest(booking.id) && (
+                            <div className="relative group">
+                              <div className="w-7 h-7 bg-gradient-to-br from-orange-100 to-red-200 dark:from-orange-800 dark:to-red-900 rounded-full flex items-center justify-center border-2 border-orange-300 dark:border-orange-600 cursor-pointer animate-pulse"
+                                onClick={() => {
+                                  const request = getCancellationRequest(booking.id);
+                                  setSelectedCancellation(request);
+                                  setShowCancellationModal(true);
+                                  setAdminNotes('');
+                                }}
+                              >
+                                <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                              </div>
+                              <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                                ลูกค้าขอยกเลิกการจอง
+                              </div>
+                            </div>
+                          )}
+                          
                           {booking.payment_slips && booking.payment_slips.length > 0 && (
                             <div className="relative group">
                               <div className="w-6 h-6 bg-gradient-to-br from-green-100 to-green-200 dark:from-green-800 dark:to-green-900 rounded-full flex items-center justify-center border border-green-300 dark:border-green-600">
@@ -817,6 +1059,27 @@ export default function BookingManagement() {
                     </div>
                     <div className="flex items-center space-x-2">
                       {getStatusBadge(booking.status)}
+                      
+                      {/* Cancellation Request Badge for Mobile */}
+                      {getCancellationRequest(booking.id) && (
+                        <div className="relative">
+                          <button
+                            onClick={() => {
+                              const request = getCancellationRequest(booking.id);
+                              setSelectedCancellation(request);
+                              setShowCancellationModal(true);
+                              setAdminNotes('');
+                            }}
+                            className="w-8 h-8 bg-gradient-to-br from-orange-100 to-red-200 dark:from-orange-800 dark:to-red-900 rounded-full flex items-center justify-center border-2 border-orange-300 dark:border-orange-600 animate-pulse"
+                          >
+                            <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                          </button>
+                          <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-black text-white text-xs rounded opacity-100 whitespace-nowrap">
+                            ขอยกเลิก
+                          </div>
+                        </div>
+                      )}
+                      
                       <button
                         onClick={() => {
                           setSelectedBooking(booking);
@@ -1098,53 +1361,133 @@ export default function BookingManagement() {
                         </div>
                         
                         {slip.file_path && (
-                          <div className="relative">
+                          <div className="relative group">
                             {/* Check if file is an image */}
                             {(() => {
                               const fileExt = slip.file_path.split('.').pop()?.toLowerCase();
                               const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt);
                               
+                              // Create multiple possible image URLs
+                              const imageUrls = [
+                                `http://localhost:3001/uploads/${slip.file_path}`,
+                                `http://localhost:3001/uploads/payment-slips/${slip.file_path}`,
+                                `/uploads/${slip.file_path}`,
+                                `/uploads/payment-slips/${slip.file_path}`
+                              ];
+                              
                               if (isImage) {
                                 return (
                                   <>
                                     <img
-                                      src={`http://localhost:3001/uploads/${slip.file_path}`}
+                                      src={imageUrls[0]}
                                       alt={`Payment slip ${slip.id || index + 1}`}
-                                      className="w-full h-32 object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity"
-                                      onClick={() => {
-                                        window.open(`http://localhost:3001/uploads/${slip.file_path}`, '_blank');
+                                      className="w-full h-32 object-cover rounded-md cursor-pointer hover:opacity-80 transition-all duration-200 hover:scale-105 border border-neutral-300 dark:border-neutral-600"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        console.log('🔍 Image clicked, opening modal...');
+                                        // Try multiple URLs for the modal
+                                        openImageModal(
+                                          imageUrls[0],
+                                          `หลักฐานการชำระเงิน #${slip.id || index + 1}`
+                                        );
                                       }}
                                       onError={(e) => {
-                                        console.log('Image load error:', slip.file_path);
-                                        e.target.style.display = 'none';
-                                        e.target.nextElementSibling.style.display = 'flex';
+                                        console.log('Primary image load error:', slip.file_path, 'trying alternative paths...');
+                                        
+                                        // Try alternative URLs
+                                        let currentUrlIndex = 0;
+                                        const tryNextUrl = () => {
+                                          currentUrlIndex++;
+                                          if (currentUrlIndex < imageUrls.length) {
+                                            console.log('Trying URL:', imageUrls[currentUrlIndex]);
+                                            e.target.src = imageUrls[currentUrlIndex];
+                                          } else {
+                                            console.log('All URLs failed, showing fallback');
+                                            e.target.style.display = 'none';
+                                            e.target.nextElementSibling.style.display = 'flex';
+                                          }
+                                        };
+                                        
+                                        e.target.onerror = tryNextUrl;
+                                        tryNextUrl();
                                       }}
                                     />
-                                    <div className="w-full h-32 bg-neutral-200 dark:bg-neutral-600 rounded-md flex items-center justify-center text-neutral-500 dark:text-neutral-400" style={{display: 'none'}}>
+                                    <div className="w-full h-32 bg-neutral-200 dark:bg-neutral-600 rounded-md flex items-center justify-center text-neutral-500 dark:text-neutral-400 border border-neutral-300 dark:border-neutral-600" style={{display: 'none'}}>
                                       <div className="text-center">
                                         <Receipt className="h-8 w-8 mx-auto mb-2" />
-                                        <p className="text-xs">ไม่สามารถแสดงรูปภาพได้</p>
-                                        <p className="text-xs text-blue-500 cursor-pointer hover:underline" 
-                                           onClick={() => window.open(`http://localhost:3001/uploads/${slip.file_path}`, '_blank')}>
-                                          คลิกเพื่อดู
+                                        <p className="text-xs mb-2">ไม่สามารถแสดงรูปภาพได้</p>
+                                        <p className="text-xs font-semibold text-neutral-600 dark:text-neutral-400 mb-2">
+                                          {slip.file_name || slip.file_path}
                                         </p>
+                                        <div className="space-y-1">
+                                          <button 
+                                            className="text-xs text-blue-500 hover:text-blue-700 cursor-pointer hover:underline block"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              // Try opening different URLs
+                                              imageUrls.forEach(url => {
+                                                window.open(url, '_blank');
+                                              });
+                                            }}
+                                          >
+                                            เปิดในหน้าต่างใหม่
+                                          </button>
+                                          <button 
+                                            className="text-xs text-green-500 hover:text-green-700 cursor-pointer hover:underline block"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              // Force zoom modal with different URLs
+                                              imageUrls.forEach(url => {
+                                                openImageModal(url, `หลักฐานการชำระเงิน #${slip.id || index + 1}`);
+                                              });
+                                            }}
+                                          >
+                                            ลองซูมดู
+                                          </button>
+                                        </div>
                                       </div>
                                     </div>
-                                    <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-all duration-200 rounded-md flex items-center justify-center cursor-pointer">
-                                      <Eye className="h-6 w-6 text-white opacity-0 hover:opacity-100 transition-opacity" />
+                                    <div 
+                                      className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-md flex items-center justify-center cursor-pointer"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        console.log('🔍 Overlay clicked, opening modal...');
+                                        openImageModal(
+                                          imageUrls[0],
+                                          `หลักฐานการชำระเงิน #${slip.id || index + 1}`
+                                        );
+                                      }}
+                                    >
+                                      <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black bg-opacity-50 rounded-full p-2 pointer-events-none">
+                                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                        </svg>
+                                      </div>
+                                      <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                        คลิกเพื่อซูม
+                                      </div>
                                     </div>
                                   </>
                                 );
                               } else {
                                 // For non-image files, show a download/view link
                                 return (
-                                  <div className="w-full h-32 bg-neutral-100 dark:bg-neutral-600 rounded-md flex items-center justify-center text-neutral-600 dark:text-neutral-400 border-2 border-dashed border-neutral-300 dark:border-neutral-500">
-                                    <div className="text-center">
+                                  <div className="w-full h-32 bg-neutral-100 dark:bg-neutral-600 rounded-md flex items-center justify-center text-neutral-600 dark:text-neutral-400 border-2 border-dashed border-neutral-300 dark:border-neutral-500 cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-500 transition-colors">
+                                    <div className="text-center" onClick={() => {
+                                      // Try multiple URLs for non-image files too
+                                      imageUrls.forEach(url => {
+                                        window.open(url, '_blank');
+                                      });
+                                    }}>
                                       <Receipt className="h-8 w-8 mx-auto mb-2" />
                                       <p className="text-xs font-medium mb-1">ไฟล์แนบ</p>
-                                      <p className="text-xs text-blue-500 cursor-pointer hover:underline" 
-                                         onClick={() => window.open(`http://localhost:3001/uploads/${slip.file_path}`, '_blank')}>
+                                      <p className="text-xs text-blue-500 hover:underline">
                                         คลิกเพื่อดู
+                                      </p>
+                                      <p className="text-xs text-neutral-400 mt-1 truncate max-w-24">
+                                        {slip.file_name || slip.file_path}
                                       </p>
                                     </div>
                                   </div>
@@ -1202,6 +1545,139 @@ export default function BookingManagement() {
         type={confirmActionType}
         isLoading={actionLoading}
       />
+
+      {/* Cancellation Request Management Modal */}
+      {showCancellationModal && selectedCancellation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" style={{ zIndex: 9999 }}>
+          <div className="bg-white dark:bg-neutral-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+                <AlertTriangle className="h-6 w-6 text-orange-500" />
+                คำขอยกเลิกการจอง #{selectedCancellation.id}
+              </h3>
+              <button
+                onClick={() => setShowCancellationModal(false)}
+                className="text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* Status */}
+              <div className="flex items-center justify-between">
+                <h4 className="text-lg font-semibold text-neutral-900 dark:text-white">สถานะคำขอ</h4>
+                <span className="px-4 py-2 bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 rounded-full text-sm font-medium flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  รอการพิจารณา
+                </span>
+              </div>
+
+              {/* Booking Details */}
+              <div className="bg-neutral-50 dark:bg-neutral-700 rounded-lg p-4">
+                <h4 className="font-semibold text-neutral-900 dark:text-white mb-3 flex items-center">
+                  <Calendar className="h-5 w-5 mr-2" />
+                  รายละเอียดการจอง
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <label className="block font-medium text-neutral-600 dark:text-neutral-400 mb-1">การจอง #</label>
+                    <p className="text-neutral-900 dark:text-white">{selectedCancellation.booking_id}</p>
+                  </div>
+                  <div>
+                    <label className="block font-medium text-neutral-600 dark:text-neutral-400 mb-1">ผู้จอง</label>
+                    <p className="text-neutral-900 dark:text-white">{selectedCancellation.guest_name}</p>
+                  </div>
+                  <div>
+                    <label className="block font-medium text-neutral-600 dark:text-neutral-400 mb-1">อีเมล</label>
+                    <p className="text-neutral-900 dark:text-white">{selectedCancellation.guest_email}</p>
+                  </div>
+                  <div>
+                    <label className="block font-medium text-neutral-600 dark:text-neutral-400 mb-1">เบอร์โทร</label>
+                    <p className="text-neutral-900 dark:text-white">{selectedCancellation.guest_phone}</p>
+                  </div>
+                  <div>
+                    <label className="block font-medium text-neutral-600 dark:text-neutral-400 mb-1">วันเข้าพัก</label>
+                    <p className="text-neutral-900 dark:text-white">{formatDate(selectedCancellation.check_in_date)}</p>
+                  </div>
+                  <div>
+                    <label className="block font-medium text-neutral-600 dark:text-neutral-400 mb-1">วันออก</label>
+                    <p className="text-neutral-900 dark:text-white">{formatDate(selectedCancellation.check_out_date)}</p>
+                  </div>
+                  <div>
+                    <label className="block font-medium text-neutral-600 dark:text-neutral-400 mb-1">ห้องพัก</label>
+                    <p className="text-neutral-900 dark:text-white">{selectedCancellation.room_type_name || 'ไม่ระบุ'}</p>
+                  </div>
+                  <div>
+                    <label className="block font-medium text-neutral-600 dark:text-neutral-400 mb-1">ยอดรวม</label>
+                    <p className="text-neutral-900 dark:text-white">{formatPrice(selectedCancellation.total_amount || selectedCancellation.total_price)}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Cancellation Details */}
+              <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4">
+                <h4 className="font-semibold text-neutral-900 dark:text-white mb-3 flex items-center">
+                  <Ban className="h-5 w-5 mr-2" />
+                  รายละเอียดการยกเลิก
+                </h4>
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <label className="block font-medium text-neutral-600 dark:text-neutral-400 mb-1">วันที่ขอยกเลิก</label>
+                    <p className="text-neutral-900 dark:text-white">{formatDate(selectedCancellation.requested_at)}</p>
+                  </div>
+                  <div>
+                    <label className="block font-medium text-neutral-600 dark:text-neutral-400 mb-1">เหตุผลจากลูกค้า</label>
+                    <p className="text-neutral-900 dark:text-white bg-white dark:bg-neutral-800 p-3 rounded border">
+                      {selectedCancellation.reason || 'ไม่ระบุเหตุผล'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Admin Action Section */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                <h4 className="font-semibold text-neutral-900 dark:text-white mb-3">
+                  ดำเนินการ
+                </h4>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-2">
+                      หมายเหตุจากแอดมิน (ไม่บังคับ)
+                    </label>
+                    <textarea
+                      value={adminNotes}
+                      onChange={(e) => setAdminNotes(e.target.value)}
+                      rows={3}
+                      className="w-full px-3 py-2 text-sm border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      placeholder="เพิ่มหมายเหตุเกี่ยวกับการตัดสินใจ (ถ้ามี)"
+                    />
+                  </div>
+                  
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={() => processCancellationRequest(selectedCancellation.id, 'approved')}
+                      disabled={processingCancellation}
+                      className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                      {processingCancellation ? 'กำลังดำเนินการ...' : 'อนุมัติการยกเลิก'}
+                    </button>
+                    <button
+                      onClick={() => processCancellationRequest(selectedCancellation.id, 'rejected')}
+                      disabled={processingCancellation}
+                      className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                    >
+                      <XCircle className="h-4 w-4" />
+                      {processingCancellation ? 'กำลังดำเนินการ...' : 'ปฏิเสธการยกเลิก'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
 
     </div>

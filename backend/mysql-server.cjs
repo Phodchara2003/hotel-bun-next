@@ -917,14 +917,16 @@ async function getCancellationRequests(userId = null) {
         cr.admin_notes,
         cr.requested_at,
         cr.processed_at,
-        b.hotel_name,
-        b.room_type_name,
         b.check_in_date,
         b.check_out_date,
         b.total_price,
-        b.guest_name
+        b.guest_name,
+        b.guest_email,
+        b.guest_phone,
+        rt.name as room_type_name
       FROM cancellation_requests cr
       LEFT JOIN bookings b ON cr.booking_id = b.id
+      LEFT JOIN room_types rt ON b.room_type_id = rt.id
     `;
     
     const params = [];

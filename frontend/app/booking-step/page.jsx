@@ -21,6 +21,8 @@ export default function BookingStepPage() {
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [availabilityData, setAvailabilityData] = useState(null);
   const [errors, setErrors] = useState({});
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [bookingForm, setBookingForm] = useState({
     checkIn: '',
     checkOut: '',
@@ -185,6 +187,54 @@ export default function BookingStepPage() {
     return room.price_per_night || room.pricePerNight || room.price || 1500;
   };
 
+  // Image modal functions
+  const openImageModal = (imageIndex = 0) => {
+    setCurrentImageIndex(imageIndex);
+    setShowImageModal(true);
+  };
+
+  const closeImageModal = () => {
+    setShowImageModal(false);
+    setCurrentImageIndex(0);
+  };
+
+  const nextImage = () => {
+    if (selectedRoom?.images?.length > 0) {
+      setCurrentImageIndex((prev) => 
+        prev >= selectedRoom.images.length - 1 ? 0 : prev + 1
+      );
+    }
+  };
+
+  const previousImage = () => {
+    if (selectedRoom?.images?.length > 0) {
+      setCurrentImageIndex((prev) => 
+        prev <= 0 ? selectedRoom.images.length - 1 : prev - 1
+      );
+    }
+  };
+
+  // Handle keyboard navigation
+  const handleKeyPress = (e) => {
+    if (!showImageModal) return;
+    
+    if (e.key === 'Escape') {
+      closeImageModal();
+    } else if (e.key === 'ArrowRight') {
+      nextImage();
+    } else if (e.key === 'ArrowLeft') {
+      previousImage();
+    }
+  };
+
+  // Add keyboard event listener
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyPress);
+    return () => {
+      document.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [showImageModal, selectedRoom?.images?.length]);
+
   const calculateTotal = () => {
     if (!selectedRoom || !bookingForm.checkIn || !bookingForm.checkOut) return 0;
     
@@ -320,10 +370,12 @@ export default function BookingStepPage() {
     if (!bookingForm.guestPhone?.trim()) {
       newErrors.guestPhone = 'กรุณากรอกเบอร์โทรศัพท์';
     } else {
-      const phoneRegex = /^[0-9]{9,10}$/;
+      const phoneRegex = /^[0-9]{10}$/;
       const cleanPhone = bookingForm.guestPhone.replace(/[-\s]/g, '');
       if (!phoneRegex.test(cleanPhone)) {
-        newErrors.guestPhone = 'เบอร์โทรศัพท์ต้องเป็นตัวเลข 9-10 หลัก';
+        newErrors.guestPhone = 'เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น';
+      } else if (!cleanPhone.startsWith('0')) {
+        newErrors.guestPhone = 'เบอร์โทรศัพท์ต้องขึ้นต้นด้วย 0';
       }
     }
 
@@ -487,6 +539,106 @@ export default function BookingStepPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
+      {/* Image Zoom Modal */}
+      {showImageModal && selectedRoom?.images && selectedRoom.images.length > 0 && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
+          onClick={closeImageModal}
+        >
+          <div className="relative max-w-4xl max-h-full">
+            {/* Close Button */}
+            <button
+              onClick={closeImageModal}
+              className="absolute top-4 right-4 text-white hover:text-gray-300 z-10 bg-black bg-opacity-50 rounded-full p-2 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Main Image */}
+            <img
+              src={`/images/rooms/${selectedRoom.images[currentImageIndex]}`}
+              alt={`${selectedRoom.name} - รูปที่ ${currentImageIndex + 1}`}
+              className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+              onError={(e) => {
+                e.target.src = "/images/rooms/placeholder.svg";
+              }}
+            />
+
+            {/* Navigation Arrows */}
+            {selectedRoom.images.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    previousImage();
+                  }}
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-300 bg-black bg-opacity-50 rounded-full p-3 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    nextImage();
+                  }}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-300 bg-black bg-opacity-50 rounded-full p-3 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </>
+            )}
+
+            {/* Image Counter */}
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-70 text-white px-4 py-2 rounded-full text-sm">
+              {currentImageIndex + 1} / {selectedRoom.images.length}
+            </div>
+
+            {/* Image Thumbnails */}
+            {selectedRoom.images.length > 1 && (
+              <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 flex space-x-2 max-w-full overflow-x-auto">
+                {selectedRoom.images.map((image, index) => (
+                  <button
+                    key={index}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCurrentImageIndex(index);
+                    }}
+                    className={`flex-shrink-0 w-12 h-12 rounded overflow-hidden border-2 transition-all ${
+                      index === currentImageIndex 
+                        ? 'border-white shadow-lg' 
+                        : 'border-gray-400 hover:border-white opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    <img
+                      src={`/images/rooms/${image}`}
+                      alt={`รูปที่ ${index + 1}`}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.src = "/images/rooms/placeholder.svg";
+                      }}
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Keyboard Hints */}
+            <div className="absolute top-4 left-4 text-white text-sm bg-black bg-opacity-50 px-3 py-2 rounded">
+              <div>ESC: ปิด</div>
+              {selectedRoom.images.length > 1 && <div>← →: เปลี่ยนรูป</div>}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="container mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-8">
@@ -501,23 +653,95 @@ export default function BookingStepPage() {
             <div className="bg-white rounded-lg shadow-md p-6">
               <h2 className="text-2xl font-bold text-gray-800 mb-4">ห้องพักที่เลือก</h2>
               
+              {/* Room Images Gallery */}
               <div className="mb-4">
-                <img
-                  src={
-                    selectedRoom.images && Array.isArray(selectedRoom.images) && selectedRoom.images.length > 0
-                      ? `/images/rooms/${selectedRoom.images[0]}`
-                      : "/images/rooms/placeholder.svg"
-                  }
-                  alt={selectedRoom.name}
-                  className="w-full h-48 object-cover rounded-lg"
-                  onLoad={() => {
-                    console.log('✅ Booking step image loaded:', selectedRoom.images?.[0]);
-                  }}
-                  onError={(e) => {
-                    console.log('❌ Booking step image failed:', selectedRoom.images?.[0]);
-                    e.target.src = "/images/rooms/placeholder.svg";
-                  }}
-                />
+                {selectedRoom.images && Array.isArray(selectedRoom.images) && selectedRoom.images.length > 0 ? (
+                  <div className="space-y-3">
+                    {/* Main Image */}
+                    <div className="relative group cursor-pointer" onClick={() => openImageModal(0)}>
+                      <img
+                        src={`/images/rooms/${selectedRoom.images[0]}`}
+                        alt={`${selectedRoom.name} - รูปที่ 1`}
+                        className="w-full h-64 object-cover rounded-lg shadow-sm transition-transform duration-200 group-hover:scale-105"
+                        onLoad={() => {
+                          console.log('✅ Booking step main image loaded:', selectedRoom.images?.[0]);
+                        }}
+                        onError={(e) => {
+                          console.log('❌ Booking step main image failed:', selectedRoom.images?.[0]);
+                          e.target.src = "/images/rooms/placeholder.svg";
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 rounded-lg transition-all duration-200 flex items-center justify-center">
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                          </svg>
+                        </div>
+                      </div>
+                      {selectedRoom.images.length > 1 && (
+                        <div className="absolute top-2 right-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded text-sm">
+                          1/{selectedRoom.images.length}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Additional Images */}
+                    {selectedRoom.images.length > 1 && (
+                      <div className="grid grid-cols-3 gap-2">
+                        {selectedRoom.images.slice(1).map((image, index) => (
+                          <div key={index + 1} className="relative group cursor-pointer">
+                            <img
+                              src={`/images/rooms/${image}`}
+                              alt={`${selectedRoom.name} - รูปที่ ${index + 2}`}
+                              className="w-full h-20 object-cover rounded transition-all duration-200 hover:opacity-80 group-hover:scale-105"
+                              onLoad={() => {
+                                console.log(`✅ Booking step thumbnail ${index + 2} loaded:`, image);
+                              }}
+                              onError={(e) => {
+                                console.log(`❌ Booking step thumbnail ${index + 2} failed:`, image);
+                                e.target.src = "/images/rooms/placeholder.svg";
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Option 1: Open zoom modal
+                                openImageModal(index + 1);
+                                
+                                // Option 2: Swap main image (uncomment if you want this instead)
+                                /*
+                                const newImages = [...selectedRoom.images];
+                                [newImages[0], newImages[index + 1]] = [newImages[index + 1], newImages[0]];
+                                setSelectedRoom(prev => ({
+                                  ...prev,
+                                  images: newImages
+                                }));
+                                */
+                              }}
+                            />
+                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 rounded transition-all duration-200 flex items-center justify-center">
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                </svg>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Image count indicator with zoom hint */}
+                    <div className="text-center text-sm text-gray-500 flex items-center justify-center gap-2">
+                      <span>{selectedRoom.images.length} รูปภาพ</span>
+                      <span className="text-xs bg-gray-100 px-2 py-1 rounded">คลิกเพื่อซูม</span>
+                    </div>
+                  </div>
+                ) : (
+                  <img
+                    src="/images/rooms/placeholder.svg"
+                    alt={selectedRoom.name}
+                    className="w-full h-48 object-cover rounded-lg"
+                  />
+                )}
               </div>
 
               <h3 className="text-xl font-semibold text-blue-600 mb-2">{selectedRoom.name}</h3>
@@ -714,14 +938,27 @@ export default function BookingStepPage() {
                   <input
                     type="tel"
                     value={bookingForm.guestPhone}
-                    onChange={(e) => handleFormChange('guestPhone', e.target.value)}
+                    onChange={(e) => {
+                      // Allow only numbers and limit to 10 digits
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      handleFormChange('guestPhone', value);
+                    }}
                     className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                       errors.guestPhone ? 'border-red-300 error-field' : 'border-gray-300'
                     }`}
-                    placeholder="08x-xxx-xxxx"
+                    placeholder="0812345678"
+                    maxLength="10"
+                    pattern="[0-9]{10}"
                     required
                   />
                   {errors.guestPhone && <p className="text-red-500 text-sm mt-1">{errors.guestPhone}</p>}
+                  <p className="text-gray-500 text-xs mt-1">
+                    กรอกตัวเลข 10 หลักเท่านั้น {bookingForm.guestPhone && (
+                      <span className="text-blue-600 font-mono">
+                        ({bookingForm.guestPhone.length}/10 หลัก)
+                      </span>
+                    )}
+                  </p>
                 </div>
 
                 <div>

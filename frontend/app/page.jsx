@@ -1179,7 +1179,7 @@ export default function HomePage() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-2xl font-bold text-gray-900">
-                  ประเภทห้องพัก
+                  ห้องพัก
                   {selectedBedType && (
                     <span className="text-lg font-normal text-blue-600 ml-2">
                       ({getBedTypeLabel(selectedBedType)})
@@ -1344,13 +1344,6 @@ export default function HomePage() {
                       ฿{getPrice(room).toLocaleString()}
                       <span className="text-xs opacity-90 ml-1">/คืน</span>
                     </div>
-                    {/* Room Type Badge */}
-                    <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm text-gray-700 px-3 py-1 rounded-full text-xs font-medium shadow-sm">
-                      {room.type === 'standard' ? 'ห้องมาตรฐาน' : 
-                       room.type === 'deluxe' ? 'ห้องดีลักซ์' : 
-                       room.type === 'suite' ? 'ห้องสวีท' : 
-                       room.type === 'family' ? 'ห้องแฟมิลี่' : room.type}
-                    </div>
                   </div>
                   
                   <div className="p-6">
@@ -1451,7 +1444,7 @@ export default function HomePage() {
           <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-white rounded-lg shadow-sm p-4 text-center">
               <div className="text-2xl font-bold text-blue-600">{filteredRoomTypes.length}</div>
-              <div className="text-sm text-gray-600">ประเภทห้องพัก</div>
+              <div className="text-sm text-gray-600">ห้องพักทั้งหมด</div>
             </div>
             <div className="bg-white rounded-lg shadow-sm p-4 text-center">
               <div className="text-2xl font-bold text-green-600">฿{filteredRoomTypes.length > 0 ? Math.min(...filteredRoomTypes.map(r => getPrice(r))).toLocaleString() : '1,500'}</div>

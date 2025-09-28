@@ -17,7 +17,6 @@ import {
   Hotel,
   Users,
   Bed,
-  Square,
   MapPin,
   Wifi,
   Star,
@@ -61,7 +60,6 @@ export default function RoomsManagement() {
 
   const [filters, setFilters] = useState({
     search: '',
-    type: '',
     status: '',
     priceRange: ''
   });
@@ -69,28 +67,15 @@ export default function RoomsManagement() {
   // Form state
   const [formData, setFormData] = useState({
     name: '',
-    type: '',
-    number: '',
     floor: '',
     capacity: '',
     price: '',
     description: '',
     amenities: [],
     status: 'available',
-    size: '',
     bed_type: '',
     view_type: ''
   });
-
-  const roomTypes = [
-    { value: 'standard', label: 'ห้องมาตรฐาน' },
-    { value: 'deluxe', label: 'ห้องดีลักซ์' },
-    { value: 'suite', label: 'ห้องสวีท' },
-    { value: 'family', label: 'ห้องครอบครัว' },
-    { value: 'executive', label: 'ห้องเอกซ์เซกคิวทีฟ' },
-    { value: 'single', label: 'เตียงเดี่ยว' },
-    { value: 'double', label: 'เตียงคู่' }
-  ];
 
   const roomStatuses = [
     { value: 'available', label: 'ว่าง', color: 'green' },
@@ -203,7 +188,6 @@ export default function RoomsManagement() {
   const clearFilters = () => {
     setFilters({
       search: '',
-      type: '',
       status: '',
       priceRange: ''
     });
@@ -211,11 +195,8 @@ export default function RoomsManagement() {
 
   const filteredRooms = rooms.filter(room => {
     const matchesSearch = !filters.search || 
-      room.name?.toLowerCase().includes(filters.search.toLowerCase()) ||
-      room.number?.toLowerCase().includes(filters.search.toLowerCase()) ||
-      room.type?.toLowerCase().includes(filters.search.toLowerCase());
+      room.name?.toLowerCase().includes(filters.search.toLowerCase());
     
-    const matchesType = !filters.type || room.type === filters.type;
     const matchesStatus = !filters.status || room.status === filters.status;
     
     let matchesPriceRange = true;
@@ -234,7 +215,7 @@ export default function RoomsManagement() {
       }
     }
 
-    return matchesSearch && matchesType && matchesStatus && matchesPriceRange;
+    return matchesSearch && matchesStatus && matchesPriceRange;
   });
 
   const openModal = (type, room = null) => {
@@ -247,9 +228,7 @@ export default function RoomsManagement() {
       // Map database fields to form fields with comprehensive field mapping
       const mappedFormData = {
         name: room.name || '',
-        type: room.type || 'standard',
         bed_type: room.bed_type || 'single', // Map bed_type field
-        number: room.room_number || room.number || `R${room.id || ''}`, // Generate room number if not exists
         floor: room.floor || '1', // Default floor if not available
         capacity: room.max_guests || room.capacity || 2, // Map max_guests to capacity
         price: room.price_per_night || room.price || 1500, // Map price_per_night to price
@@ -270,7 +249,6 @@ export default function RoomsManagement() {
           }
         })(), // Safe amenities parsing
         status: room.status || 'available', // Default status
-        size: room.size_sqm || room.size || 25, // Map size_sqm to size with default
         bed_type: room.bed_type || 'double', // Default bed type
         view_type: room.view_type || 'city', // Default view type
         images: (() => {
@@ -294,9 +272,7 @@ export default function RoomsManagement() {
       console.log('🏷️ Key mappings used:');
       console.log('  - max_guests ➜ capacity:', room.max_guests, '➜', mappedFormData.capacity);
       console.log('  - price_per_night ➜ price:', room.price_per_night, '➜', mappedFormData.price);
-      console.log('  - size_sqm ➜ size:', room.size_sqm, '➜', mappedFormData.size);
       console.log('  - Generated defaults:');
-      console.log('    - number:', mappedFormData.number);
       console.log('    - floor:', mappedFormData.floor);
       console.log('    - status:', mappedFormData.status);
       console.log('    - bed_type:', mappedFormData.bed_type);
@@ -308,15 +284,12 @@ export default function RoomsManagement() {
       // Reset form for new room
       const emptyFormData = {
         name: '',
-        type: 'standard',
-        number: '',
         floor: '1',
         capacity: 2,
         price: 1500,
         description: '',
         amenities: [],
         status: 'available',
-        size: 25,
         bed_type: 'double',
         view_type: 'city'
       };
@@ -333,15 +306,12 @@ export default function RoomsManagement() {
     setUploadingImages(false);
     setFormData({
       name: '',
-      type: '',
-      number: '',
       floor: '',
       capacity: '',
       price: '',
       description: '',
       amenities: [],
       status: 'available',
-      size: '',
       bed_type: '',
       view_type: ''
     });
@@ -896,22 +866,6 @@ export default function RoomsManagement() {
 
             <div>
               <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                ประเภทห้อง
-              </label>
-              <select
-                value={filters.type}
-                onChange={(e) => handleFilterChange('type', e.target.value)}
-                className="input-field"
-              >
-                <option value="">ทุกประเภท</option>
-                {roomTypes.map(type => (
-                  <option key={type.value} value={type.value}>{type.label}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 สถานะ
               </label>
               <select
@@ -1012,13 +966,6 @@ export default function RoomsManagement() {
                         {getStatusLabel(room.status) || 'พร้อมใช้งาน'}
                       </span>
                     </div>
-
-                    {/* Room Number */}
-                    <div className="absolute top-4 right-4 bg-white dark:bg-neutral-800 rounded-lg px-3 py-1 shadow-lg">
-                      <span className="text-sm font-bold text-neutral-900 dark:text-white">
-                        {room.room_number || room.number || `R${room.id}`}
-                      </span>
-                    </div>
                   </div>
 
                   {/* Room Details */}
@@ -1027,10 +974,6 @@ export default function RoomsManagement() {
                       <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-1">
                         {room.name || `ห้องพัก ${room.room_number || room.number || room.id}`}
                       </h3>
-                      <div className="flex items-center text-sm text-neutral-600 dark:text-neutral-400 mb-2">
-                        <MapPin className="h-4 w-4 mr-1" />
-                        {roomTypes.find(t => t.value === room.type)?.label || room.type || 'ห้องมาตรฐาน'}
-                      </div>
                       {/* Bed Type */}
                       {room.bed_type && (
                         <div className="flex items-center text-sm text-emerald-600 dark:text-emerald-400 mb-2">
@@ -1068,10 +1011,6 @@ export default function RoomsManagement() {
                       <div className="flex items-center text-sm text-neutral-600 dark:text-neutral-400">
                         <Users className="h-4 w-4 mr-2" />
                         <span>{room.max_guests || room.capacity || '2'} คน</span>
-                      </div>
-                      <div className="flex items-center text-sm text-neutral-600 dark:text-neutral-400">
-                        <Square className="h-4 w-4 mr-2" />
-                        <span>{room.size_sqm || room.size || '25'} ตร.ม.</span>
                       </div>
                       {room.bed_type && (
                         <div className="flex items-center text-sm text-neutral-600 dark:text-neutral-400">
@@ -1200,22 +1139,6 @@ export default function RoomsManagement() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                        หมายเลขห้อง
-                      </label>
-                      <p className="text-neutral-900 dark:text-white">
-                        {selectedRoom?.room_number || selectedRoom?.number || `R${selectedRoom?.id}` || '-'}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                        ประเภทห้อง
-                      </label>
-                      <p className="text-neutral-900 dark:text-white">
-                        {roomTypes.find(t => t.value === selectedRoom?.type)?.label || selectedRoom?.type || 'ห้องมาตรฐาน'}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                         ประเภทเตียง
                       </label>
                       <div className="flex items-center">
@@ -1247,14 +1170,6 @@ export default function RoomsManagement() {
                       </label>
                       <p className="text-neutral-900 dark:text-white">
                         {formatPrice(selectedRoom?.price_per_night || selectedRoom?.price || 1500)}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                        ขนาดห้อง
-                      </label>
-                      <p className="text-neutral-900 dark:text-white">
-                        {selectedRoom?.size_sqm || selectedRoom?.size || '25'} ตร.ม.
                       </p>
                     </div>
                     <div>
@@ -1362,39 +1277,8 @@ export default function RoomsManagement() {
                         onChange={handleInputChange}
                         required
                         className="input-field"
-                        placeholder="ห้องดีลักซ์ วิวทะเล"
+                        placeholder="ห้องดีลักซ์ วิวทะเล 101"
                       />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                        หมายเลขห้อง *
-                      </label>
-                      <input
-                        type="text"
-                        name="number"
-                        value={formData.number}
-                        onChange={handleInputChange}
-                        required
-                        className="input-field"
-                        placeholder="101"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                        ประเภทห้อง *
-                      </label>
-                      <select
-                        name="type"
-                        value={formData.type}
-                        onChange={handleInputChange}
-                        required
-                        className="input-field"
-                      >
-                        <option value="">เลือกประเภทห้อง</option>
-                        {roomTypes.map(type => (
-                          <option key={type.value} value={type.value}>{type.label}</option>
-                        ))}
-                      </select>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
@@ -1433,19 +1317,6 @@ export default function RoomsManagement() {
                         onChange={handleInputChange}
                         className="input-field"
                         placeholder="2500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                        ขนาดห้อง (ตร.ม.)
-                      </label>
-                      <input
-                        type="number"
-                        name="size"
-                        value={formData.size}
-                        onChange={handleInputChange}
-                        className="input-field"
-                        placeholder="35"
                       />
                     </div>
                     <div>
