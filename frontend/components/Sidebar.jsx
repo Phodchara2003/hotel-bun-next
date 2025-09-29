@@ -23,7 +23,7 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState({});
 
-  // Don't show sidebar on auth pages
+  // Don't show sidebar on auth pages only
   if (pathname === '/login' || pathname === '/register') {
     return null;
   }

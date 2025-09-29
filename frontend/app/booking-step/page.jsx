@@ -6,8 +6,24 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Calendar, Users, MapPin, Star, User, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { notificationAPI } from '@/lib/api';
+import ClientOnly from '../../components/ClientOnly';
 
 export default function BookingStepPage() {
+  return (
+    <ClientOnly fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">กำลังโหลดข้อมูลการจอง...</p>
+        </div>
+      </div>
+    }>
+      <BookingStepContent />
+    </ClientOnly>
+  );
+}
+
+function BookingStepContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();

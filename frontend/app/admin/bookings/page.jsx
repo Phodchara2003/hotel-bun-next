@@ -5,6 +5,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { bookingAPI } from '../../../lib/api';
 import { isStaffOrAdmin, canDeleteBookings, canEditBookings, canManageBookings } from '../../../lib/permissions';
 import ConfirmModal from '../../../components/ConfirmModal';
+import ClientOnly from '../../../components/ClientOnly';
 import Link from 'next/link';
 import { 
   Calendar, 
@@ -28,15 +29,57 @@ import {
   RefreshCw,
   AlertTriangle,
   Ban,
-  MessageSquare
+  MessageSquare,
+  LogIn,
+  Edit
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function BookingManagement() {
+  return (
+    <ClientOnly fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">กำลังโหลดข้อมูลการจอง...</p>
+        </div>
+      </div>
+    }>
+      <BookingManagementContent />
+    </ClientOnly>
+  );
+}
+
+function BookingManagementContent() {
   const { user, isAuthenticated } = useAuth();
   const [bookings, setBookings] = useState([]);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
+
+  // Edit booking states
+  const [showEditBookingModal, setShowEditBookingModal] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    guest_name: '',
+    guest_email: '',
+    guest_phone: '',
+    guest_id_number: '',
+    check_in_date: '',
+    check_out_date: '',
+    guests: 1,
+    special_requests: ''
+  });
+  const [editLoading, setEditLoading] = useState(false);
+
+  // Check-in/Check-out modal states
+  const [showCheckinModal, setShowCheckinModal] = useState(false);
+  const [selectedBookingForCheckin, setSelectedBookingForCheckin] = useState(null);
+  const [checkinFormData, setCheckinFormData] = useState({
+    staff_id: user?.id || 1,
+    notes: '',
+    checkin_time: '',
+    checkout_time: ''
+  });
+  const [checkinLoading, setCheckinLoading] = useState(false);
 
   // Cancellation request states
   const [cancellationRequests, setCancellationRequests] = useState([]);
@@ -102,9 +145,17 @@ export default function BookingManagement() {
   const fetchBookings = async () => {
     try {
       setLoading(true);
+      console.log('🔄 Fetching bookings data...');
       const response = await bookingAPI.getDetailedBookingsForAdmin();
       console.log('📊 Full API response:', response);
+      
       if (response.success) {
+        console.log('📋 Bookings data:', response.data);
+        console.log('📊 Status distribution:', response.data.reduce((acc, booking) => {
+          acc[booking.status] = (acc[booking.status] || 0) + 1;
+          return acc;
+        }, {}));
+        
         setBookings(response.data);
         calculateStats(response.data);
         
@@ -326,13 +377,29 @@ export default function BookingManagement() {
   const handleStatusUpdate = async (bookingId, newStatus) => {
     try {
       setActionLoading(true);
+      console.log('🔄 Updating booking status:', { bookingId, newStatus });
+      
       const response = await bookingAPI.updateStatus(bookingId, newStatus);
+      console.log('📝 Status update response:', response);
+      
       if (response.success) {
         toast.success(`สถานะการจองถูกเปลี่ยนเป็น ${newStatus} แล้ว`);
-        fetchBookings();
+        
+        // Force refresh the bookings data
+        console.log('🔄 Refreshing bookings data...');
+        await fetchBookings();
+        
+        // Also refresh cancellation requests if relevant
+        if (newStatus === 'cancelled') {
+          await fetchCancellationRequests();
+        }
+        
+        console.log('✅ Data refresh completed');
+      } else {
+        throw new Error(response.message || 'Update failed');
       }
     } catch (error) {
-      console.error('Error updating booking status:', error);
+      console.error('❌ Error updating booking status:', error);
       toast.error('เกิดข้อผิดพลาดในการอัปเดตสถานะ');
     } finally {
       setActionLoading(false);
@@ -357,7 +424,229 @@ export default function BookingManagement() {
     }
   };
 
+  const handleEditBooking = (booking) => {
+    setSelectedBooking(booking);
+    setEditFormData({
+      guest_name: booking.guest_name || '',
+      guest_email: booking.guest_email || '',
+      guest_phone: booking.guest_phone || '',
+      guest_id_number: booking.guest_id_number || '',
+      check_in_date: booking.check_in_date ? new Date(booking.check_in_date).toISOString().split('T')[0] : '',
+      check_out_date: booking.check_out_date ? new Date(booking.check_out_date).toISOString().split('T')[0] : '',
+      guests: booking.guests || 1,
+      special_requests: booking.special_requests || ''
+    });
+    setShowEditBookingModal(true);
+  };
 
+  const handleUpdateBooking = async () => {
+    if (!selectedBooking) return;
+    
+    // Validation
+    if (!editFormData.guest_name.trim()) {
+      toast.error('กรุณากรอกชื่อผู้จอง');
+      return;
+    }
+    
+    if (!editFormData.guest_email.trim()) {
+      toast.error('กรุณากรอกอีเมล');
+      return;
+    }
+    
+    if (!editFormData.check_in_date || !editFormData.check_out_date) {
+      toast.error('กรุณาเลือกวันที่เข้าและออก');
+      return;
+    }
+    
+    const checkIn = new Date(editFormData.check_in_date);
+    const checkOut = new Date(editFormData.check_out_date);
+    
+    if (checkOut <= checkIn) {
+      toast.error('วันที่ออกต้องหลังจากวันที่เข้า');
+      return;
+    }
+
+    try {
+      setEditLoading(true);
+      
+      const updateData = {
+        guest_name: editFormData.guest_name.trim(),
+        guest_email: editFormData.guest_email.trim(),
+        guest_phone: editFormData.guest_phone.trim(),
+        guest_id_number: editFormData.guest_id_number.trim(),
+        check_in_date: editFormData.check_in_date,
+        check_out_date: editFormData.check_out_date,
+        guests: parseInt(editFormData.guests),
+        special_requests: editFormData.special_requests.trim()
+      };
+      
+      const response = await fetch(`http://localhost:3001/api/admin/bookings/${selectedBooking.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(updateData)
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success('อัปเดตการจองสำเร็จ');
+        setShowEditBookingModal(false);
+        fetchBookings();
+      } else {
+        throw new Error(result.message || 'เกิดข้อผิดพลาดในการอัปเดต');
+      }
+    } catch (error) {
+      console.error('Error updating booking:', error);
+      toast.error(error.message || 'เกิดข้อผิดพลาดในการอัปเดตการจอง');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const closeEditModal = () => {
+    setShowEditBookingModal(false);
+    setSelectedBooking(null);
+    setEditFormData({
+      guest_name: '',
+      guest_email: '',
+      guest_phone: '',
+      guest_id_number: '',
+      check_in_date: '',
+      check_out_date: '',
+      guests: 1,
+      special_requests: ''
+    });
+  };
+
+  const handleCheckinModal = (booking) => {
+    // สร้างวันที่เช็คอินในเขตเวลาท้องถิ่น เวลา 14:00
+    const checkinDateStr = booking.check_in_date.split('T')[0]; // เอาแค่วันที่
+    const defaultCheckinTime = `${checkinDateStr}T14:00`;
+    
+    // สร้างวันที่เช็คเอ้าในเขตเวลาท้องถิ่น เวลา 12:00
+    const checkoutDateStr = booking.check_out_date.split('T')[0]; // เอาแค่วันที่
+    const defaultCheckoutTime = `${checkoutDateStr}T12:00`;
+    
+    console.log('🔍 Check-in modal data:', {
+      check_in_date: booking.check_in_date,
+      check_out_date: booking.check_out_date,
+      defaultCheckinTime,
+      defaultCheckoutTime
+    });
+    
+    setSelectedBookingForCheckin(booking);
+    setCheckinFormData({
+      staff_id: user?.id || 1,
+      notes: '',
+      checkin_time: booking.actual_check_in_time 
+        ? new Date(booking.actual_check_in_time).toISOString().slice(0, 16)
+        : defaultCheckinTime,
+      checkout_time: booking.actual_check_out_time 
+        ? new Date(booking.actual_check_out_time).toISOString().slice(0, 16)
+        : defaultCheckoutTime
+    });
+    setShowCheckinModal(true);
+  };
+
+  const closeCheckinModal = () => {
+    setShowCheckinModal(false);
+    setSelectedBookingForCheckin(null);
+    setCheckinFormData({
+      staff_id: user?.id || 1,
+      notes: '',
+      checkin_time: '',
+      checkout_time: ''
+    });
+  };
+
+  const handleCheckin = async () => {
+    if (!selectedBookingForCheckin) return;
+    
+    try {
+      setCheckinLoading(true);
+      
+      const response = await fetch('http://localhost:3001/api/bookings/check-in', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          booking_id: selectedBookingForCheckin.id,
+          staff_id: checkinFormData.staff_id,
+          notes: checkinFormData.notes,
+          check_in_time: checkinFormData.checkin_time
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success('เช็คอินสำเร็จ!');
+        // Don't close modal, just refresh the booking data
+        fetchBookings(); // Refresh the bookings list
+        
+        // Update the selected booking data in modal
+        const updatedBooking = { ...selectedBookingForCheckin };
+        updatedBooking.actual_check_in_time = new Date(checkinFormData.checkin_time).toISOString();
+        updatedBooking.status = 'checked_in';
+        setSelectedBookingForCheckin(updatedBooking);
+        
+        // Enable checkout time field by setting current time
+        const now = new Date().toISOString().slice(0, 16);
+        setCheckinFormData(prev => ({ 
+          ...prev, 
+          checkout_time: now 
+        }));
+        
+      } else {
+        throw new Error(result.message || 'เกิดข้อผิดพลาดในการเช็คอิน');
+      }
+    } catch (error) {
+      console.error('Check-in error:', error);
+      toast.error(error.message || 'เกิดข้อผิดพลาดในการเช็คอิน');
+    } finally {
+      setCheckinLoading(false);
+    }
+  };
+
+  const handleCheckout = async () => {
+    if (!selectedBookingForCheckin) return;
+    
+    try {
+      setCheckinLoading(true);
+      
+      const response = await fetch('http://localhost:3001/api/bookings/check-out', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          booking_id: selectedBookingForCheckin.id,
+          staff_id: checkinFormData.staff_id,
+          notes: checkinFormData.notes,
+          check_out_time: checkinFormData.checkout_time
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success('เช็คเอ้าสำเร็จ!');
+        fetchBookings(); // Refresh the bookings list
+        closeCheckinModal(); // Close modal after checkout
+      } else {
+        throw new Error(result.message || 'เกิดข้อผิดพลาดในการเช็คเอ้า');
+      }
+    } catch (error) {
+      console.error('Check-out error:', error);
+      toast.error(error.message || 'เกิดข้อผิดพลาดในการเช็คเอ้า');
+    } finally {
+      setCheckinLoading(false);
+    }
+  };
 
   const formatDate = (dateString) => {
     const date = safeParseDate(dateString);
@@ -377,6 +666,60 @@ export default function BookingManagement() {
       currency: 'THB',
       minimumFractionDigits: 0
     }).format(amount);
+  };
+
+  const getCheckinStatusIcon = (booking) => {
+    const hasActualCheckin = booking.actual_check_in_time;
+    const hasActualCheckout = booking.actual_check_out_time;
+    
+    if (booking.status === 'confirmed' && !hasActualCheckin) {
+      // จองแล้ว แต่ยังไม่ได้เช็คอินจริงที่โรงแรม
+      return (
+        <div className="relative group">
+          <div className="w-6 h-6 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-800 dark:to-blue-900 rounded-full flex items-center justify-center border border-blue-300 dark:border-blue-600">
+            <Clock className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+          </div>
+          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-neutral-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg z-20">
+            รอเช็คอินที่โรงแรม
+          </div>
+        </div>
+      );
+    }
+    
+    if (hasActualCheckin && !hasActualCheckout) {
+      // เช็คอินแล้ว แต่ยังไม่เช็คเอ้า
+      return (
+        <div className="relative group">
+          <div className="w-6 h-6 bg-gradient-to-br from-green-100 to-green-200 dark:from-green-800 dark:to-green-900 rounded-full flex items-center justify-center border border-green-300 dark:border-green-600">
+            <CheckCircle className="h-3 w-3 text-green-600 dark:text-green-400" />
+          </div>
+          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-neutral-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg z-20">
+            เช็คอินแล้ว: {new Date(hasActualCheckin).toLocaleString('th-TH')}
+          </div>
+        </div>
+      );
+    }
+    
+    if (hasActualCheckin && hasActualCheckout) {
+      // เช็คอินและเช็คเอ้าครบแล้ว
+      return (
+        <div className="relative group">
+          <div className="w-6 h-6 bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-800 dark:to-purple-900 rounded-full flex items-center justify-center border border-purple-300 dark:border-purple-600">
+            <svg className="h-3 w-3 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-neutral-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg z-20">
+            <div className="text-center">
+              <div>เช็คอิน: {new Date(hasActualCheckin).toLocaleString('th-TH')}</div>
+              <div>เช็คเอ้า: {new Date(hasActualCheckout).toLocaleString('th-TH')}</div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    return null;
   };
 
   if (!isAuthenticated || !user) {
@@ -850,7 +1193,10 @@ export default function BookingManagement() {
                         ห้องพัก
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide">
-                        วันที่พัก
+                        วันที่พัก (จอง)
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide">
+                        เวลาจริงที่โรงแรม
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide">
                         จำนวนเงิน
@@ -896,12 +1242,12 @@ export default function BookingManagement() {
                       <td className="px-4 py-3">
                         <div className="space-y-1">
                           <div className="text-sm font-medium text-neutral-900 dark:text-white">
-                            {booking.room_number || 'ไม่ระบุ'}
+                            {booking.room_number || ''}
                           </div>
                           <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
                             {booking.room_type_name || 
                              (typeof booking.room_type === 'object' ? booking.room_type?.name : booking.room_type) || 
-                             'ไม่ระบุประเภทห้อง'}
+                             ''}
                           </div>
                         </div>
                       </td>
@@ -916,6 +1262,48 @@ export default function BookingManagement() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
+                        <div className="space-y-1">
+                          {booking.actual_check_in_time ? (
+                            <>
+                              <div className="text-sm text-green-700 dark:text-green-400 font-medium">
+                                เช็คอิน: {new Date(booking.actual_check_in_time).toLocaleDateString('th-TH', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric'
+                                })}
+                              </div>
+                              <div className="text-xs text-green-600 dark:text-green-500">
+                                {new Date(booking.actual_check_in_time).toLocaleTimeString('th-TH', {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </div>
+                            </>
+                          ) : (
+                            <div className="text-sm text-neutral-400 dark:text-neutral-500">
+                              -
+                            </div>
+                          )}
+                          {booking.actual_check_out_time && (
+                            <>
+                              <div className="text-sm text-purple-700 dark:text-purple-400 font-medium">
+                                เช็คเอ้า: {new Date(booking.actual_check_out_time).toLocaleDateString('th-TH', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric'
+                                })}
+                              </div>
+                              <div className="text-xs text-purple-600 dark:text-purple-500">
+                                {new Date(booking.actual_check_out_time).toLocaleTimeString('th-TH', {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
                         <div className="text-sm font-bold text-green-600 dark:text-green-400">
                           {formatPrice(booking.total_amount || booking.total_price || booking.totalAmount || booking.totalPrice || 0)}
                         </div>
@@ -923,6 +1311,9 @@ export default function BookingManagement() {
                       <td className="px-4 py-3">
                         <div className="flex items-center space-x-2">
                           {getStatusBadge(booking.status)}
+                          
+                          {/* Check-in Status Icon */}
+                          {getCheckinStatusIcon(booking)}
                           
                           {/* Cancellation Request Badge */}
                           {getCancellationRequest(booking.id) && (
@@ -970,6 +1361,35 @@ export default function BookingManagement() {
                               ดูรายละเอียด
                             </div>
                           </button>
+                          
+                          {canEditBookings(user) && (
+                            <button
+                              onClick={() => handleEditBooking(booking)}
+                              className="group relative p-2 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-800/40 text-blue-600 dark:text-blue-400 transition-all duration-200 hover:scale-105"
+                              title="แก้ไขการจอง"
+                            >
+                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                              <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-neutral-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                                แก้ไข
+                              </div>
+                            </button>
+                          )}
+
+                          {/* Check-in/Check-out Button */}
+                          {(booking.status === 'confirmed' || booking.status === 'checked_in') && (
+                            <button
+                              onClick={() => handleCheckinModal(booking)}
+                              className="group relative p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:hover:bg-emerald-800/40 text-emerald-600 dark:text-emerald-400 transition-all duration-200 hover:scale-105"
+                              title="จัดการเช็คอิน/เช็คเอ้า"
+                            >
+                              <LogIn className="h-4 w-4" />
+                              <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-neutral-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                                เช็คอิน/เช็คเอ้า
+                              </div>
+                            </button>
+                          )}
                           
 
                           
@@ -1060,6 +1480,9 @@ export default function BookingManagement() {
                     <div className="flex items-center space-x-2">
                       {getStatusBadge(booking.status)}
                       
+                      {/* Check-in Status Icon for Mobile */}
+                      {getCheckinStatusIcon(booking)}
+                      
                       {/* Cancellation Request Badge for Mobile */}
                       {getCancellationRequest(booking.id) && (
                         <div className="relative">
@@ -1086,9 +1509,33 @@ export default function BookingManagement() {
                           setShowBookingModal(true);
                         }}
                         className="p-2 text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
+                        title="ดูรายละเอียด"
                       >
                         <Eye className="h-4 w-4" />
                       </button>
+                      
+                      {canEditBookings(user) && (
+                        <button
+                          onClick={() => handleEditBooking(booking)}
+                          className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                          title="แก้ไข"
+                        >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                      )}
+
+                      {/* Check-in/Check-out Button for Mobile */}
+                      {(booking.status === 'confirmed' || booking.status === 'checked_in') && (
+                        <button
+                          onClick={() => handleCheckinModal(booking)}
+                          className="p-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors"
+                          title="จัดการเช็คอิน/เช็คเอ้า"
+                        >
+                          <LogIn className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                   
@@ -1098,7 +1545,7 @@ export default function BookingManagement() {
                       <p className="font-medium text-neutral-900 dark:text-white">
                         {booking.room_type_name || 
                          (typeof booking.room_type === 'object' ? booking.room_type?.name : booking.room_type) || 
-                         'ไม่ระบุประเภทห้อง'}
+                         ''}
                       </p>
                       {booking.hotel_name && (
                         <p className="text-xs text-neutral-400">{booking.hotel_name}</p>
@@ -1111,16 +1558,39 @@ export default function BookingManagement() {
                       </p>
                     </div>
                     <div>
-                      <span className="text-neutral-500 dark:text-neutral-400">เข้าพัก:</span>
+                      <span className="text-neutral-500 dark:text-neutral-400">วันที่จอง:</span>
                       <p className="font-medium text-neutral-900 dark:text-white">
-                        {formatDate(booking.check_in_date)}
+                        {formatDate(booking.check_in_date)} - {formatDate(booking.check_out_date)}
                       </p>
                     </div>
                     <div>
-                      <span className="text-neutral-500 dark:text-neutral-400">ออก:</span>
-                      <p className="font-medium text-neutral-900 dark:text-white">
-                        {formatDate(booking.check_out_date)}
-                      </p>
+                      <span className="text-neutral-500 dark:text-neutral-400">เวลาจริงที่โรงแรม:</span>
+                      {booking.actual_check_in_time ? (
+                        <div className="space-y-1">
+                          <p className="text-sm text-green-600 dark:text-green-400 font-medium">
+                            เช็คอิน: {new Date(booking.actual_check_in_time).toLocaleString('th-TH', {
+                              day: '2-digit',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                          {booking.actual_check_out_time && (
+                            <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">
+                              เช็คเอ้า: {new Date(booking.actual_check_out_time).toLocaleString('th-TH', {
+                                day: '2-digit',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-neutral-400 dark:text-neutral-500">
+                          ยังไม่ได้เช็คอินที่โรงแรม
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -1253,11 +1723,11 @@ export default function BookingManagement() {
                       ห้องพัก
                     </label>
                     <p className="text-neutral-900 dark:text-white">
-                      {selectedBooking.room_number || 'ไม่ระบุ'} ({
+                      {selectedBooking.room_number || ''} {
                         selectedBooking.room_type_name || 
                         (typeof selectedBooking.room_type === 'object' ? selectedBooking.room_type?.name : selectedBooking.room_type) || 
-                        'ไม่ระบุ'
-                      })
+                        ''
+                      }
                     </p>
                   </div>
                   <div>
@@ -1533,6 +2003,352 @@ export default function BookingManagement() {
         </div>
       )}
 
+      {/* Check-in/Check-out Modal */}
+      {showCheckinModal && selectedBookingForCheckin && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl max-w-lg w-full">
+            <div className="p-6 border-b border-neutral-200 dark:border-neutral-700">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
+                  จัดการเช็คอิน/เช็คเอ้า
+                </h3>
+                <button
+                  onClick={closeCheckinModal}
+                  className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-colors"
+                >
+                  <X className="h-5 w-5 text-neutral-500" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Booking Info */}
+              <div className="bg-neutral-50 dark:bg-neutral-700 rounded-lg p-4">
+                <h4 className="font-semibold text-neutral-900 dark:text-white mb-2">
+                  ข้อมูลการจอง #{selectedBookingForCheckin.booking_reference || selectedBookingForCheckin.id}
+                </h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-neutral-600 dark:text-neutral-400">ผู้เข้าพัก:</span>
+                    <span className="font-medium text-neutral-900 dark:text-white">
+                      {selectedBookingForCheckin.guest_name}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-neutral-600 dark:text-neutral-400">วันที่เข้าพัก (กำหนด):</span>
+                    <span className="font-medium text-neutral-900 dark:text-white">
+                      {formatDate(selectedBookingForCheckin.check_in_date)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-neutral-600 dark:text-neutral-400">วันที่ออก (กำหนด):</span>
+                    <span className="font-medium text-neutral-900 dark:text-white">
+                      {formatDate(selectedBookingForCheckin.check_out_date)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-neutral-600 dark:text-neutral-400">สถานะปัจจุบัน:</span>
+                    <span className="font-medium">
+                      {getStatusBadge(selectedBookingForCheckin.status)}
+                    </span>
+                  </div>
+                  {selectedBookingForCheckin.actual_check_in_time && (
+                    <div className="flex justify-between">
+                      <span className="text-neutral-600 dark:text-neutral-400">เช็คอินแล้วเมื่อ:</span>
+                      <span className="font-medium text-green-600 dark:text-green-400">
+                        {new Date(selectedBookingForCheckin.actual_check_in_time).toLocaleString('th-TH')}
+                      </span>
+                    </div>
+                  )}
+                  {selectedBookingForCheckin.actual_check_out_time && (
+                    <div className="flex justify-between">
+                      <span className="text-neutral-600 dark:text-neutral-400">เช็คเอ้าแล้วเมื่อ:</span>
+                      <span className="font-medium text-purple-600 dark:text-purple-400">
+                        {new Date(selectedBookingForCheckin.actual_check_out_time).toLocaleString('th-TH')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Staff ID (Hidden - auto-filled) */}
+              <input type="hidden" value={checkinFormData.staff_id} />
+
+              {/* Check-in Time */}
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                  เวลาเช็คอิน
+                </label>
+                <input
+                  type="datetime-local"
+                  value={checkinFormData.checkin_time}
+                  onChange={(e) => setCheckinFormData(prev => ({ ...prev, checkin_time: e.target.value }))}
+                  className="w-full px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  disabled={selectedBookingForCheckin?.actual_check_in_time}
+                />
+                {selectedBookingForCheckin?.actual_check_in_time && (
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                    ✅ เช็คอินแล้วเมื่อ: {new Date(selectedBookingForCheckin.actual_check_in_time).toLocaleString('th-TH')}
+                  </p>
+                )}
+              </div>
+
+              {/* Check-out Time */}
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                  เวลาเช็คเอ้า
+                </label>
+                <input
+                  type="datetime-local"
+                  value={checkinFormData.checkout_time}
+                  onChange={(e) => setCheckinFormData(prev => ({ ...prev, checkout_time: e.target.value }))}
+                  className="w-full px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  disabled={selectedBookingForCheckin?.actual_check_out_time || !selectedBookingForCheckin?.actual_check_in_time}
+                />
+                {selectedBookingForCheckin?.actual_check_out_time && (
+                  <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                    ✅ เช็คเอ้าแล้วเมื่อ: {new Date(selectedBookingForCheckin.actual_check_out_time).toLocaleString('th-TH')}
+                  </p>
+                )}
+                {!selectedBookingForCheckin?.actual_check_in_time && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    ต้องเช็คอินก่อนจึงจะสามารถกำหนดเวลาเช็คเอ้าได้
+                  </p>
+                )}
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                  หมายเหตุ
+                </label>
+                <textarea
+                  value={checkinFormData.notes}
+                  onChange={(e) => setCheckinFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  rows={3}
+                  className="w-full px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
+                  placeholder="เพิ่มหมายเหตุ (ถ้ามี)"
+                />
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-neutral-50 dark:bg-neutral-700 rounded-b-2xl">
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={closeCheckinModal}
+                  disabled={checkinLoading}
+                  className="px-6 py-2 border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-600 transition-colors disabled:opacity-50"
+                >
+                  ยกเลิก
+                </button>
+                
+                {/* Check-in Button - only show if not checked in yet */}
+                {!selectedBookingForCheckin.actual_check_in_time && (
+                  <button
+                    onClick={handleCheckin}
+                    disabled={checkinLoading}
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+                  >
+                    {checkinLoading && (
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    )}
+                    <LogIn className="h-4 w-4" />
+                    <span>เช็คอิน</span>
+                  </button>
+                )}
+                
+                {/* Check-out Button - only show if checked in but not checked out */}
+                {selectedBookingForCheckin.actual_check_in_time && !selectedBookingForCheckin.actual_check_out_time && (
+                  <button
+                    onClick={handleCheckout}
+                    disabled={checkinLoading}
+                    className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+                  >
+                    {checkinLoading && (
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    )}
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    <span>เช็คเอ้า</span>
+                  </button>
+                )}
+                
+                {/* Already completed message */}
+                {selectedBookingForCheckin.actual_check_in_time && selectedBookingForCheckin.actual_check_out_time && (
+                  <div className="px-6 py-2 bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-lg flex items-center space-x-2">
+                    <CheckCircle className="h-4 w-4" />
+                    <span>เช็คอิน/เช็คเอ้าเสร็จสิ้นแล้ว</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Booking Modal */}
+      {showEditBookingModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-neutral-200 dark:border-neutral-700">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
+                  แก้ไขการจอง #{selectedBooking?.booking_reference || selectedBooking?.id}
+                </h3>
+                <button
+                  onClick={closeEditModal}
+                  className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-colors"
+                >
+                  <X className="h-5 w-5 text-neutral-500" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Guest Information Section */}
+              <div>
+                <h4 className="text-lg font-semibold text-neutral-900 dark:text-white mb-4">
+                  ข้อมูลผู้จอง
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                      ชื่อผู้จอง *
+                    </label>
+                    <input
+                      type="text"
+                      value={editFormData.guest_name}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, guest_name: e.target.value }))}
+                      className="w-full px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="กรอกชื่อผู้จอง"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                      อีเมล *
+                    </label>
+                    <input
+                      type="email"
+                      value={editFormData.guest_email}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, guest_email: e.target.value }))}
+                      className="w-full px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="กรอกอีเมล"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                      เบอร์โทรศัพท์
+                    </label>
+                    <input
+                      type="tel"
+                      value={editFormData.guest_phone}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, guest_phone: e.target.value }))}
+                      className="w-full px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="กรอกเบอร์โทรศัพท์"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                      เลขประจำตัวประชาชน
+                    </label>
+                    <input
+                      type="text"
+                      value={editFormData.guest_id_number}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, guest_id_number: e.target.value }))}
+                      className="w-full px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="กรอกเลขประจำตัวประชาชน"
+                      maxLength="13"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Booking Details Section */}
+              <div>
+                <h4 className="text-lg font-semibold text-neutral-900 dark:text-white mb-4">
+                  รายละเอียดการจอง
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                      วันที่เข้าพัก *
+                    </label>
+                    <input
+                      type="date"
+                      value={editFormData.check_in_date}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, check_in_date: e.target.value }))}
+                      className="w-full px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                      วันที่ออก *
+                    </label>
+                    <input
+                      type="date"
+                      value={editFormData.check_out_date}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, check_out_date: e.target.value }))}
+                      className="w-full px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                      จำนวนผู้เข้าพัก
+                    </label>
+                    <select
+                      value={editFormData.guests}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, guests: parseInt(e.target.value) }))}
+                      className="w-full px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    >
+                      {[1,2,3,4,5,6,7,8].map(num => (
+                        <option key={num} value={num}>{num} คน</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Special Requests */}
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                  ความต้องการพิเศษ
+                </label>
+                <textarea
+                  value={editFormData.special_requests}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, special_requests: e.target.value }))}
+                  rows={4}
+                  className="w-full px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+                  placeholder="กรอกความต้องการพิเศษ (ถ้ามี)"
+                />
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-neutral-50 dark:bg-neutral-700 rounded-b-2xl">
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={closeEditModal}
+                  disabled={editLoading}
+                  className="px-6 py-2 border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-600 transition-colors disabled:opacity-50"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  onClick={handleUpdateBooking}
+                  disabled={editLoading}
+                  className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+                >
+                  {editLoading && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                  )}
+                  <span>{editLoading ? 'กำลังบันทึก...' : 'บันทึกการเปลี่ยนแปลง'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Confirm Modal */}
       <ConfirmModal
         isOpen={showConfirmModal}
@@ -1606,7 +2422,7 @@ export default function BookingManagement() {
                   </div>
                   <div>
                     <label className="block font-medium text-neutral-600 dark:text-neutral-400 mb-1">ห้องพัก</label>
-                    <p className="text-neutral-900 dark:text-white">{selectedCancellation.room_type_name || 'ไม่ระบุ'}</p>
+                    <p className="text-neutral-900 dark:text-white">{selectedCancellation.room_type_name || ''}</p>
                   </div>
                   <div>
                     <label className="block font-medium text-neutral-600 dark:text-neutral-400 mb-1">ยอดรวม</label>

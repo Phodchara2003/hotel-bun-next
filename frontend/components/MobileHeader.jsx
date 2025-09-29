@@ -10,8 +10,21 @@ export default function MobileHeader({ onMenuToggle }) {
   const { user, isAuthenticated } = useAuth();
   const pathname = usePathname();
 
-  // Don't show on auth pages
+  // Don't show on auth pages only
   if (pathname === '/login' || pathname === '/register') {
+    return null;
+  }
+
+  // Always show menu toggle for all pages (except auth pages)
+  const shouldShowMenuToggle = true;
+
+  // Don't show header for regular users on customer pages
+  const isAdminPath = pathname.startsWith('/admin') || pathname.startsWith('/manager');
+  const isUserWithAdminRole = user && ['admin', 'manager', 'staff'].includes(user.role);
+  const shouldShowHeader = isUserWithAdminRole || isAdminPath;
+  
+  // Don't show mobile header for regular customers
+  if (!shouldShowHeader) {
     return null;
   }
 

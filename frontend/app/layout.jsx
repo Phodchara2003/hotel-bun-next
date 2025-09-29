@@ -7,29 +7,43 @@ import { ThemeProvider } from '../contexts/ThemeContext'
 import LayoutWrapper from '../components/LayoutWrapper'
 import GlobalLanguageThemeHandler from '../components/GlobalLanguageThemeHandler'
 import SessionManager from '../components/auth/SessionManager'
+import HydrationErrorBoundary from '../components/HydrationErrorBoundary'
 import { Toaster } from 'react-hot-toast'
 import '../lib/apiMonitor' // Initialize API monitoring
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ 
+  subsets: ['latin'],
+  display: 'swap',
+  preload: true
+})
 
 export const metadata = {
-  title: 'HotelBook - ระบบจองโรงแรมออนไลน์',
-  description: 'จองโรงแรมออนไลน์ง่ายๆ ราคาดี โรงแรมคุณภาพทั่วประเทศไทย',
+  title: 'ระบบจองโรงแรมวรุณภัฏ - มหาวิทยาลัยราชภัฏมหาสารคาม',
+  description: 'ระบบจองโรงแรมวรุณภัฏมหาวิทยาลัยราชภัฏมหาสารคาม - พัฒนาโดย นาย พชร มีหา',
 }
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="th">
-      <body className={inter.className}>
+    <html lang="th" suppressHydrationWarning={true}>
+      <body className={inter.className} suppressHydrationWarning={true}>
         {/* Prevent MetaMask and other extension errors */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
+              // Debug hydration issues
+              if (typeof window !== 'undefined') {
+                console.log('🔍 RootLayout client-side initialized');
+              }
+              
               // Suppress MetaMask injection errors
               window.addEventListener('error', function(e) {
                 if (e.message && e.message.includes('MetaMask')) {
                   e.preventDefault();
                   return false;
+                }
+                // Log other hydration errors for debugging
+                if (e.message && e.message.includes('Hydration')) {
+                  console.error('🚨 Hydration Error:', e.message);
                 }
               });
               
@@ -43,40 +57,44 @@ export default function RootLayout({ children }) {
             `,
           }}
         />
-        <LanguageProvider>
-          <ThemeProvider>
-            <GlobalLanguageThemeHandler />
-            <AuthProvider>
-              <NotificationProvider>
-                <LayoutWrapper>
-                  {children}
-                  <SessionManager />
-                </LayoutWrapper>
-                <Toaster 
-                  position="top-right"
-                  toastOptions={{
-                    duration: 4000,
-                    style: {
-                      background: '#fff',
-                      color: '#333',
-                      fontSize: '14px',
-                    },
-                    success: {
+        <HydrationErrorBoundary>
+          <LanguageProvider>
+            <ThemeProvider>
+              <GlobalLanguageThemeHandler />
+              <AuthProvider>
+                <NotificationProvider>
+                  <LayoutWrapper>
+                    <div>
+                      {children}
+                    </div>
+                    <SessionManager />
+                  </LayoutWrapper>
+                  <Toaster 
+                    position="top-right"
+                    toastOptions={{
+                      duration: 4000,
                       style: {
-                        border: '1px solid #10B981',
+                        background: '#fff',
+                        color: '#333',
+                        fontSize: '14px',
                       },
-                    },
-                    error: {
-                      style: {
-                        border: '1px solid #EF4444',
+                      success: {
+                        style: {
+                          border: '1px solid #10B981',
+                        },
                       },
-                    },
-                  }}
-                />
-              </NotificationProvider>
-            </AuthProvider>
-          </ThemeProvider>
-        </LanguageProvider>
+                      error: {
+                        style: {
+                          border: '1px solid #EF4444',
+                        },
+                      },
+                    }}
+                  />
+                </NotificationProvider>
+              </AuthProvider>
+            </ThemeProvider>
+          </LanguageProvider>
+        </HydrationErrorBoundary>
       </body>
     </html>
   )

@@ -414,9 +414,7 @@ export default function DetailedBookingsPage() {
                         <div><span className="font-medium">ประเภทห้อง:</span> {selectedBooking.room_type.name}</div>
                         <div><span className="font-medium">ราคาต่อคืน:</span> {formatCurrency(selectedBooking.room_type.price_per_night)}</div>
                         <div><span className="font-medium">ผู้เข้าพักสูงสุด:</span> {selectedBooking.room_type.max_guests} คน</div>
-                        {selectedBooking.room_type.size_sqm && (
-                          <div><span className="font-medium">ขนาด:</span> {selectedBooking.room_type.size_sqm} ตร.ม.</div>
-                        )}
+
                         {selectedBooking.room_type.description && (
                           <div><span className="font-medium">รายละเอียด:</span> {selectedBooking.room_type.description}</div>
                         )}

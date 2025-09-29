@@ -2,7 +2,9 @@
   "name": "hotel-booking-backend",
   "version": "1.0.0",
   "type": "module",
-  "description": "Hotel booking system backend with Bun and Elysia",
+  "description": "ระบบจองโรงแรมวรุณภัฏมหาวิทยาลัยราชภัฏมหาสารคาม - Backend API",
+  "author": "นาย พชร มีหา",
+  "copyright": "ระบบจองโรงแรมวรุณภัฏมหาวิทยาลัยราชภัฏมหาสารคาม - พัฒนาโดย นาย พชร มีหา",
   "main": "json-db-server.js",
   "scripts": {
     "dev": "node --watch simple-http-server.js",

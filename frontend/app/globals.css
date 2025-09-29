@@ -13,6 +13,7 @@
 html,
 body {
   max-width: 100vw;
+  min-height: 100vh;
   overflow-x: hidden;
   font-family: 'Inter', sans-serif;
   background-color: #ffffff;
@@ -25,6 +26,46 @@ body {
   padding: 0;
   background-color: #ffffff !important;
   color: #1f2937 !important;
+}
+
+/* Ensure full height layout */
+#__next {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Layout wrapper full height */
+.layout-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Main content should grow to fill space */
+.main-content {
+  flex: 1;
+  min-height: calc(100vh - 200px); /* Subtract approximate footer height */
+}
+
+/* Footer should stick to bottom */
+.footer-wrapper {
+  margin-top: auto;
+}
+
+/* Ensure proper spacing for different user types */
+.customer-layout {
+  padding-top: 0; /* No top padding for regular customers */
+}
+
+.admin-layout {
+  padding-top: 4rem; /* Top padding for admin header */
+}
+
+@media (min-width: 1024px) {
+  .admin-layout {
+    padding-top: 0; /* No top padding on desktop with sidebar */
+  }
 }
 
 a {

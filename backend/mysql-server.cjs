@@ -1,3 +1,14 @@
+/*
+ * ระบบจองโรงแรมวรุณภัฏมหาวิทยาลัยราชภัฏมหาสารคาม
+ * Backend API Server
+ * 
+ * พัฒนาโดย: นาย พชร มีหา
+ * สถาบัน: มหาวิทยาลัยราชภัฏมหาสารคาม
+ * ปี: 2025
+ * 
+ * © 2025 สงวนลิขสิทธิ์ทุกประการ
+ */
+
 const { createServer } = require('http');
 const { parse } = require('url');
 const { WebSocketServer } = require('ws');
@@ -2020,7 +2031,10 @@ const server = createServer(async (req, res) => {
           
           req.on('end', async () => {
             try {
-              const { email, password } = JSON.parse(body);
+              const requestData = JSON.parse(body);
+              // รองรับทั้งรูปแบบเก่าและใหม่
+              const email = requestData.email || requestData.credentials?.email;
+              const password = requestData.password || requestData.credentials?.password;
               
               if (!email || !password) {
                 sendJSON(res, 400, {
@@ -3247,6 +3261,92 @@ const server = createServer(async (req, res) => {
         }
         break;
 
+      // Handle admin booking update endpoint
+      case (normalizedPathname.startsWith('/api/admin/bookings/') && normalizedPathname.split('/').length === 5):
+        if (req.method === 'PUT') {
+          const bookingId = normalizedPathname.split('/').pop();
+          
+          let body = '';
+          req.on('data', chunk => { body += chunk.toString(); });
+          
+          req.on('end', async () => {
+            try {
+              const updateData = JSON.parse(body);
+              console.log('🔧 Admin updating booking:', bookingId, updateData);
+              
+              setCorsHeaders(res);
+              
+              // Get current booking
+              const [currentBooking] = await connection.execute(
+                'SELECT * FROM bookings WHERE id = ?',
+                [bookingId]
+              );
+              
+              if (currentBooking.length === 0) {
+                return sendJSON(res, 404, {
+                  success: false,
+                  message: 'ไม่พบการจองที่ระบุ'
+                });
+              }
+              
+              // Update booking
+              const now = new Date();
+              await connection.execute(
+                `UPDATE bookings 
+                 SET guest_name = ?, 
+                     guest_email = ?, 
+                     guest_phone = ?, 
+                     guest_id_number = ?, 
+                     check_in_date = ?, 
+                     check_out_date = ?, 
+                     guests = ?, 
+                     special_requests = ?,
+                     updated_at = ?
+                 WHERE id = ?`,
+                [
+                  updateData.guest_name,
+                  updateData.guest_email,
+                  updateData.guest_phone || null,
+                  updateData.guest_id_number || null,
+                  updateData.check_in_date,
+                  updateData.check_out_date,
+                  updateData.guests,
+                  updateData.special_requests || null,
+                  now,
+                  bookingId
+                ]
+              );
+              
+              // Get updated booking
+              const [updatedBooking] = await connection.execute(
+                'SELECT * FROM bookings WHERE id = ?',
+                [bookingId]
+              );
+              
+              sendJSON(res, 200, {
+                success: true,
+                message: 'อัปเดตการจองสำเร็จ',
+                data: updatedBooking[0]
+              });
+              
+            } catch (error) {
+              console.error('❌ Error updating booking:', error);
+              setCorsHeaders(res);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในการอัปเดตการจอง'
+              });
+            }
+          });
+        } else {
+          setCorsHeaders(res);
+          sendJSON(res, 405, {
+            success: false,
+            message: 'Method not allowed'
+          });
+        }
+        break;
+
       case '/api/cancellation-requests':
         if (req.method === 'GET') {
           const userId = query.user_id;
@@ -3438,6 +3538,272 @@ const server = createServer(async (req, res) => {
           }
         } else {
           setCorsHeaders(res);
+          sendJSON(res, 405, {
+            success: false,
+            message: 'Method not allowed'
+          });
+        }
+        break;
+
+      // ===== CHECK-IN/CHECK-OUT ENDPOINTS =====
+      case '/api/bookings/check-in':
+        if (req.method === 'POST') {
+          setCorsHeaders(res);
+          
+          let body = '';
+          req.on('data', chunk => { body += chunk.toString(); });
+          
+          req.on('end', async () => {
+            try {
+              const { booking_id, staff_id, notes, check_in_time } = JSON.parse(body);
+              console.log('🔍 Check-in request data:', { booking_id, staff_id, notes, check_in_time });
+              
+              if (!booking_id) {
+                console.log('❌ Booking ID missing');
+                return sendJSON(res, 400, {
+                  success: false,
+                  message: 'Booking ID is required'
+                });
+              }
+              
+              console.log('🔍 Looking for booking ID:', booking_id);
+              // Get booking details
+              const [booking] = await connection.execute(
+                'SELECT * FROM bookings WHERE id = ?',
+                [booking_id]
+              );
+              
+              console.log('🔍 Database query result:', booking.length, 'records found');
+              
+              if (booking.length === 0) {
+                console.log('❌ Booking not found');
+                return sendJSON(res, 404, {
+                  success: false,
+                  message: 'Booking not found'
+                });
+              }
+              
+              const bookingData = booking[0];
+              console.log('🔍 Booking data:', {
+                id: bookingData.id,
+                status: bookingData.status,
+                check_in_time: bookingData.actual_check_in_time
+              });
+              
+              // Check if booking is confirmed
+              if (bookingData.status !== 'confirmed') {
+                console.log('❌ Booking status not confirmed:', bookingData.status);
+                return sendJSON(res, 400, {
+                  success: false,
+                  message: 'Only confirmed bookings can be checked in'
+                });
+              }
+              
+              // Check if already checked in
+              if (bookingData.actual_check_in_time) {
+                console.log('❌ Already checked in:', bookingData.actual_check_in_time);
+                return sendJSON(res, 400, {
+                  success: false,
+                  message: 'Booking is already checked in'
+                });
+              }
+              
+              console.log('✅ Booking validation passed, proceeding with check-in');
+              
+              // Update booking with check-in information
+              const checkinTime = check_in_time ? new Date(check_in_time) : new Date();
+              const now = new Date();
+              console.log('🔍 Updating booking with check-in time:', checkinTime);
+              await connection.execute(
+                `UPDATE bookings 
+                 SET status = 'checked_in', 
+                     actual_check_in_time = ?, 
+                     check_in_staff_id = ?, 
+                     check_in_notes = ?,
+                     updated_at = ?
+                 WHERE id = ?`,
+                [checkinTime, staff_id || null, notes || null, now, booking_id]
+              );
+              
+              console.log('✅ Booking updated successfully');
+              
+              // Get updated booking
+              const [updatedBooking] = await connection.execute(
+                `SELECT b.*, u.email as staff_name
+                 FROM bookings b
+                 LEFT JOIN users u ON b.check_in_staff_id = u.id
+                 WHERE b.id = ?`,
+                [booking_id]
+              );
+              
+              console.log('✅ Retrieved updated booking data');
+              
+              sendJSON(res, 200, {
+                success: true,
+                message: 'Check-in successful',
+                data: updatedBooking[0]
+              });
+              
+            } catch (error) {
+              console.error('❌ Check-in error:', error);
+              console.error('❌ Error stack:', error.stack);
+              console.error('❌ Error details:', {
+                message: error.message,
+                code: error.code,
+                errno: error.errno,
+                sql: error.sql
+              });
+              sendJSON(res, 500, {
+                success: false,
+                message: 'Internal server error during check-in',
+                debug: error.message // เพิ่ม debug info
+              });
+            }
+          });
+        } else {
+          setCORSHeaders(res);
+          sendJSON(res, 405, {
+            success: false,
+            message: 'Method not allowed'
+          });
+        }
+        break;
+
+      case '/api/bookings/check-out':
+        if (req.method === 'POST') {
+          setCorsHeaders(res);
+          
+          let body = '';
+          req.on('data', chunk => { body += chunk.toString(); });
+          
+          req.on('end', async () => {
+            try {
+              const { booking_id, staff_id, notes, check_out_time } = JSON.parse(body);
+              
+              if (!booking_id) {
+                return sendJSON(res, 400, {
+                  success: false,
+                  message: 'Booking ID is required'
+                });
+              }
+              
+              // Get booking details
+              const [booking] = await connection.execute(
+                'SELECT * FROM bookings WHERE id = ?',
+                [booking_id]
+              );
+              
+              if (booking.length === 0) {
+                return sendJSON(res, 404, {
+                  success: false,
+                  message: 'Booking not found'
+                });
+              }
+              
+              const bookingData = booking[0];
+              
+              // Check if booking is checked in
+              if (bookingData.status !== 'checked_in') {
+                return sendJSON(res, 400, {
+                  success: false,
+                  message: 'Only checked-in bookings can be checked out'
+                });
+              }
+              
+              // Check if already checked out
+              if (bookingData.actual_check_out_time) {
+                return sendJSON(res, 400, {
+                  success: false,
+                  message: 'Booking is already checked out'
+                });
+              }
+              
+              // Update booking with check-out information
+              const checkoutTime = check_out_time ? new Date(check_out_time) : new Date();
+              const now = new Date();
+              await connection.execute(
+                `UPDATE bookings 
+                 SET status = 'checked_out', 
+                     actual_check_out_time = ?, 
+                     check_out_staff_id = ?, 
+                     check_out_notes = ?,
+                     updated_at = ?
+                 WHERE id = ?`,
+                [checkoutTime, staff_id || null, notes || null, now, booking_id]
+              );
+              
+              // Get updated booking
+              const [updatedBooking] = await connection.execute(
+                `SELECT b.*, 
+                        u1.email as check_in_staff_name,
+                        u2.email as check_out_staff_name
+                 FROM bookings b
+                 LEFT JOIN users u1 ON b.check_in_staff_id = u1.id
+                 LEFT JOIN users u2 ON b.check_out_staff_id = u2.id
+                 WHERE b.id = ?`,
+                [booking_id]
+              );
+              
+              sendJSON(res, 200, {
+                success: true,
+                message: 'Check-out successful',
+                data: updatedBooking[0]
+              });
+              
+            } catch (error) {
+              console.error('❌ Check-out error:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'Internal server error during check-out'
+              });
+            }
+          });
+        } else {
+          setCORSHeaders(res);
+          sendJSON(res, 405, {
+            success: false,
+            message: 'Method not allowed'
+          });
+        }
+        break;
+
+      case '/api/bookings/checkin-history':
+        if (req.method === 'GET') {
+          setCorsHeaders(res);
+          
+          try {
+            const [bookings] = await connection.execute(`
+              SELECT b.*, 
+                     rt.name as room_type_name,
+                     u1.email as check_in_staff_name,
+                     u2.email as check_out_staff_name,
+                     CASE 
+                       WHEN b.status = 'checked_in' THEN TIMESTAMPDIFF(HOUR, b.actual_check_in_time, NOW())
+                       WHEN b.status = 'checked_out' THEN TIMESTAMPDIFF(HOUR, b.actual_check_in_time, b.actual_check_out_time)
+                       ELSE NULL
+                     END as stay_duration_hours
+              FROM bookings b
+              LEFT JOIN room_types rt ON b.room_type_id = rt.id
+              LEFT JOIN users u1 ON b.check_in_staff_id = u1.id
+              LEFT JOIN users u2 ON b.check_out_staff_id = u2.id
+              WHERE b.status IN ('checked_in', 'checked_out')
+              ORDER BY b.actual_check_in_time DESC
+            `);
+            
+            sendJSON(res, 200, {
+              success: true,
+              data: bookings
+            });
+            
+          } catch (error) {
+            console.error('❌ Check-in history error:', error);
+            sendJSON(res, 500, {
+              success: false,
+              message: 'Internal server error'
+            });
+          }
+        } else {
+          setCORSHeaders(res);
           sendJSON(res, 405, {
             success: false,
             message: 'Method not allowed'
@@ -5271,7 +5637,14 @@ const server = createServer(async (req, res) => {
 
 // Server listen
 server.listen(PORT, () => {
+  console.log('\n' + '='.repeat(80));
+  console.log('🏨 ระบบจองโรงแรมวรุณภัฏมหาวิทยาลัยราชภัฏมหาสารคาม');
+  console.log('👨‍💻 พัฒนาโดย: นาย พชร มีหา');
+  console.log('🏛️  สถาบัน: มหาวิทยาลัยราชภัฏมหาสารคาม');
+  console.log('© 2025 สงวนลิขสิทธิ์ทุกประการ');
+  console.log('='.repeat(80));
   console.log(`🚀 Hotel Backend Server with MySQL is running at http://localhost:${PORT}`);
+  console.log('💾 Database: MySQL');
   
   // Print available endpoints
   console.log('📋 Available endpoints:');
@@ -5289,7 +5662,11 @@ server.listen(PORT, () => {
   console.log('   GET /api/room-statistics     - Room statistics for dashboard');
   console.log('   GET /api/bookings            - Bookings from database');
   console.log('   PUT /api/bookings/{id}/status - Update booking status');
+  console.log('   POST /api/bookings/check-in  - Check-in a confirmed booking');
+  console.log('   POST /api/bookings/check-out - Check-out a checked-in booking');
+  console.log('   GET /api/bookings/checkin-history - Get check-in/check-out history');
   console.log('   GET /api/admin/bookings/detailed - Detailed bookings for admin');
+  console.log('   PUT /api/admin/bookings/{id} - Update booking (admin)');
   console.log('   GET /api/admin/rooms         - All rooms for admin management');
   console.log('   POST /api/admin/rooms        - Create new room');
   console.log('   GET /api/admin/rooms/{id}    - Get room by ID');

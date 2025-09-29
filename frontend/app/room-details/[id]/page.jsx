@@ -329,12 +329,7 @@ export default function RoomDetailsPage() {
                   <Users className="h-5 w-5 text-gray-400 mr-2" />
                   <span className="text-gray-700">รองรับ {room.maxGuests} คน</span>
                 </div>
-                <div className="flex items-center">
-                  <div className="h-5 w-5 text-gray-400 mr-2 flex items-center justify-center">
-                    <span className="text-xs font-bold">㎡</span>
-                  </div>
-                  <span className="text-gray-700">ขนาด {room.sizeSqm} ตร.ม.</span>
-                </div>
+
               </div>
 
               {/* Amenities */}

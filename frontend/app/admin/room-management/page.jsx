@@ -11,7 +11,6 @@ import {
   DollarSign, 
   Bed, 
   Users, 
-  Maximize, 
   Star,
   Image as ImageIcon,
   Settings,
@@ -376,17 +375,7 @@ export default function AdminRoomManagement() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">ขนาดห้อง (ตร.ม.)</label>
-                  <input
-                    type="number"
-                    value={newRoom.size_sqm}
-                    onChange={(e) => setNewRoom({...newRoom, size_sqm: parseInt(e.target.value)})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    min="10"
-                    max="200"
-                  />
-                </div>
+
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">ราคาต่อคืน</label>
@@ -476,16 +465,7 @@ export default function AdminRoomManagement() {
                           min="1"
                         />
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">ขนาดห้อง (ตร.ม.)</label>
-                        <input
-                          type="number"
-                          value={editingRoom.size_sqm}
-                          onChange={(e) => setEditingRoom({...editingRoom, size_sqm: parseInt(e.target.value)})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          min="1"
-                        />
-                      </div>
+
                     </div>
 
                     <div>
@@ -529,10 +509,7 @@ export default function AdminRoomManagement() {
                         <Users className="h-5 w-5 text-blue-600" />
                         <span className="text-sm text-gray-600">{room.max_guests} ท่าน</span>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Maximize className="h-5 w-5 text-green-600" />
-                        <span className="text-sm text-gray-600">{room.size_sqm} ตร.ม.</span>
-                      </div>
+
                       <div className="flex items-center space-x-2">
                         <DollarSign className="h-5 w-5 text-purple-600" />
                         <span className="text-sm font-semibold text-gray-900">

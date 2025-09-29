@@ -21,13 +21,19 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
+  // Initialize client-side flag to prevent hydration mismatches
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
-    if (!initialized) {
+    if (!initialized && isClient) {
       checkAuth();
       setInitialized(true);
     }
-  }, [initialized]);
+  }, [initialized, isClient]);
 
   // Listen for storage changes (sync between tabs)
   useEffect(() => {
@@ -600,6 +606,40 @@ export const AuthProvider = ({ children }) => {
     canViewDashboard: () => ['admin', 'manager', 'staff'].includes(user?.role),
     hasReadOnlyAccess: () => user?.role === 'manager'
   };
+
+  // Prevent hydration mismatches by showing loading state until client-side
+  if (!isClient) {
+    return (
+      <AuthContext.Provider value={{
+        user: null,
+        loading: true,
+        login: () => Promise.resolve({}),
+        register: () => Promise.resolve({}),
+        logout: () => {},
+        updateUser: () => {},
+        isAuthenticated: false,
+        getTokenInfo: () => null,
+        needsRefresh: () => false,
+        refreshToken: () => Promise.resolve(false),
+        forceCheckAuth: () => {},
+        getRememberMePreference: () => false,
+        clearRememberMe: () => {},
+        isTokenValid: () => false,
+        getTimeRemaining: () => 0,
+        isAdmin: () => false,
+        isManager: () => false,
+        isStaff: () => false,
+        isGuest: () => false,
+        canManageUsers: () => false,
+        canViewReports: () => false,
+        canManageRooms: () => false,
+        canViewDashboard: () => false,
+        hasReadOnlyAccess: () => false
+      }}>
+        {children}
+      </AuthContext.Provider>
+    );
+  }
 
   return (
     <AuthContext.Provider value={value}>

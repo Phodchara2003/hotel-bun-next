@@ -2,13 +2,29 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Calendar, MapPin, Users, Wifi, Car, Coffee, Tv, Wind, Phone, Mail, Globe, Facebook, MessageCircle, Bed, Square, Bell } from 'lucide-react';
+import { Calendar, MapPin, Users, Wifi, Car, Coffee, Tv, Wind, Phone, Mail, Globe, Facebook, MessageCircle, Bed, Bell } from 'lucide-react';
 import { hotelAPI } from '../lib/api';
 import { getRoomImageUrl, getFallbackRoomImages, getPlaceholderImageUrl, getRoomImageUrlWithCache } from '../lib/imageUtils';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
+import ClientOnly from '../components/ClientOnly';
 
 export default function HomePage() {
+  return (
+    <ClientOnly fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">กำลังโหลดข้อมูล...</p>
+        </div>
+      </div>
+    }>
+      <HomePageContent />
+    </ClientOnly>
+  );
+}
+
+function HomePageContent() {
   const { user } = useAuth();
   const [hotel, setHotel] = useState(null);
   const [roomTypes, setRoomTypes] = useState([]);
@@ -1362,15 +1378,11 @@ export default function HomePage() {
                       <p className="text-sm text-gray-600 leading-relaxed line-clamp-2">{room.description}</p>
                     </div>
                     
-                    {/* Room Details Grid */}
-                    <div className="grid grid-cols-2 gap-4 mb-4">
+                    {/* Room Details */}
+                    <div className="mb-4">
                       <div className="flex items-center text-sm text-gray-600">
                         <Users className="h-4 w-4 mr-2 text-blue-500" />
                         <span className="font-medium">{room.max_guests || room.maxGuests || 2} คน</span>
-                      </div>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Square className="h-4 w-4 mr-2 text-blue-500" />
-                        <span className="font-medium">{room.size_sqm || room.sizeSqm || 30} ตร.ม.</span>
                       </div>
                     </div>
 
@@ -1458,9 +1470,9 @@ export default function HomePage() {
             </div>
             <div className="bg-white rounded-lg shadow-sm p-4 text-center">
               <div className="text-2xl font-bold text-orange-600">
-                {filteredRoomTypes.length > 0 ? Math.max(...filteredRoomTypes.map(r => r.size_sqm || r.sizeSqm || 30)) : '30'}
+                {filteredRoomTypes.length}
               </div>
-              <div className="text-sm text-gray-600">ขนาดใหญ่สุด (ตร.ม.)</div>
+              <div className="text-sm text-gray-600">ประเภทห้องทั้งหมด</div>
             </div>
           </div>
         )}

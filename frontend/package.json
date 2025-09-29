@@ -2,6 +2,9 @@
   "name": "hotel-booking-frontend",
   "version": "0.1.0",
   "private": true,
+  "description": "ระบบจองโรงแรมวรุณภัฏมหาวิทยาลัยราชภัฏมหาสารคาม",
+  "author": "นาย พชร มีหา",
+  "copyright": "ระบบจองโรงแรมวรุณภัฏมหาวิทยาลัยราชภัฏมหาสารคาม - พัฒนาโดย นาย พชร มีหา",
   "scripts": {
     "dev": "next dev -p 3002",
     "dev:3001": "next dev -p 3001",

@@ -329,12 +329,12 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="mt-8 text-center">
+          {/* Footer hidden per user request */}
+          {/* <div className="mt-8 text-center">
             <p className="text-sm text-gray-500">
               © 2025 Hotel Management System. All rights reserved.
             </p>
-          </div>
+          </div> */}
 
         </div>
       </div>

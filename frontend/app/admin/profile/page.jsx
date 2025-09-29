@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, Mail, Shield, Calendar, Edit, Save, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function AdminProfilePage() {
   const router = useRouter();
@@ -96,6 +97,12 @@ export default function AdminProfilePage() {
   };
 
   const handleSave = async () => {
+    // Validate phone number - เช็คว่ามี 10 หลัก (ถ้ากรอก)
+    if (formData.phone && formData.phone.length !== 10) {
+      toast.error('เบอร์โทรศัพท์ต้องมี 10 หลัก');
+      return;
+    }
+
     setSaving(true);
     try {
       // Try multiple sources for token
@@ -315,9 +322,14 @@ export default function AdminProfilePage() {
                 <input
                   type="tel"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(e) => {
+                    const phoneValue = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    setFormData({ ...formData, phone: phoneValue });
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-black"
-                  placeholder={user?.phone ? "แก้ไขเบอร์โทรศัพท์" : "กรอกเบอร์โทรศัพท์ เช่น 081-234-5678"}
+                  placeholder=""
+                  maxLength={10}
+                  pattern="[0-9]{10}"
                 />
               </div>
 

@@ -156,6 +156,9 @@ export default function ProfilePage() {
     
     if (name === 'nationalId') {
       processedValue = formatNationalId(value);
+    } else if (name === 'phone') {
+      // จำกัดให้เป็นตัวเลขเท่านั้น และไม่เกิน 10 หลัก
+      processedValue = value.replace(/\D/g, '').slice(0, 10);
     }
     
     const newData = {
@@ -178,6 +181,12 @@ export default function ProfilePage() {
     const nationalIdDigits = formData.nationalId.replace(/\D/g, '');
     if (nationalIdDigits.length !== 13) {
       toast.error('เลขบัตรประชาชนต้องมี 13 หลัก');
+      return;
+    }
+
+    // Validate phone number - เช็คว่ามี 10 หลัก (ถ้ากรอก)
+    if (formData.phone && formData.phone.length !== 10) {
+      toast.error('เบอร์โทรศัพท์ต้องมี 10 หลัก');
       return;
     }
 
@@ -446,6 +455,8 @@ export default function ProfilePage() {
                       onChange={handleInputChange}
                       disabled={!isEditing}
                       placeholder=""
+                      maxLength={10}
+                      pattern="[0-9]{10}"
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
                     />
                   </div>

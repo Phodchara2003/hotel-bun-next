@@ -482,14 +482,10 @@ export default function BookRoomPage() {
               </div>
 
               {/* Room Info Grid */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="mb-6">
                 <div className="flex items-center text-gray-600">
                   <Users className="h-4 w-4 mr-2" />
                   <span>รองรับ {room.maxGuests} คน</span>
-                </div>
-                <div className="flex items-center text-gray-600">
-                  <MapPin className="h-4 w-4 mr-2" />
-                  <span>{room.sizeSqm} ตร.ม.</span>
                 </div>
               </div>
 

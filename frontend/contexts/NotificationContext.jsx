@@ -19,7 +19,13 @@ export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isClient, setIsClient] = useState(false);
   const { user, isAuthenticated } = useAuth();
+
+  // Initialize client-side flag to prevent hydration mismatches
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Rate limiting for API calls - Increased to reduce database load
   const lastNotificationsFetch = useRef(0);
@@ -280,6 +286,30 @@ export const NotificationProvider = ({ children }) => {
     hasUnread: unreadCount > 0,
     isEmpty: notifications.length === 0
   };
+
+  // Prevent hydration mismatches by showing loading state until client-side
+  if (!isClient) {
+    return (
+      <NotificationContext.Provider value={{
+        notifications: [],
+        unreadCount: 0,
+        loading: true,
+        fetchNotifications: () => Promise.resolve(),
+        markAsRead: () => Promise.resolve(),
+        markAllAsRead: () => Promise.resolve(),
+        deleteNotification: () => Promise.resolve(),
+        clearAllNotifications: () => Promise.resolve(),
+        addNotification: () => {},
+        getNotificationIcon: () => null,
+        getNotificationColor: () => '',
+        formatTimeAgo: () => '',
+        hasUnread: false,
+        isEmpty: true
+      }}>
+        {children}
+      </NotificationContext.Provider>
+    );
+  }
 
   return (
     <NotificationContext.Provider value={value}>

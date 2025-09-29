@@ -11,7 +11,9 @@ import {
   CreditCard, 
   TrendingUp,
   Settings,
-  ChevronRight
+  ChevronRight,
+  LogIn,
+  LogOut
 } from 'lucide-react';
 
 const AdminNavigation = ({ title, description }) => {
@@ -29,6 +31,18 @@ const AdminNavigation = ({ title, description }) => {
       href: '/admin/bookings',
       icon: Calendar,
       active: pathname === '/admin/bookings'
+    },
+    {
+      name: 'เช็คอิน/เช็คเอ้า',
+      href: '/admin/checkin-checkout',
+      icon: LogIn,
+      active: pathname === '/admin/checkin-checkout'
+    },
+    {
+      name: 'ประวัติการเข้าพัก',
+      href: '/admin/checkin-history', 
+      icon: LogOut,
+      active: pathname === '/admin/checkin-history'
     },
     {
       name: 'ปฏิทินการจอง',
