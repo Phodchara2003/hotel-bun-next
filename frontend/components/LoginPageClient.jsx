@@ -118,12 +118,12 @@ export default function LoginPageClient() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-teal-100 relative overflow-hidden">
       {/* Animated Background Elements */}
       <div className="absolute inset-0">
-        <div className="absolute top-10 left-10 w-72 h-72 bg-blue-400/20 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
-        <div className="absolute top-0 right-4 w-72 h-72 bg-purple-400/20 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-400/20 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
+        <div className="absolute top-10 left-10 w-72 h-72 bg-emerald-400/20 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
+        <div className="absolute top-0 right-4 w-72 h-72 bg-green-400/20 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
+        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-teal-400/20 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
       </div>
 
       {/* Main Content */}
@@ -132,10 +132,10 @@ export default function LoginPageClient() {
           
           {/* Header Section */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl mb-6 shadow-lg transform hover:scale-105 transition-all duration-300">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-emerald-600 to-green-600 rounded-2xl mb-6 shadow-lg transform hover:scale-105 transition-all duration-300">
               <Hotel className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-blue-900 to-purple-900 bg-clip-text text-transparent mb-3">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-emerald-900 to-green-900 bg-clip-text text-transparent mb-3">
               ยินดีต้อนรับกลับ
             </h1>
             <p className="text-gray-600 text-lg">
@@ -153,14 +153,14 @@ export default function LoginPageClient() {
                   อีเมล
                 </label>
                 <div className="relative group">
-                  <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
+                  <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-emerald-500 transition-colors" />
                   <input
                     type="email"
                     id="email"
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border-2 border-gray-200 rounded-2xl focus:border-blue-500 focus:bg-white transition-all duration-300 text-gray-900 placeholder-gray-500"
+                    className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border-2 border-gray-200 rounded-2xl focus:border-emerald-500 focus:bg-white transition-all duration-300 text-gray-900 placeholder-gray-500"
                     placeholder="กรอกอีเมลของคุณ"
                     required
                     disabled={loading}
@@ -174,14 +174,14 @@ export default function LoginPageClient() {
                   รหัสผ่าน
                 </label>
                 <div className="relative group">
-                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
+                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-emerald-500 transition-colors" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     id="password"
                     name="password"
                     value={formData.password}
                     onChange={handleInputChange}
-                    className="w-full pl-12 pr-12 py-4 bg-gray-50/50 border-2 border-gray-200 rounded-2xl focus:border-blue-500 focus:bg-white transition-all duration-300 text-gray-900 placeholder-gray-500"
+                    className="w-full pl-12 pr-12 py-4 bg-gray-50/50 border-2 border-gray-200 rounded-2xl focus:border-emerald-500 focus:bg-white transition-all duration-300 text-gray-900 placeholder-gray-500"
                     placeholder="กรอกรหัสผ่านของคุณ"
                     required
                     disabled={loading}
@@ -210,8 +210,8 @@ export default function LoginPageClient() {
                     />
                     <div className={`w-5 h-5 rounded border-2 transition-all duration-200 ${
                       rememberMe 
-                        ? 'bg-blue-500 border-blue-500' 
-                        : 'bg-white border-gray-300 hover:border-blue-400'
+                        ? 'bg-emerald-500 border-emerald-500' 
+                        : 'bg-white border-gray-300 hover:border-emerald-400'
                     }`}>
                       {rememberMe && (
                         <CheckCircle className="w-5 h-5 text-white absolute inset-0" />
@@ -223,7 +223,7 @@ export default function LoginPageClient() {
                 
                 <Link 
                   href="/forgot-password" 
-                  className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors hover:underline"
+                  className="text-sm font-medium text-emerald-600 hover:text-emerald-700 transition-colors hover:underline"
                 >
                   ลืมรหัสผ่าน?
                 </Link>
@@ -233,7 +233,7 @@ export default function LoginPageClient() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-4 px-6 rounded-2xl hover:from-blue-700 hover:to-purple-700 transform hover:scale-[1.02] transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center space-x-2"
+                className="w-full bg-gradient-to-r from-emerald-600 to-green-600 text-white font-bold py-4 px-6 rounded-2xl hover:from-emerald-700 hover:to-green-700 transform hover:scale-[1.02] transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center space-x-2"
               >
                 {loading ? (
                   <>
@@ -254,7 +254,7 @@ export default function LoginPageClient() {
                   ยังไม่มีบัญชี?{' '}
                   <Link 
                     href="/register" 
-                    className="font-bold text-blue-600 hover:text-blue-700 transition-colors hover:underline"
+                    className="font-bold text-emerald-600 hover:text-emerald-700 transition-colors hover:underline"
                   >
                     สมัครสมาชิก
                   </Link>

@@ -1,4 +1,4 @@
-import { Inter } from 'next/font/google'
+import { Inter, Noto_Sans_Thai, Kanit } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '../contexts/AuthContext'
 import { NotificationProvider } from '../contexts/NotificationContext'
@@ -17,6 +17,21 @@ const inter = Inter({
   preload: true
 })
 
+const notoSansThai = Noto_Sans_Thai({
+  subsets: ['thai', 'latin'],
+  display: 'swap',
+  preload: true,
+  variable: '--font-noto-sans-thai'
+})
+
+const kanit = Kanit({
+  subsets: ['thai', 'latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  display: 'swap',
+  preload: true,
+  variable: '--font-kanit'
+})
+
 export const metadata = {
   title: 'ระบบจองโรงแรมวรุณภัฏ - มหาวิทยาลัยราชภัฏมหาสารคาม',
   description: 'ระบบจองโรงแรมวรุณภัฏมหาวิทยาลัยราชภัฏมหาสารคาม - พัฒนาโดย นาย พชร มีหา',
@@ -25,7 +40,11 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="th" suppressHydrationWarning={true}>
-      <body className={inter.className} suppressHydrationWarning={true}>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+      </head>
+      <body className={`${inter.className} ${notoSansThai.variable} ${kanit.variable}`} suppressHydrationWarning={true}>
         {/* Prevent MetaMask and other extension errors */}
         <script
           dangerouslySetInnerHTML={{

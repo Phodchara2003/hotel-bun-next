@@ -17,20 +17,20 @@ export default function MobileHeader({ onMenuToggle }) {
   }
 
   return (
-    <div className="lg:hidden fixed top-0 left-0 right-0 bg-gradient-to-r from-emerald-900 to-emerald-800 px-4 py-3 flex items-center justify-between z-40 shadow-lg">
+    <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-40 shadow-sm">
       <button
         onClick={onMenuToggle}
-        className="p-2 rounded-lg text-emerald-100 hover:text-white hover:bg-emerald-700/50 focus:outline-none focus:ring-2 focus:ring-amber-400 transition-colors duration-200"
+        className="p-2 rounded-lg text-gray-600 hover:text-amber-600 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-colors duration-200"
       >
         <span className="sr-only">เปิดเมนู</span>
         <Menu className="h-6 w-6" />
       </button>
       
       <Link href="/" className="flex items-center space-x-2">
-        <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-1.5 rounded-lg">
+        <div className="bg-amber-600 p-1.5 rounded-lg">
           <Hotel className="h-5 w-5 text-white" />
         </div>
-        <span className="text-xl font-light text-white tracking-wider">วรุณภัฏ</span>
+        <span className="text-lg font-bold text-gray-900">วรุณภัฏ</span>
       </Link>
       
       <div className="w-10" /> {/* Spacer for centering */}

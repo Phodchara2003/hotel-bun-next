@@ -327,6 +327,44 @@ export const hotelAPI = {
     const response = await api.get('/hotels/search/availability', { params: searchParams });
     return response.data;
   },
+
+  // ค้นหาห้องพักที่ว่าง
+  searchRooms: async (searchParams) => {
+    try {
+      console.log('🔍 Searching rooms with params:', searchParams);
+      const response = await api.get('/rooms/search', { params: searchParams });
+      console.log('✅ Room search results:', response.data);
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      console.error('❌ Error searching rooms:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  },
+
+  // ดึงรายละเอียดห้องพัก
+  getRoomDetails: async (roomId) => {
+    try {
+      console.log('🔍 Getting room details for ID:', roomId);
+      const response = await api.get(`/rooms/${roomId}`);
+      console.log('✅ Room details:', response.data);
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      console.error('❌ Error getting room details:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  },
 };
 
 // Bookings API
