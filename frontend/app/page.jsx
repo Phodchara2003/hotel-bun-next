@@ -422,43 +422,7 @@ function HomePageContent() {
         </div>
       </section>
 
-      {/* Newsletter Subscription */}
-      <section className="py-16" style={{ backgroundColor: '#f8fafc' }}>
-        <div className="container mx-auto px-6">
-          <div className="flex flex-col lg:flex-row items-center justify-between">
-            <FadeInLeft delay={200}>
-              <div className="lg:w-1/2 mb-8 lg:mb-0">
-                <h2 className="text-3xl lg:text-4xl font-light text-slate-800 mb-4 font-thai-header">
-                  <span className="font-bold text-amber-600">ข่าวสารพิเศษ</span> ส่งตรงถึงคุณ
-                </h2>
-                <p className="text-slate-600 text-lg font-thai">
-                  รับข้อมูลโปรโมชั่นและข่าวสารใหม่ล่าสุดจากโรงแรมของเรา
-                </p>
-              </div>
-            </FadeInLeft>
-            
-            <FadeInRight delay={400}>
-              <div className="lg:w-1/2 lg:pl-12">
-                <div className="flex">
-                  <input
-                    type="email"
-                    placeholder="อีเมลของคุณ"
-                    className="flex-1 px-6 py-4 rounded-l-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500 text-lg font-thai"
-                  />
-                  <button 
-                    className="text-amber-100 px-8 py-4 rounded-r-lg font-medium transition-colors duration-300 font-thai"
-                    style={{ backgroundColor: '#082220' }}
-                    onMouseEnter={(e) => e.target.style.backgroundColor = '#0a2b28'}
-                    onMouseLeave={(e) => e.target.style.backgroundColor = '#082220'}
-                  >
-                    สมัครสมาชิก
-                  </button>
-                </div>
-              </div>
-            </FadeInRight>
-          </div>
-        </div>
-      </section>
+
     </div>
   );
 }

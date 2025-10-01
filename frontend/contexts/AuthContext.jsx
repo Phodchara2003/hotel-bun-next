@@ -521,6 +521,16 @@ export const AuthProvider = ({ children }) => {
     };
   };
 
+  // Get authentication token
+  const getAuthToken = () => {
+    if (typeof window !== 'undefined') {
+      return Cookies.get('auth_token') || 
+             localStorage.getItem('auth_token_persistent') ||
+             sessionStorage.getItem('auth_token');
+    }
+    return null;
+  };
+
   // Check if user needs to refresh session
   const needsRefresh = () => {
     const tokenInfo = getTokenInfo();
@@ -565,6 +575,7 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated: !!user,
     // Enhanced token management functions
     getTokenInfo,
+    getAuthToken,
     needsRefresh,
     refreshToken,
     forceCheckAuth,
@@ -619,6 +630,7 @@ export const AuthProvider = ({ children }) => {
         updateUser: () => {},
         isAuthenticated: false,
         getTokenInfo: () => null,
+        getAuthToken: () => null,
         needsRefresh: () => false,
         refreshToken: () => Promise.resolve(false),
         forceCheckAuth: () => {},

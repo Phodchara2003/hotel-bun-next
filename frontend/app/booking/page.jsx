@@ -23,32 +23,44 @@ export default function BookingPage() {
   const [paymentSlip, setPaymentSlip] = useState(null);
   const [uploadingSlip, setUploadingSlip] = useState(false);
 
-  // ข้อมูลห้องพักแบบเดียว (ราคาเดียวกัน)
-  const singleRoomType = { 
-    id: 'room', 
-    name: 'ห้องพัก', 
-    price: 1500, 
-    description: 'ห้องพักสะดวกสบายพร้อมสิ่งอำนวยความสะดวกครบครัน' 
-  };
+  // ข้อมูลประเภทห้องพัก (2 แบบ)
+  const roomTypes = [
+    { 
+      id: 'single', 
+      name: 'ห้องเตียงเดี่ยว (Single Room)', 
+      price: 1200, 
+      description: 'ห้องพักสำหรับ 1 คน เตียงเดี่ยวขนาดมาตรฐาน',
+      max_occupancy: 1,
+      bed_type: 'เตียงเดี่ยว'
+    },
+    { 
+      id: 'double', 
+      name: 'ห้องเตียงคู่ (Double Room)', 
+      price: 1800, 
+      description: 'ห้องพักสำหรับ 2 คน เตียงคู่ขนาดใหญ่',
+      max_occupancy: 2,
+      bed_type: 'เตียงคู่'
+    }
+  ];
 
   // คำนวณจำนวนคืนและราคารวม
   useEffect(() => {
-    if (bookingData.checkIn && bookingData.checkOut) {
+    if (bookingData.checkIn && bookingData.checkOut && bookingData.roomType) {
       const checkIn = new Date(bookingData.checkIn);
       const checkOut = new Date(bookingData.checkOut);
       const timeDiff = checkOut.getTime() - checkIn.getTime();
       const nights = Math.ceil(timeDiff / (1000 * 3600 * 24));
       
       if (nights > 0) {
-        // คำนวณราคาห้องเท่านั้น ไม่บวกตามจำนวนคน
-        const roomPrice = singleRoomType.price;
-        const total = nights * roomPrice; // ไม่คูณกับจำนวนคน
+        // หาราคาของประเภทห้องที่เลือก
+        const selectedRoomType = roomTypes.find(room => room.id === bookingData.roomType);
+        const roomPrice = selectedRoomType ? selectedRoomType.price : 1500;
+        const total = nights * roomPrice;
         
         setBookingData(prev => ({
           ...prev,
           nights: nights,
-          totalAmount: total,
-          roomType: 'room' // Set default room type
+          totalAmount: total
         }));
       }
     }
@@ -130,7 +142,16 @@ export default function BookingPage() {
         }
         return true;
       case 3:
-        // ไม่ต้องตรวจสอบประเภทห้อง เพราะมีแค่ห้องเดียว
+        if (!bookingData.roomType) {
+          toast.error('กรุณาเลือกประเภทห้องพัก');
+          return false;
+        }
+        // ตรวจสอบจำนวนคนไม่เกินความจุห้อง
+        const selectedRoom = roomTypes.find(room => room.id === bookingData.roomType);
+        if (selectedRoom && bookingData.guests > selectedRoom.max_occupancy) {
+          toast.error(`ประเภทห้องนี้รองรับได้สูงสุด ${selectedRoom.max_occupancy} คน`);
+          return false;
+        }
         return true;
       default:
         return true;
@@ -294,14 +315,18 @@ export default function BookingPage() {
               <select
                 value={bookingData.guests}
                 onChange={(e) => handleInputChange('guests', parseInt(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               >
-                {[1, 2, 3, 4, 5, 6].map(num => (
+                {[1, 2, 3, 4].map(num => (
                   <option key={num} value={num}>
                     {num} {num === 1 ? 'คน' : 'คน'}
                   </option>
                 ))}
               </select>
+              <p className="text-sm text-gray-500 mt-2">
+                💡 หากต้องการห้องเตียงเดี่ยว: สูงสุด 1 คน<br/>
+                💡 หากต้องการห้องเตียงคู่: สูงสุด 2 คน
+              </p>
             </div>
           </div>
         );
@@ -309,27 +334,55 @@ export default function BookingPage() {
       case 3:
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900 text-center">ข้อมูลห้องพัก</h2>
+            <h2 className="text-2xl font-bold text-gray-900 text-center">เลือกประเภทห้องพัก</h2>
+            <p className="text-center text-gray-600 mb-8">เลือกประเภทห้องพักที่ต้องการ ห้องพักจริงจะได้รับมอบหมายเมื่อเช็คอิน</p>
             
-            <div className="max-w-md mx-auto">
-              <div className="p-6 border-2 border-blue-500 bg-blue-50 rounded-lg">
-                <div className="text-center">
-                  <Bed className="w-16 h-16 mx-auto mb-4 text-blue-600" />
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{singleRoomType.name}</h3>
-                  <p className="text-gray-600 mb-4">{singleRoomType.description}</p>
-                  <p className="text-2xl font-bold text-blue-600 mb-2">
-                    ฿{singleRoomType.price.toLocaleString()}/คืน
-                  </p>
-                  {bookingData.nights > 0 && (
-                    <div className="bg-white rounded-lg p-4 mt-4">
-                      <p className="text-lg font-semibold text-gray-800">
-                        รวม {bookingData.nights} คืน: ฿{(singleRoomType.price * bookingData.nights).toLocaleString()}
-                      </p>
-                    </div>
-                  )}
+            <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-6">
+              {roomTypes.map((roomType) => (
+                <div
+                  key={roomType.id}
+                  onClick={() => handleInputChange('roomType', roomType.id)}
+                  className={`p-6 border-2 rounded-lg cursor-pointer transition-all ${
+                    bookingData.roomType === roomType.id
+                      ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200'
+                      : 'border-gray-300 hover:border-emerald-300 bg-white'
+                  }`}
+                >
+                  <div className="text-center">
+                    <Bed className={`w-16 h-16 mx-auto mb-4 ${
+                      bookingData.roomType === roomType.id ? 'text-emerald-600' : 'text-gray-400'
+                    }`} />
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">{roomType.name}</h3>
+                    <p className="text-gray-600 mb-2">{roomType.description}</p>
+                    <p className="text-sm text-gray-500 mb-4">สำหรับ {roomType.max_occupancy} คน • {roomType.bed_type}</p>
+                    <p className="text-2xl font-bold text-emerald-600 mb-2">
+                      ฿{roomType.price.toLocaleString()}/คืน
+                    </p>
+                    {bookingData.nights > 0 && bookingData.roomType === roomType.id && (
+                      <div className="bg-white rounded-lg p-4 mt-4 border border-emerald-200">
+                        <p className="text-lg font-semibold text-gray-800">
+                          รวม {bookingData.nights} คืน: ฿{(roomType.price * bookingData.nights).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {bookingData.roomType && (
+              <div className="max-w-md mx-auto mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-start">
+                  <div className="text-yellow-600 mr-3">⚠️</div>
+                  <div>
+                    <h4 className="font-semibold text-yellow-800">หมายเหตุสำคัญ</h4>
+                    <p className="text-yellow-700 text-sm mt-1">
+                      การจองนี้เป็นการจองประเภทห้องพัก ห้องพักจริงจะได้รับการมอบหมายจากทางโรงแรมเมื่อเช็คอิน
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         );
 
@@ -360,7 +413,7 @@ export default function BookingPage() {
                 </div>
                 <div className="flex justify-between">
                   <span>ประเภทห้อง:</span>
-                  <span>{singleRoomType.name}</span>
+                  <span>{roomTypes.find(room => room.id === bookingData.roomType)?.name || 'ไม่ได้เลือก'}</span>
                 </div>
                 <hr className="my-3" />
                 <div className="flex justify-between text-lg font-semibold text-blue-600">
@@ -373,28 +426,36 @@ export default function BookingPage() {
               </div>
             </div>
 
-            {/* แสดงห้องที่เลือกและตัวเลือกอื่น */}
-            <div className="bg-blue-50 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-blue-800 mb-4">ห้องที่คุณเลือก</h3>
+            {/* แสดงประเภทห้องที่เลือก */}
+            <div className="bg-emerald-50 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-emerald-800 mb-4">ประเภทห้องที่คุณเลือก</h3>
               <div className="max-w-md mx-auto">
-                <div className="p-4 border-2 border-blue-500 bg-blue-100 shadow-md rounded-lg">
-                  <div className="text-center">
-                    <Bed className="w-8 h-8 mx-auto mb-2 text-blue-600" />
-                    <h4 className="font-semibold text-blue-900 mb-1">{singleRoomType.name}</h4>
-                    <p className="text-blue-700 text-sm mb-2">{singleRoomType.description}</p>
-                    <p className="text-lg font-bold text-blue-600">
-                      ฿{singleRoomType.price.toLocaleString()}/คืน
-                    </p>
-                    <p className="text-xs text-blue-500 mt-1">
-                      ราคาเดียวกันทุกห้อง ไม่ขึ้นกับจำนวนคน
-                    </p>
-                    {bookingData.nights > 0 && (
-                      <p className="text-sm text-blue-600 mt-1">
-                        รวม {bookingData.nights} คืน: ฿{(singleRoomType.price * bookingData.nights).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                {(() => {
+                  const selectedRoom = roomTypes.find(room => room.id === bookingData.roomType);
+                  return selectedRoom ? (
+                    <div className="p-4 border-2 border-emerald-500 bg-emerald-100 shadow-md rounded-lg">
+                      <div className="text-center">
+                        <Bed className="w-8 h-8 mx-auto mb-2 text-emerald-600" />
+                        <h4 className="font-semibold text-emerald-900 mb-1">{selectedRoom.name}</h4>
+                        <p className="text-emerald-700 text-sm mb-2">{selectedRoom.description}</p>
+                        <p className="text-sm text-emerald-600 mb-2">{selectedRoom.bed_type} • สำหรับ {selectedRoom.max_occupancy} คน</p>
+                        <p className="text-lg font-bold text-emerald-600">
+                          ฿{selectedRoom.price.toLocaleString()}/คืน
+                        </p>
+                        {bookingData.nights > 0 && (
+                          <p className="text-sm text-emerald-600 mt-1">
+                            รวม {bookingData.nights} คืน: ฿{(selectedRoom.price * bookingData.nights).toLocaleString()}
+                          </p>
+                        )}
+                        <div className="mt-3 p-2 bg-yellow-100 border border-yellow-300 rounded text-xs text-yellow-800">
+                          ⚠️ ห้องพักจริงจะได้รับมอบหมายเมื่อเช็คอิน
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center text-gray-500">ไม่ได้เลือกประเภทห้อง</div>
+                  );
+                })()}
               </div>
             </div>
 

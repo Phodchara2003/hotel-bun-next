@@ -14,10 +14,20 @@ const api = axios.create({
   },
 });
 
+// Helper function to get auth token from multiple sources
+const getAuthToken = () => {
+  if (typeof window !== 'undefined') {
+    return Cookies.get('auth_token') || 
+           localStorage.getItem('auth_token_persistent') ||
+           sessionStorage.getItem('auth_token');
+  }
+  return null;
+};
+
 // Request interceptor to add auth token and track performance
 api.interceptors.request.use(
   (config) => {
-    const token = Cookies.get('auth_token');
+    const token = getAuthToken();
     
     // Track API call start
     performanceMonitor.startApiCall(config.url, config.method?.toUpperCase());
@@ -588,6 +598,7 @@ export const roomsAPI = {
         max_guests: parseInt(roomData.capacity) || 2,
         size_sqm: roomData.size ? parseFloat(roomData.size) : null,
         bed_type: roomData.bed_type || 'double',
+        floor: roomData.floor || '1', // Include floor field
         amenities: Array.isArray(roomData.amenities) ? roomData.amenities : (roomData.amenities ? [roomData.amenities] : []),
         images: Array.isArray(roomData.images) ? roomData.images : []
       };
@@ -615,7 +626,7 @@ export const roomsAPI = {
     try {
       // For update, preserve the existing hotel_id from the room data
       // Don't force hotel_id to 1 when updating
-      // Only send fields that exist in room_types table
+      // Send fields that exist in room_types table
       const mappedData = {
         // Only set hotel_id if it's provided, otherwise let backend handle it
         ...(roomData.hotel_id && { hotel_id: roomData.hotel_id }),
@@ -623,13 +634,14 @@ export const roomsAPI = {
         description: roomData.description || '',
         price_per_night: parseFloat(roomData.price) || 1500,
         max_guests: parseInt(roomData.capacity) || 2,
-        size_sqm: roomData.size ? parseInt(roomData.size) : null, // Changed to int to match schema
+        size_sqm: roomData.size ? parseInt(roomData.size) : null,
         type: roomData.type || 'standard',
+        bed_type: roomData.bed_type || 'single', // Include bed_type
+        floor: roomData.floor || '1', // Include floor field (added to room_types table)
         amenities: Array.isArray(roomData.amenities) ? roomData.amenities : (roomData.amenities ? [roomData.amenities] : []),
         // Only include images if explicitly provided AND not empty, otherwise let backend preserve existing images
         ...(roomData.images !== undefined && Array.isArray(roomData.images) && roomData.images.length > 0 && { images: roomData.images })
-        // Removed: bed_type (not in schema)
-        // Note: status, floor, number, bed_type, view_type are not in room_types table
+        // Note: Fields like status, view_type are NOT in room_types table and will be ignored
       };
 
       console.log('🔧 API: Updating room ID:', id);

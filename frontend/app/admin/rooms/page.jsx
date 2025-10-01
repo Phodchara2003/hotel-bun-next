@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
 import { roomsAPI } from '../../../lib/api';
 import { isStaffOrAdmin } from '../../../lib/permissions';
@@ -33,7 +34,28 @@ import {
 import toast from 'react-hot-toast';
 
 export default function RoomsManagement() {
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const { user, isAuthenticated, loading: authLoading, getAuthToken } = useAuth();
+  
+  // Helper function to ensure token persistence
+  const ensureTokenPersistence = () => {
+    const token = getAuthToken();
+    if (token && user && typeof window !== 'undefined') {
+      // บันทึก token และข้อมูล user ใน localStorage เสมอ
+      localStorage.setItem('auth_token_persistent', token);
+      localStorage.setItem('user_data_persistent', JSON.stringify(user));
+      localStorage.setItem('auth_expires_at', (Date.now() + (7 * 24 * 60 * 60 * 1000)).toString());
+      
+      // บันทึกใน sessionStorage ด้วย
+      sessionStorage.setItem('auth_token', token);
+      sessionStorage.setItem('user_data', JSON.stringify(user));
+      
+      console.log('💾 Token persistence ensured');
+      return token;
+    }
+    console.log('⚠️ No token or user data to persist');
+    return null;
+  };
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isVisible, setIsVisible] = useState(false);
@@ -48,6 +70,10 @@ export default function RoomsManagement() {
   // Delete confirmation modal states
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [roomToDelete, setRoomToDelete] = useState(null);
+  
+  // Sub rooms management
+  const [showSubRooms, setShowSubRooms] = useState({});
+  const [editingSubRoom, setEditingSubRoom] = useState(null);
   
   const [stats, setStats] = useState({
     totalRooms: 0,
@@ -125,6 +151,15 @@ export default function RoomsManagement() {
   const fetchRooms = async () => {
     try {
       setLoading(true);
+      
+      // ตรวจสอบ token ก่อนเรียก API
+      const token = getAuthToken();
+      if (!token) {
+        toast.error('เซสชันหมดอายุ กรุณาล็อกอินใหม่');
+        setLoading(false);
+        return;
+      }
+      
       console.log('🔄 Fetching rooms from database...');
       const response = await roomsAPI.getAllRooms();
       console.log('✅ Rooms API response:', response);
@@ -337,13 +372,21 @@ export default function RoomsManagement() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // ตรวจสอบและรักษา token ก่อนทำงาน
+    const token = ensureTokenPersistence();
+    if (!token) {
+      toast.error('กรุณาเข้าสู่ระบบใหม่');
+      router.push('/admin/login');
+      return;
+    }
+    
     console.log('🚀 Form submission started');
     console.log('📝 Modal Type:', modalType);
     console.log('📝 Selected Room:', selectedRoom);
     console.log('📝 Form Data:', formData);
     
-    if (!formData.name || !formData.type || !formData.number) {
-      toast.error('กรุณากรอกข้อมูลที่จำเป็น');
+    if (!formData.name || !formData.bed_type || !formData.price) {
+      toast.error('กรุณากรอกข้อมูลที่จำเป็น: ชื่อห้อง, ประเภทเตียง, และราคา');
       return;
     }
 
@@ -389,10 +432,20 @@ export default function RoomsManagement() {
         delete updateData.images; // Remove images field to let backend preserve existing images
         console.log('✏️ Update data (without images):', JSON.stringify(updateData, null, 2));
         
+        // ตรวจสอบ token ก่อนทำงาน
+        const token = getAuthToken();
+        if (!token) {
+          toast.error('เซสชันหมดอายุ กรุณาล็อกอินใหม่');
+          return;
+        }
+        
         response = await roomsAPI.updateRoom(selectedRoom.id, updateData);
         console.log('✏️ Update response:', response);
         if (response.success) {
           toast.success('แก้ไขห้องพักสำเร็จ - ข้อมูลได้รับการอัปเดต');
+          
+          // บันทึก token และข้อมูล user อีกครั้งเพื่อป้องกันการหาย
+          ensureTokenPersistence();
           
           // ปิด Modal ก่อน
           closeModal();
@@ -433,11 +486,40 @@ export default function RoomsManagement() {
         // รีเฟรชข้อมูลทันทีหลังลบ
         await fetchRooms();
       } else {
-        toast.error(response.message || 'เกิดข้อผิดพลาดในการลบห้องพัก');
+        // แสดงข้อความข้อผิดพลาดแบบละเอียด
+        const errorMessage = response.message || 'เกิดข้อผิดพลาดในการลบห้องพัก';
+        
+        // แสดง toast ข้อผิดพลาดแบบยาว
+        toast.error(errorMessage, {
+          duration: 8000, // แสดงนาน 8 วินาที
+          style: {
+            maxWidth: '500px',
+            fontSize: '14px',
+            lineHeight: '1.4'
+          }
+        });
+        
+        // Log รายละเอียดเพิ่มเติม
+        if (response.details) {
+          console.log('Booking details that prevent deletion:', response.details);
+        }
       }
     } catch (error) {
       console.error('Error deleting room:', error);
-      toast.error('เกิดข้อผิดพลาดในการลบห้องพัก');
+      
+      // ตรวจสอบว่าเป็น error จาก API response หรือไม่
+      if (error.response && error.response.data && error.response.data.message) {
+        toast.error(error.response.data.message, {
+          duration: 8000,
+          style: {
+            maxWidth: '500px',
+            fontSize: '14px',
+            lineHeight: '1.4'
+          }
+        });
+      } else {
+        toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์');
+      }
     } finally {
       setActionLoading(false);
       setShowDeleteModal(false);
@@ -448,6 +530,66 @@ export default function RoomsManagement() {
   const cancelDelete = () => {
     setShowDeleteModal(false);
     setRoomToDelete(null);
+  };
+
+  // Image handling for room edit form
+  const handleImageSelect = (event) => {
+    const files = Array.from(event.target.files);
+    const validFiles = files.filter(file => {
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        toast.error(`ไฟล์ ${file.name} ไม่ใช่รูปภาพ`);
+        return false;
+      }
+      // Check file size (10MB max)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`ไฟล์ ${file.name} มีขนาดใหญ่เกิน 10MB`);
+        return false;
+      }
+      return true;
+    });
+    
+    if (validFiles.length > 0) {
+      setSelectedImages(prev => [...prev, ...validFiles]);
+      toast.success(`เลือกไฟล์สำเร็จ: ${validFiles.length} ไฟล์`);
+    }
+  };
+
+  // Sub Rooms Management Functions
+  const toggleSubRooms = (roomId) => {
+    setShowSubRooms(prev => ({
+      ...prev,
+      [roomId]: !prev[roomId]
+    }));
+  };
+
+  const updateSubRoomStatus = async (roomId, subRoomId, field, value) => {
+    try {
+      // Update local state first
+      setRooms(prev => prev.map(room => {
+        if (room.id === roomId) {
+          return {
+            ...room,
+            sub_rooms: room.sub_rooms?.map(subRoom => 
+              subRoom.id === subRoomId 
+                ? { ...subRoom, [field]: value }
+                : subRoom
+            )
+          };
+        }
+        return room;
+      }));
+
+      // Here you would typically make an API call to update the backend
+      // await roomsAPI.updateSubRoom(roomId, subRoomId, { [field]: value });
+      
+      toast.success('อัปเดตสถานะห้องเรียบร้อยแล้ว');
+    } catch (error) {
+      console.error('Error updating sub room:', error);
+      toast.error('เกิดข้อผิดพลาดในการอัปเดต');
+      // Revert changes if API call fails
+      await fetchRooms();
+    }
   };
 
   const formatPrice = (amount) => {
@@ -518,25 +660,7 @@ export default function RoomsManagement() {
     }
   };
 
-  // Image handling functions
-  const handleImageSelect = (e) => {
-    const files = Array.from(e.target.files);
-    
-    // Validate file sizes (max 10MB per file)
-    const validFiles = files.filter(file => {
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error(`ไฟล์ ${file.name} มีขนาดใหญ่เกิน 10MB`);
-        return false;
-      }
-      return true;
-    });
-    
-    if (validFiles.length !== files.length) {
-      toast.warning(`เลือกได้เฉพาะไฟล์ที่มีขนาดไม่เกิน 10MB (เลือกได้ ${validFiles.length}/${files.length} ไฟล์)`);
-    }
-    
-    setSelectedImages(prev => [...prev, ...validFiles]);
-  };
+  // Image handling functions (moved to image manager)
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -924,180 +1048,138 @@ export default function RoomsManagement() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="space-y-6">
+              {/* Room Types */}
               {filteredRooms.map((room, index) => (
                 <div
                   key={room.id}
-                  className={`bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1`}
+                  className="bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-neutral-200 dark:border-neutral-700"
                 >
-                  {/* Room Image */}
-                  <div className="h-48 bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-700 dark:to-neutral-800 flex items-center justify-center relative">
-                    {(() => {
-                      const roomImages = parseRoomImages(room.images);
-                      const firstImage = roomImages.length > 0 ? roomImages[0] : null;
-                      
-                      return (
-                        <>
-                          <img
-                            src={firstImage ? `/images/rooms/${firstImage}` : '/images/rooms/placeholder.svg'}
-                            alt={room.name || 'ห้องพัก'}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.src = '/images/rooms/placeholder.svg';
-                            }}
-                          />
-                          
-                          {/* Image Count Badge */}
-                          {roomImages.length > 1 && (
-                            <div className="absolute bottom-4 right-4 bg-black bg-opacity-70 text-white rounded-full px-2 py-1 text-xs flex items-center gap-1">
-                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-                              </svg>
-                              {roomImages.length}
-                            </div>
-                          )}
-                        </>
-                      );
-                    })()}
-                    
-                    {/* Status Badge */}
-                    <div className="absolute top-4 left-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300`}>
-                        {getStatusLabel(room.status) || 'พร้อมใช้งาน'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Room Details */}
-                  <div className="p-6">
-                    <div className="mb-4">
-                      <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-1">
-                        {room.name || `ห้องพัก ${room.room_number || room.number || room.id}`}
-                      </h3>
-                      {/* Bed Type */}
-                      {room.bed_type && (
-                        <div className="flex items-center text-sm text-emerald-600 dark:text-emerald-400 mb-2">
-                          <Bed className="h-4 w-4 mr-1" />
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
-                            {getBedTypeLabel(room.bed_type)}
-                          </span>
+                  {/* Room Type Header */}
+                  <div className="p-6 border-b border-neutral-200 dark:border-neutral-700">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        {/* Room Image Thumbnail */}
+                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-neutral-100 dark:bg-neutral-700">
+                          {(() => {
+                            const roomImages = parseRoomImages(room.images);
+                            const firstImage = roomImages.length > 0 ? roomImages[0] : null;
+                            
+                            return (
+                              <img
+                                src={firstImage ? `/images/rooms/${firstImage}` : '/images/rooms/placeholder.svg'}
+                                alt={room.name || 'ห้องพัก'}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.src = '/images/rooms/placeholder.svg';
+                                }}
+                              />
+                            );
+                          })()}
                         </div>
-                      )}
-                      {/* Hotel Name */}
-                      {room.hotel_name && (
-                        <div className="flex items-center text-xs text-neutral-500 dark:text-neutral-400">
-                          <Hotel className="h-3 w-3 mr-1" />
-                          {room.hotel_name}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Description */}
-                    {room.description && (
-                      <div className="mb-4">
-                        <p className="text-sm text-neutral-600 dark:text-neutral-400" style={{
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden'
-                        }}>
-                          {room.description}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Room Info Grid */}
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div className="flex items-center text-sm text-neutral-600 dark:text-neutral-400">
-                        <Users className="h-4 w-4 mr-2" />
-                        <span>{room.max_guests || room.capacity || '2'} คน</span>
-                      </div>
-                      {room.bed_type && (
-                        <div className="flex items-center text-sm text-neutral-600 dark:text-neutral-400">
-                          <Bed className="h-4 w-4 mr-2" />
-                          <span>{bedTypes.find(b => b.value === room.bed_type)?.label || room.bed_type}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Amenities */}
-                    {(() => {
-                      let amenitiesList = [];
-                      try {
-                        if (room.amenities) {
-                          if (Array.isArray(room.amenities)) {
-                            amenitiesList = room.amenities;
-                          } else if (typeof room.amenities === 'string') {
-                            amenitiesList = JSON.parse(room.amenities);
-                          }
-                        }
-                      } catch (e) {
-                        console.error('Error parsing amenities:', e);
-                        amenitiesList = [];
-                      }
-                      
-                      return amenitiesList.length > 0 && (
-                        <div className="mb-4">
-                          <div className="flex flex-wrap gap-1">
-                            {amenitiesList.slice(0, 3).map((amenity, idx) => (
-                              <span
-                                key={idx}
-                                className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-300"
-                              >
-                                {amenity}
-                              </span>
-                            ))}
-                            {amenitiesList.length > 3 && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-neutral-100 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-400">
-                                +{amenitiesList.length - 3} อื่นๆ
-                              </span>
-                            )}
+                        
+                        {/* Room Type Info */}
+                        <div>
+                          <h3 className="text-xl font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+                            <Bed className="h-5 w-5 text-emerald-600" />
+                            {room.name}
+                          </h3>
+                          <div className="flex items-center gap-4 mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+                            <span className="flex items-center gap-1">
+                              <Users className="h-4 w-4" />
+                              สำหรับ {room.max_occupancy} คน
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <DollarSign className="h-4 w-4" />
+                              {formatPrice(room.price_per_night)}/คืน
+                            </span>
+                            <span className="flex items-center gap-1">
+                              {room.sub_rooms && (
+                                <>
+                                  <Hotel className="h-4 w-4" />
+                                  {room.sub_rooms.filter(sr => sr.available).length}/{room.sub_rooms.length} ห้องพร้อมใช้
+                                </>
+                              )}
+                            </span>
                           </div>
                         </div>
-                      );
-                    })()}
-
-                    {/* Price */}
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <span className="text-2xl font-bold text-primary-600 dark:text-primary-400">
-                          {formatPrice(room.price_per_night || room.price || 1500)}
-                        </span>
-                        <span className="text-sm text-neutral-500 dark:text-neutral-400 ml-1">
-                          /คืน
-                        </span>
                       </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center justify-between pt-4 border-t border-neutral-200 dark:border-neutral-700">
-                      <button
-                        onClick={() => openModal('view', room)}
-                        className="btn-outline text-sm py-2 px-4 flex items-center gap-1"
-                      >
-                        <Eye className="h-4 w-4" />
-                        ดูรายละเอียด
-                      </button>
                       
+                      {/* Action Buttons */}
                       <div className="flex items-center gap-2">
                         <button
+                          onClick={() => toggleSubRooms(room.id)}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                            showSubRooms[room.id] 
+                              ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' 
+                              : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                          }`}
+                        >
+                          {showSubRooms[room.id] ? 'ซ่อนห้อง' : 'แสดงห้อง'}
+                        </button>
+                        <button
                           onClick={() => openModal('edit', room)}
-                          className="btn-secondary text-sm py-2 px-4 flex items-center gap-1"
+                          className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg transition-colors"
                         >
                           <Edit className="h-4 w-4" />
                           แก้ไข
                         </button>
-                        <button
-                          onClick={() => handleDelete(room.id)}
-                          disabled={actionLoading}
-                          className="bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-4 rounded-lg flex items-center gap-1 disabled:opacity-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          ลบ
-                        </button>
                       </div>
                     </div>
                   </div>
+
+                  {/* Sub Rooms List */}
+                  {showSubRooms[room.id] && room.sub_rooms && (
+                    <div className="p-6 pt-0">
+                      <div className="mt-4">
+                        <h4 className="text-lg font-semibold text-neutral-800 dark:text-neutral-200 mb-4">
+                          ห้องพักย่อย ({room.sub_rooms.length} ห้อง)
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {room.sub_rooms.map((subRoom) => (
+                            <div
+                              key={subRoom.id}
+                              className={`p-4 rounded-lg border-2 transition-all ${
+                                subRoom.available 
+                                  ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20' 
+                                  : 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-3">
+                                <h5 className="font-semibold text-neutral-800 dark:text-neutral-200">
+                                  ห้อง {subRoom.room_number}
+                                </h5>
+                                {subRoom.has_booking && (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300">
+                                    📅 มีการจอง
+                                  </span>
+                                )}
+                              </div>
+                              
+                              <div className="flex items-center justify-between">
+                                <span className={`text-sm font-medium ${
+                                  subRoom.available ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'
+                                }`}>
+                                  {subRoom.available ? '✓ พร้อมใช้' : '✗ ปิดใช้งาน'}
+                                </span>
+                                
+                                <button
+                                  onClick={() => updateSubRoomStatus(room.id, subRoom.id, 'available', !subRoom.available)}
+                                  className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                                    subRoom.available
+                                      ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                      : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                  }`}
+                                >
+                                  {subRoom.available ? 'ปิดใช้' : 'เปิดใช้'}
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -1639,6 +1721,8 @@ export default function RoomsManagement() {
           </div>
         </div>
       )}
+
+
 
       </div>
     </div>

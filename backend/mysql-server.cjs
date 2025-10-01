@@ -1575,6 +1575,7 @@ async function createRoom(roomData) {
       max_guests,
       size_sqm,
       bed_type,
+      floor,
       amenities,
       images
     } = roomData;
@@ -1631,12 +1632,14 @@ async function createRoom(roomData) {
         price_per_night,
         max_guests,
         size_sqm,
+        bed_type,
+        floor,
         amenities,
         images,
         type,
         created_at,
         updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `, [
       finalHotelId,
       name,
@@ -1644,6 +1647,8 @@ async function createRoom(roomData) {
       price_per_night,
       max_guests,
       size_sqm || null,
+      bed_type || 'single', // default bed_type
+      floor || '1', // default floor
       safeAmenities,
       safeImages,
       'standard' // default type
@@ -1690,7 +1695,10 @@ async function updateRoom(roomId, roomData) {
       description: roomData.description,
       price_per_night: roomData.price_per_night || roomData.price, // Support both formats
       max_guests: roomData.max_guests || roomData.capacity, // Support both formats
+      max_occupancy: roomData.max_occupancy || roomData.capacity, // Support max_occupancy field
       size_sqm: roomData.size_sqm || roomData.size, // Support both formats
+      bed_type: roomData.bed_type, // Include bed_type
+      floor: roomData.floor, // Include floor field
       amenities: roomData.amenities,
       images: roomData.images,
       type: roomData.type
@@ -1702,7 +1710,10 @@ async function updateRoom(roomId, roomData) {
       description,
       price_per_night,
       max_guests,
+      max_occupancy,
       size_sqm,
+      bed_type,
+      floor,
       amenities,
       images,
       type
@@ -1714,7 +1725,10 @@ async function updateRoom(roomId, roomData) {
     const safeDescription = description !== undefined ? description : null;
     const safePricePerNight = price_per_night !== undefined ? parseFloat(price_per_night) || null : null;
     const safeMaxGuests = max_guests !== undefined ? parseInt(max_guests) || null : null;
+    const safeMaxOccupancy = max_occupancy !== undefined ? parseInt(max_occupancy) || null : null;
     const safeSizeSquareMeters = size_sqm !== undefined ? parseFloat(size_sqm) || null : null;
+    const safeBedType = bed_type !== undefined ? bed_type : null;
+    const safeFloor = floor !== undefined ? floor : null;
     const safeAmenities = amenities !== undefined ? (Array.isArray(amenities) ? JSON.stringify(amenities) : amenities) : null;
     const safeImages = images !== undefined ? (Array.isArray(images) ? JSON.stringify(images) : images) : null;
     const safeType = type !== undefined ? type : null;
@@ -1762,9 +1776,21 @@ async function updateRoom(roomId, roomData) {
       updateFields.push('max_guests = ?');
       queryParams.push(safeMaxGuests);
     }
+    if (safeMaxOccupancy !== null) {
+      updateFields.push('max_occupancy = ?');
+      queryParams.push(safeMaxOccupancy);
+    }
     if (safeSizeSquareMeters !== null) {
       updateFields.push('size_sqm = ?');
       queryParams.push(safeSizeSquareMeters);
+    }
+    if (safeBedType !== null) {
+      updateFields.push('bed_type = ?');
+      queryParams.push(safeBedType);
+    }
+    if (safeFloor !== null) {
+      updateFields.push('floor = ?');
+      queryParams.push(safeFloor);
     }
     if (safeAmenities !== null) {
       updateFields.push('amenities = ?');
@@ -1882,6 +1908,7 @@ async function deleteRoom(roomId) {
     
     // Check if room has active bookings
     console.log(`🔍 Checking active bookings for room ${roomId}...`);
+    
     const [bookingCheck] = await connection.execute(
       'SELECT COUNT(*) as count FROM bookings WHERE room_type_id = ? AND status IN ("confirmed", "pending")',
       [roomId]
@@ -1898,18 +1925,30 @@ async function deleteRoom(roomId) {
         [roomId]
       );
       
-      const bookingDetails = activeBookings.map(booking => {
+      const bookingDetails = activeBookings.slice(0, 3).map(booking => {
         const checkIn = new Date(booking.check_in_date).toLocaleDateString('th-TH');
         const checkOut = new Date(booking.check_out_date).toLocaleDateString('th-TH');
-        return `จอง #${booking.id} (${checkIn} - ${checkOut}) สถานะ: ${booking.status}`;
+        return `#${booking.id} (${checkIn} - ${checkOut})`;
       }).join(', ');
+      
+      console.log(`📋 Active booking details: ${bookingDetails}`);
       
       return {
         success: false,
-        message: `ไม่สามารถลบห้องพักได้ เนื่องจากมีการจอง ${bookingCheck[0].count} รายการที่ยังไม่เสร็จสิ้น: ${bookingDetails}`
+        message: `❌ ไม่สามารถลบห้องพักได้!\n\nพบการจอง ${bookingCheck[0].count} รายการที่ยังไม่เสร็จสิ้น:\n${bookingDetails}${bookingCheck[0].count > 3 ? '\nและอีกหลายรายการ...' : ''}\n\n💡 คำแนะนำ: กรุณาตรวจสอบและจัดการการจองเหล่านี้ก่อน (ยกเลิก หรือรอให้เสร็จสิ้น) จึงจะสามารถลบห้องพักได้`,
+        details: {
+          activeBookingsCount: bookingCheck[0].count,
+          bookings: activeBookings.map(booking => ({
+            id: booking.id,
+            checkIn: booking.check_in_date,
+            checkOut: booking.check_out_date,
+            status: booking.status
+          }))
+        }
       };
     }
     
+    // ลบห้องพักจากฐานข้อมูล
     await connection.execute('DELETE FROM room_types WHERE id = ?', [roomId]);
     
     console.log(`✅ Room ${roomId} deleted successfully`);

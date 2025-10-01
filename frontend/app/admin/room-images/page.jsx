@@ -7,7 +7,7 @@ import { getRoomsData, getRoomById } from '../../../lib/roomsData';
 import { toast } from 'react-hot-toast';
 
 export default function RoomImageManagement() {
-  const { user } = useAuth();
+  const { user, getAuthToken } = useAuth();
   const [rooms, setRooms] = useState([]);
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [selectedImages, setSelectedImages] = useState([]);
@@ -16,18 +16,63 @@ export default function RoomImageManagement() {
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
-    // โหลดข้อมูลห้องพัก
-    const loadRooms = async () => {
-      const roomsData = await getRoomsData();
-      setRooms(roomsData);
-      if (roomsData.length > 0) {
-        setSelectedRoom(roomsData[0]);
-        setSelectedImages(roomsData[0].images || []);
+    // ตรวจสอบ token และโหลดข้อมูลห้องพัก
+    const initializePage = async () => {
+      // ตรวจสอบ token
+      const token = getAuthToken();
+      if (!token) {
+        toast.error('กรุณาเข้าสู่ระบบก่อนใช้งาน');
+        window.location.href = '/login?redirect=/admin/room-images';
+        return;
+      }
+
+      // โหลดข้อมูลห้องพักจากฐานข้อมูลล่าสุด
+      try {
+        // เรียก backend API โดยตรงเพื่อได้ข้อมูลล่าสุด
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/rooms`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          const roomsData = result.data || result;
+          setRooms(roomsData);
+          if (roomsData.length > 0) {
+            setSelectedRoom(roomsData[0]);
+            setSelectedImages(roomsData[0].images || []);
+          }
+        } else {
+          // Fallback to local API
+          const roomsData = await getRoomsData();
+          setRooms(roomsData);
+          if (roomsData.length > 0) {
+            setSelectedRoom(roomsData[0]);
+            setSelectedImages(roomsData[0].images || []);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading rooms:', error);
+        // Fallback to local API
+        try {
+          const roomsData = await getRoomsData();
+          setRooms(roomsData);
+          if (roomsData.length > 0) {
+            setSelectedRoom(roomsData[0]);
+            setSelectedImages(roomsData[0].images || []);
+          }
+        } catch (fallbackError) {
+          console.error('Fallback error:', fallbackError);
+          toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูลห้องพัก');
+        }
       }
     };
     
-    loadRooms();
-  }, []);
+    if (user) {
+      initializePage();
+    }
+  }, [user, getAuthToken]);
 
   // ตรวจสอบสิทธิ์แอดมิน
   if (!user || user.role !== 'admin') {
@@ -42,14 +87,39 @@ export default function RoomImageManagement() {
     );
   }
 
-  const handleRoomSelect = (room) => {
+  const handleRoomSelect = async (room) => {
     if (hasChanges) {
       if (!confirm('คุณมีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก ต้องการเปลี่ยนห้องโดยไม่บันทึกหรือไม่?')) {
         return;
       }
     }
-    setSelectedRoom(room);
-    setSelectedImages(room.images || []);
+    
+    // โหลดข้อมูลห้องล่าสุดจากฐานข้อมูล
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/rooms/${room.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        const updatedRoom = result.data || result;
+        setSelectedRoom(updatedRoom);
+        setSelectedImages(updatedRoom.images || []);
+      } else {
+        // Fallback to the room data we have
+        setSelectedRoom(room);
+        setSelectedImages(room.images || []);
+      }
+    } catch (error) {
+      console.error('Error loading room details:', error);
+      // Fallback to the room data we have
+      setSelectedRoom(room);
+      setSelectedImages(room.images || []);
+    }
+    
     setPreviewImages([]);
     setHasChanges(false);
   };
@@ -115,10 +185,25 @@ export default function RoomImageManagement() {
         formData.append('roomId', selectedRoom.id.toString());
         formData.append('roomType', selectedRoom.bed_type);
 
+        const token = getAuthToken();
+        console.log('🔑 Token for upload:', token ? 'Token exists' : 'No token found');
+        
+        if (!token) {
+          throw new Error('ไม่พบ token กรุณาเข้าสู่ระบบใหม่');
+        }
+        
         const uploadResponse = await fetch('/api/admin/room-images', {
           method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
           body: formData
         });
+
+        if (!uploadResponse.ok) {
+          const errorData = await uploadResponse.json();
+          throw new Error(`${uploadResponse.status}: ${errorData.error || 'เกิดข้อผิดพลาดในการอัปโหลด'}`);
+        }
 
         const uploadResult = await uploadResponse.json();
         
@@ -133,10 +218,18 @@ export default function RoomImageManagement() {
       const updatedImages = [...selectedImages, ...newImagePaths];
       
       // อัปเดตข้อมูลห้องใน database
+      const token = getAuthToken();
+      console.log('🔑 Token for room update:', token ? 'Token exists' : 'No token found');
+      
+      if (!token) {
+        throw new Error('ไม่พบ token กรุณาเข้าสู่ระบบใหม่');
+      }
+      
       const updateResponse = await fetch('/api/admin/rooms', {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           id: selectedRoom.id,
@@ -144,6 +237,11 @@ export default function RoomImageManagement() {
           image_url: updatedImages[0] || selectedRoom.image_url
         })
       });
+
+      if (!updateResponse.ok) {
+        const errorData = await updateResponse.json();
+        throw new Error(`${updateResponse.status}: ${errorData.error || 'เกิดข้อผิดพลาดในการอัปเดต'}`);
+      }
 
       const updateResult = await updateResponse.json();
       
@@ -162,15 +260,35 @@ export default function RoomImageManagement() {
       setPreviewImages([]);
       setHasChanges(false);
 
-      // รีเฟรชข้อมูลใหม่เพื่อให้แน่ใจว่าซิงค์แล้ว
+      // รีเฟรชข้อมูลใหม่จากฐานข้อมูลเพื่อให้แน่ใจว่าซิงค์แล้ว
       setTimeout(async () => {
         try {
-          const refreshedRooms = await getRoomsData();
-          setRooms(refreshedRooms);
-          const refreshedRoom = refreshedRooms.find(r => r.id === selectedRoom.id);
-          if (refreshedRoom) {
-            setSelectedRoom(refreshedRoom);
-            setSelectedImages(refreshedRoom.images);
+          const token = getAuthToken();
+          // เรียกข้อมูลจาก backend API โดยตรง
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/rooms`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (response.ok) {
+            const result = await response.json();
+            const refreshedRooms = result.data || result;
+            setRooms(refreshedRooms);
+            const refreshedRoom = refreshedRooms.find(r => r.id === selectedRoom.id);
+            if (refreshedRoom) {
+              setSelectedRoom(refreshedRoom);
+              setSelectedImages(refreshedRoom.images || []);
+            }
+          } else {
+            // Fallback
+            const refreshedRooms = await getRoomsData();
+            setRooms(refreshedRooms);
+            const refreshedRoom = refreshedRooms.find(r => r.id === selectedRoom.id);
+            if (refreshedRoom) {
+              setSelectedRoom(refreshedRoom);
+              setSelectedImages(refreshedRoom.images || []);
+            }
           }
         } catch (error) {
           console.error('Error refreshing rooms data:', error);
@@ -181,7 +299,17 @@ export default function RoomImageManagement() {
 
     } catch (error) {
       console.error('Error uploading images:', error);
-      toast.error(error.message || 'เกิดข้อผิดพลาดในการอัปโหลดรูป');
+      
+      // Handle specific error cases
+      if (error.message.includes('401') || error.message.includes('ไม่มีสิทธิ์เข้าถึง')) {
+        toast.error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+        // Optionally redirect to login
+        // window.location.href = '/login?redirect=/admin/room-images';
+      } else if (error.message.includes('403') || error.message.includes('ไม่มีสิทธิ์จัดการ')) {
+        toast.error('คุณไม่มีสิทธิ์จัดการรูปภาพห้องพัก');
+      } else {
+        toast.error(error.message || 'เกิดข้อผิดพลาดในการอัปโหลดรูป');
+      }
     } finally {
       setIsUploading(false);
     }
@@ -219,12 +347,15 @@ export default function RoomImageManagement() {
                   onClick={() => handleRoomSelect(room)}
                   className={`w-full p-4 rounded-lg text-left transition-colors ${
                     selectedRoom?.id === room.id
-                      ? 'bg-blue-100 border-2 border-blue-500 text-blue-800'
+                      ? 'bg-emerald-100 border-2 border-emerald-500 text-emerald-800'
                       : 'bg-white border border-gray-200 hover:bg-gray-50'
                   }`}
                 >
                   <div className="font-medium">{room.name}</div>
-                  <div className="text-sm text-gray-500 mt-1">
+                  <div className="text-sm text-gray-600 mt-1">
+                    {room.bed_type} • ฿{room.price_per_night?.toLocaleString()}/คืน
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
                     {room.images?.length || 0} รูป
                   </div>
                 </button>
@@ -237,9 +368,14 @@ export default function RoomImageManagement() {
             {selectedRoom && (
               <>
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-semibold text-gray-800">
-                    จัดการรูปภาพ: {selectedRoom.name}
-                  </h2>
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-800">
+                      จัดการรูปภาพ: {selectedRoom.name}
+                    </h2>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {selectedRoom.bed_type} • ฿{selectedRoom.price_per_night?.toLocaleString()}/คืน • สำหรับ {selectedRoom.max_occupancy} คน
+                    </p>
+                  </div>
                   <div className="flex gap-3">
                     {hasChanges && (
                       <button
@@ -255,7 +391,7 @@ export default function RoomImageManagement() {
                       disabled={!hasChanges || isUploading}
                       className={`flex items-center px-6 py-2 rounded-lg font-medium ${
                         hasChanges && !isUploading
-                          ? 'bg-blue-600 text-white hover:bg-blue-700'
+                          ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       }`}
                     >
@@ -270,7 +406,7 @@ export default function RoomImageManagement() {
                   <label className="block text-sm font-medium text-gray-700 mb-3">
                     เพิ่มรูปภาพใหม่
                   </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                  <div className="border-2 border-dashed border-emerald-300 rounded-lg p-6 text-center hover:border-emerald-400 hover:bg-emerald-50 transition-colors">
                     <input
                       type="file"
                       multiple
@@ -280,7 +416,7 @@ export default function RoomImageManagement() {
                       id="imageUpload"
                     />
                     <label htmlFor="imageUpload" className="cursor-pointer">
-                      <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <Upload className="w-12 h-12 text-emerald-400 mx-auto mb-4" />
                       <p className="text-gray-600 mb-2">คลิกเพื่อเลือกรูปภาพ</p>
                       <p className="text-sm text-gray-500">
                         รองรับ JPG, PNG, GIF (สามารถเลือกหลายไฟล์)

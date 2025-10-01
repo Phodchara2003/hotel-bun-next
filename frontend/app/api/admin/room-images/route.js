@@ -2,9 +2,50 @@ import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
+import jwt from 'jsonwebtoken';
+
+// ฟังก์ชันตรวจสอบ token
+function verifyToken(request) {
+  const authHeader = request.headers.get('authorization');
+  
+  console.log('🔍 Authorization header:', authHeader ? 'Present' : 'Missing');
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.log('❌ No valid Bearer token found');
+    return null;
+  }
+
+  const token = authHeader.substring(7);
+  console.log('🔑 Token extracted:', token ? 'Token exists' : 'No token');
+  
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'hotel_booking_jwt_secret_2025_very_secure_key_12345');
+    console.log('✅ Token verified successfully for user:', decoded.email);
+    return decoded;
+  } catch (error) {
+    console.error('❌ Token verification failed:', error.message);
+    return null;
+  }
+}
 
 export async function POST(request) {
   try {
+    // ตรวจสอบ authorization
+    const user = verifyToken(request);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'ไม่มีสิทธิ์เข้าถึง กรุณาเข้าสู่ระบบใหม่', success: false },
+        { status: 401 }
+      );
+    }
+
+    // ตรวจสอบ role
+    if (!['admin', 'staff', 'manager'].includes(user.role)) {
+      return NextResponse.json(
+        { error: 'ไม่มีสิทธิ์จัดการรูปภาพห้องพัก', success: false },
+        { status: 403 }
+      );
+    }
     const formData = await request.formData();
     const files = formData.getAll('images');
     const roomId = formData.get('roomId');
@@ -76,6 +117,23 @@ export async function POST(request) {
 
 export async function DELETE(request) {
   try {
+    // ตรวจสอบ authorization
+    const user = verifyToken(request);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'ไม่มีสิทธิ์เข้าถึง กรุณาเข้าสู่ระบบใหม่', success: false },
+        { status: 401 }
+      );
+    }
+
+    // ตรวจสอบ role
+    if (!['admin', 'staff', 'manager'].includes(user.role)) {
+      return NextResponse.json(
+        { error: 'ไม่มีสิทธิ์จัดการรูปภาพห้องพัก', success: false },
+        { status: 403 }
+      );
+    }
+
     const { imagePath } = await request.json();
 
     if (!imagePath) {

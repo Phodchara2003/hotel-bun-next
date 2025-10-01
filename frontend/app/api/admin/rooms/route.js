@@ -1,5 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { syncRoomsData, updateRoom } from '../../rooms/route.js';
+import jwt from 'jsonwebtoken';
+
+// ฟังก์ชันตรวจสอบ token
+function verifyToken(request) {
+  const authHeader = request.headers.get('authorization');
+  
+  console.log('🔍 [Admin Rooms] Authorization header:', authHeader ? 'Present' : 'Missing');
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.log('❌ [Admin Rooms] No valid Bearer token found');
+    return null;
+  }
+
+  const token = authHeader.substring(7);
+  console.log('🔑 [Admin Rooms] Token extracted:', token ? 'Token exists' : 'No token');
+  
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'hotel_booking_jwt_secret_2025_very_secure_key_12345');
+    console.log('✅ [Admin Rooms] Token verified successfully for user:', decoded.email);
+    return decoded;
+  } catch (error) {
+    console.error('❌ [Admin Rooms] Token verification failed:', error.message);
+    return null;
+  }
+}
 
 // จำลองข้อมูลห้องพัก (ในระบบจริงจะเชื่อมต่อกับฐานข้อมูล)
 let roomsData = [
@@ -77,6 +102,23 @@ export async function GET() {
 
 export async function PUT(request) {
   try {
+    // ตรวจสอบ authorization
+    const user = verifyToken(request);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'ไม่มีสิทธิ์เข้าถึง กรุณาเข้าสู่ระบบใหม่', success: false },
+        { status: 401 }
+      );
+    }
+
+    // ตรวจสอบ role
+    if (!['admin', 'staff', 'manager'].includes(user.role)) {
+      return NextResponse.json(
+        { error: 'ไม่มีสิทธิ์จัดการข้อมูลห้องพัก', success: false },
+        { status: 403 }
+      );
+    }
+
     const { id, images, image_url } = await request.json();
 
     if (!id) {
@@ -96,25 +138,69 @@ export async function PUT(request) {
       );
     }
 
-    // อัปเดตข้อมูลรูปภาพ
-    roomsData[roomIndex] = {
-      ...roomsData[roomIndex],
-      images: images || roomsData[roomIndex].images,
-      image_url: image_url || images?.[0] || roomsData[roomIndex].image_url
-    };
-
-    // ซิงค์ข้อมูลไปยัง public API
+    // อัปเดตข้อมูลรูปภาพในฐานข้อมูล backend
     try {
-      syncRoomsData([...roomsData]);
-    } catch (syncError) {
-      console.error('Error syncing data to public API:', syncError);
-    }
+      const backendResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/rooms/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          images: images || roomsData[roomIndex].images,
+          image_url: image_url || images?.[0] || roomsData[roomIndex].image_url
+        })
+      });
 
-    return NextResponse.json({
-      success: true,
-      message: 'อัปเดตข้อมูลห้องพักเรียบร้อยแล้ว',
-      data: roomsData[roomIndex]
-    });
+      if (!backendResponse.ok) {
+        throw new Error('Failed to update backend database');
+      }
+
+      const backendResult = await backendResponse.json();
+      console.log('✅ Backend database updated successfully');
+
+      // อัปเดต local data หลังจากที่ backend สำเร็จแล้ว
+      roomsData[roomIndex] = {
+        ...roomsData[roomIndex],
+        images: images || roomsData[roomIndex].images,
+        image_url: image_url || images?.[0] || roomsData[roomIndex].image_url
+      };
+
+      // ซิงค์ข้อมูลไปยัง public API
+      try {
+        syncRoomsData([...roomsData]);
+      } catch (syncError) {
+        console.error('Error syncing data to public API:', syncError);
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'อัปเดตข้อมูลห้องพักเรียบร้อยแล้ว',
+        data: roomsData[roomIndex]
+      });
+
+    } catch (backendError) {
+      console.error('Error updating backend database:', backendError);
+      
+      // ถ้า backend ไม่สำเร็จ ใช้วิธีเดิม
+      roomsData[roomIndex] = {
+        ...roomsData[roomIndex],
+        images: images || roomsData[roomIndex].images,
+        image_url: image_url || images?.[0] || roomsData[roomIndex].image_url
+      };
+
+      // ซิงค์ข้อมูลไปยัง public API
+      try {
+        syncRoomsData([...roomsData]);
+      } catch (syncError) {
+        console.error('Error syncing data to public API:', syncError);
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'อัปเดตข้อมูลห้องพักเรียบร้อยแล้ว (local only)',
+        data: roomsData[roomIndex]
+      });
+    }
 
   } catch (error) {
     console.error('Error updating room:', error);
