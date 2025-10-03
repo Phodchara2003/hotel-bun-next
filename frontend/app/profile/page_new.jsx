@@ -176,8 +176,8 @@ export default function ProfilePage() {
 
     // Validate National ID format
     const nationalIdDigits = formData.nationalId.replace(/\D/g, '');
-    if (nationalIdDigits.length !== 14) {
-      toast.error('รหัสบัตรประชาชนต้องมี 14 หลัก');
+    if (nationalIdDigits.length !== 13) {
+      toast.error('รหัสบัตรประชาชนต้องมี 13 หลัก');
       return;
     }
 

@@ -23,19 +23,27 @@ function TopNavigationAwareContent({ children }) {
   const { user } = useAuth();
   const pathname = usePathname();
   
-  // Don't show top navigation for auth pages and homepage (homepage has its own TopNavigation)
-  if (pathname === '/login' || pathname === '/register' || pathname === '/') {
+  // Don't show top navigation for auth pages only
+  if (pathname === '/login' || pathname === '/register') {
     return (
       <div className="min-h-screen flex flex-col">
         <main className="main-content flex-1">
           {children}
         </main>
-        {/* Show footer only for homepage */}
-        {pathname === '/' && (
-          <div className="footer-wrapper">
-            <Footer />
-          </div>
-        )}
+      </div>
+    );
+  }
+  
+  // Homepage shows navigation with special handling
+  if (pathname === '/') {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <main className="main-content flex-1">
+          {children}
+        </main>
+        <div className="footer-wrapper">
+          <Footer />
+        </div>
       </div>
     );
   }

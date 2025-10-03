@@ -342,10 +342,48 @@ function BookingManagementContent() {
     );
   };
 
+  // Helper function to validate and convert base64 to blob URL
+  const createBlobUrl = (base64Data) => {
+    try {
+      if (!base64Data || !base64Data.startsWith('data:')) return base64Data;
+      
+      const [header, data] = base64Data.split(',');
+      if (!data || data.length === 0) {
+        console.warn('Base64 data is empty or invalid');
+        return null; // Return null for invalid data
+      }
+      
+      // Validate base64 data by checking if it can be decoded
+      try {
+        const testDecode = atob(data.substring(0, Math.min(100, data.length))); // Test decode first 100 chars
+      } catch (decodeError) {
+        console.warn('Invalid base64 encoding:', decodeError);
+        return null; // Return null for invalid encoding
+      }
+      
+      const mimeMatch = header.match(/data:([^;]+)/);
+      const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+      
+      const byteCharacters = atob(data);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: mime });
+      
+      return URL.createObjectURL(blob);
+    } catch (error) {
+      console.error('Error creating blob URL:', error);
+      return null; // Return null instead of fallback to prevent further errors
+    }
+  };
+
   // Image modal functions
   const openImageModal = (imageUrl, altText = 'Payment slip') => {
-    console.log('🖼️ Opening image modal with:', { imageUrl, altText });
-    setCurrentImageUrl(imageUrl);
+    console.log('🖼️ Opening image modal with:', { imageUrl: imageUrl?.substring(0, 100), altText });
+    const processedUrl = createBlobUrl(imageUrl);
+    setCurrentImageUrl(processedUrl);
     setCurrentImageAlt(altText);
     setShowImageModal(true);
   };
@@ -1974,6 +2012,207 @@ function BookingManagementContent() {
                         )}
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Payment Receipt (from payment receipt endpoint) */}
+              {selectedBooking.payment_receipt_url && (
+                <div className="bg-neutral-50 dark:bg-neutral-700 rounded-lg p-4">
+                  <h4 className="font-semibold text-neutral-900 dark:text-white mb-3 flex items-center">
+                    <Receipt className="h-5 w-5 mr-2" />
+                    หลักฐานการชำระเงิน (อัปโหลดใหม่)
+                  </h4>
+                  <div className="border border-neutral-200 dark:border-neutral-600 rounded-lg p-3">
+                    <div className="mb-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
+                          ไฟล์หลักฐาน
+                        </span>
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          selectedBooking.payment_status === 'approved' 
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                            : selectedBooking.payment_status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+                            : selectedBooking.payment_status === 'rejected'
+                            ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+                            : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+                        }`}>
+                          {selectedBooking.payment_status === 'approved' ? 'อนุมัติแล้ว' : 
+                           selectedBooking.payment_status === 'pending' ? 'รอตรวจสอบ' : 
+                           selectedBooking.payment_status === 'rejected' ? 'ปฏิเสธ' : 'ไม่ระบุ'}
+                        </span>
+                      </div>
+                      
+                      {selectedBooking.receipt_uploaded_at && (
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                          อัปโหลดเมื่อ: {formatDate(selectedBooking.receipt_uploaded_at)}
+                        </p>
+                      )}
+                      
+                      {selectedBooking.receipt_file_size && (
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                          ขนาดไฟล์: {(selectedBooking.receipt_file_size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      )}
+                    </div>
+                    
+                    <div className="relative group">
+                      {(() => {
+                        const receiptUrl = selectedBooking.payment_receipt_url;
+                        const fileName = selectedBooking.receipt_filename || 'payment-receipt';
+                        const fileExt = fileName?.split('.').pop()?.toLowerCase();
+                        const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt) || receiptUrl.startsWith('data:image/');
+                        
+                        console.log('🖼️ Receipt URL type:', receiptUrl?.substring(0, 50), 'Is base64:', receiptUrl?.startsWith('data:'));
+                        
+                        // Check if data seems truncated (base64 should be much longer for real images)
+                        const isTruncated = receiptUrl.startsWith('data:') && receiptUrl.length < 10000; // Real images are usually much longer
+                        
+                        // Create blob URL for base64 data to avoid URL length issues
+                        const displayUrl = createBlobUrl(receiptUrl);
+                        const canShowImage = displayUrl !== null && isImage && !isTruncated;
+                        
+                        console.log('🔍 Display URL created:', displayUrl ? 'Success' : 'Failed', 'Can show image:', canShowImage, 'Is truncated:', isTruncated);
+                        
+                        if (canShowImage) {
+                          return (
+                            <>
+                              <img
+                                src={displayUrl}
+                                alt="Payment Receipt"
+                                className="w-full h-48 object-cover rounded-md cursor-pointer hover:opacity-80 transition-all duration-200 hover:scale-105 border border-neutral-300 dark:border-neutral-600"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  console.log('🔍 Payment receipt clicked, opening modal...');
+                                  openImageModal(
+                                    receiptUrl, // Use original for modal
+                                    `หลักฐานการชำระเงิน - ${fileName}`
+                                  );
+                                }}
+                                onError={(e) => {
+                                  console.log('❌ Receipt image load error - showing fallback');
+                                  e.target.style.display = 'none';
+                                  if (e.target.nextElementSibling) {
+                                    e.target.nextElementSibling.style.display = 'flex';
+                                  }
+                                }}
+                                onLoad={(e) => {
+                                  console.log('✅ Receipt image loaded successfully');
+                                }}
+                              />
+                              <div className="w-full h-48 bg-neutral-200 dark:bg-neutral-600 rounded-md flex items-center justify-center text-neutral-500 dark:text-neutral-400 border border-neutral-300 dark:border-neutral-600" style={{display: 'none'}}>
+                                <div className="text-center">
+                                  <Receipt className="h-12 w-12 mx-auto mb-2" />
+                                  <p className="text-sm mb-2">ไม่สามารถแสดงรูปภาพได้</p>
+                                  <p className="text-sm font-semibold text-neutral-600 dark:text-neutral-400 mb-2">
+                                    {fileName}
+                                  </p>
+                                  <div className="space-y-1">
+                                    <button 
+                                      className="text-sm text-blue-500 hover:text-blue-700 cursor-pointer hover:underline block"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        // For base64 data URLs, create a blob and open it
+                                        if (receiptUrl.startsWith('data:')) {
+                                          const blobUrl = createBlobUrl(receiptUrl);
+                                          window.open(blobUrl, '_blank');
+                                        } else {
+                                          window.open(receiptUrl, '_blank');
+                                        }
+                                      }}
+                                    >
+                                      เปิดในหน้าต่างใหม่
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                              <div 
+                                className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-md flex items-center justify-center cursor-pointer"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  console.log('🔍 Receipt overlay clicked, opening modal...');
+                                  openImageModal(
+                                    receiptUrl,
+                                    `หลักฐานการชำระเงิน - ${fileName}`
+                                  );
+                                }}
+                              >
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black bg-opacity-50 rounded-full p-2 pointer-events-none">
+                                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                  </svg>
+                                </div>
+                                <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-sm px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                  คลิกเพื่อซูม
+                                </div>
+                              </div>
+                            </>
+                          );
+                        } else {
+                          // For non-image files, invalid data, truncated data, or fallback
+                          return (
+                            <div className="w-full h-48 bg-neutral-200 dark:bg-neutral-600 rounded-md flex items-center justify-center text-neutral-500 dark:text-neutral-400 border border-neutral-300 dark:border-neutral-600">
+                              <div className="text-center">
+                                <Receipt className="h-12 w-12 mx-auto mb-2" />
+                                <p className="text-sm mb-2">
+                                  {isTruncated ? 'ข้อมูลรูปภาพไม่สมบูรณ์' : !isImage ? 'ไฟล์หลักฐาน' : 'ไม่สามารถแสดงรูปภาพได้'}
+                                </p>
+                                {isTruncated && (
+                                  <p className="text-xs text-red-500 dark:text-red-400 mb-2">
+                                    ⚠️ ข้อมูลถูกตัดทอน ต้องอัปโหลดใหม่
+                                  </p>
+                                )}
+                                <p className="text-sm font-semibold text-neutral-600 dark:text-neutral-400 mb-2">
+                                  {fileName}
+                                </p>
+                                {receiptUrl && (
+                                  <div className="space-y-1">
+                                    <button 
+                                      className="text-sm text-blue-500 hover:text-blue-700 cursor-pointer hover:underline block"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        // Try to show raw data in new window
+                                        const newWindow = window.open();
+                                        if (receiptUrl.startsWith('data:')) {
+                                          newWindow.document.write(`
+                                            <div style="padding: 20px; font-family: Arial, sans-serif;">
+                                              <h3>Payment Receipt Data</h3>
+                                              <p><strong>File:</strong> ${fileName}</p>
+                                              <p><strong>Type:</strong> ${receiptUrl.split(',')[0]}</p>
+                                              <hr>
+                                              <p>Raw data preview:</p>
+                                              <textarea style="width: 100%; height: 200px; font-family: monospace; font-size: 10px;">${receiptUrl.substring(0, 1000)}${receiptUrl.length > 1000 ? '...[truncated]' : ''}</textarea>
+                                              <br><br>
+                                              <button onclick="navigator.clipboard.writeText('${receiptUrl}')">Copy Full Data</button>
+                                            </div>
+                                          `);
+                                        } else {
+                                          newWindow.location.href = receiptUrl;
+                                        }
+                                      }}
+                                    >
+                                      เปิดในหน้าต่างใหม่
+                                    </button>
+                                    <p className="text-xs text-neutral-400">
+                                      {receiptUrl.startsWith('data:') ? 'Base64 Data' : 'External URL'}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
+                      })()}
+                    </div>
+                    
+                    {selectedBooking.receipt_filename && (
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-2 truncate">
+                        ชื่อไฟล์: {selectedBooking.receipt_filename}
+                      </p>
+                    )}
                   </div>
                 </div>
               )}

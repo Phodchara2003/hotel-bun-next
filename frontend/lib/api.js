@@ -225,6 +225,21 @@ export const authAPI = {
     const response = await api.post('/profile/password', passwordData);
     return response.data;
   },
+
+  // Get current user profile
+  getProfile: async () => {
+    const response = await api.get('/profile');
+    return response.data;
+  },
+};
+
+// Payment Settings API
+export const paymentAPI = {
+  // Get payment settings from database
+  getPaymentSettings: async () => {
+    const response = await api.get('/global-settings');
+    return response.data;
+  },
 };
 
 // Hotels API
@@ -561,6 +576,23 @@ export const bookingAPI = {
       params: { startDate, endDate }
     });
     return response.data;
+  },
+
+  // Upload payment receipt
+  uploadPaymentReceipt: async (bookingId, base64Image, filename = null, fileSize = null) => {
+    try {
+      console.log('📸 Uploading payment receipt for booking:', bookingId);
+      const response = await api.post(`/bookings/${bookingId}/payment-receipt`, {
+        receiptUrl: base64Image,
+        filename: filename,
+        fileSize: fileSize
+      });
+      console.log('✅ Upload payment receipt response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Upload payment receipt error:', error);
+      throw error;
+    }
   },
 };
 

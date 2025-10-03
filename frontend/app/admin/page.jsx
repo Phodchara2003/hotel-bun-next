@@ -168,6 +168,65 @@ function AdminPageContent() {
         </div>
       </div>
 
+      {/* Admin Quick Access Menu */}
+      <section className="py-8 bg-gray-50">
+        <div className="container mx-auto px-6">
+          <FadeInUp delay={200}>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">เมนูจัดการระบบ</h2>
+          </FadeInUp>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <FadeInUp delay={300}>
+              <Link href="/admin/dashboard" className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow border border-gray-200 group">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                    <BarChart3 className="w-6 h-6 text-blue-600" />
+                  </div>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">แดชบอร์ด</h3>
+                <p className="text-gray-600 text-sm">ดูสถิติและข้อมูลรวม</p>
+              </Link>
+            </FadeInUp>
+
+            <FadeInUp delay={400}>
+              <Link href="/admin/rooms" className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow border border-gray-200 group">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                    <Home className="w-6 h-6 text-green-600" />
+                  </div>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">จัดการห้องพัก</h3>
+                <p className="text-gray-600 text-sm">ควบคุมสถานะห้องแต่ละห้อง</p>
+              </Link>
+            </FadeInUp>
+
+            <FadeInUp delay={500}>
+              <Link href="/admin/bookings" className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow border border-gray-200 group">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+                    <Calendar className="w-6 h-6 text-purple-600" />
+                  </div>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">จัดการการจอง</h3>
+                <p className="text-gray-600 text-sm">ดูและจัดการการจองทั้งหมด</p>
+              </Link>
+            </FadeInUp>
+
+            <FadeInUp delay={600}>
+              <Link href="/admin/users" className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow border border-gray-200 group">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center group-hover:bg-orange-200 transition-colors">
+                    <Users className="w-6 h-6 text-orange-600" />
+                  </div>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">จัดการผู้ใช้</h3>
+                <p className="text-gray-600 text-sm">จัดการบัญชีผู้ใช้งาน</p>
+              </Link>
+            </FadeInUp>
+          </div>
+        </div>
+      </section>
+
       {/* Hero Section - แบบ Gregori Hotel */}
       <section className="relative h-screen">
         {/* Background Image */}

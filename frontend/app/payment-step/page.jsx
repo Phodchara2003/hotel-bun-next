@@ -148,9 +148,22 @@ export default function PaymentStepPage() {
         setUploadStatus('completed');
         setUploadMessage('อัปโหลดสลิปการโอนเงินเรียบร้อย! กรุณารอการตรวจสอบ');
         
-        // รอสักครู่แล้วไปหน้าสำเร็จ
+        // รอสักครู่แล้วไปหน้าสำเร็จพร้อมข้อมูลการจอง
         setTimeout(() => {
-          router.push(`/booking-success?bookingId=1&amount=${bookingData.total}`);
+          const successUrl = new URLSearchParams({
+            bookingId: bookingData.bookingId,
+            roomName: bookingData.roomName,
+            hotelName: bookingData.hotelName,
+            checkIn: bookingData.checkIn,
+            checkOut: bookingData.checkOut,
+            guests: bookingData.guests,
+            guestName: bookingData.guestName,
+            guestEmail: bookingData.guestEmail,
+            guestPhone: bookingData.guestPhone,
+            total: bookingData.total
+          }).toString();
+          
+          router.push(`/booking-success?${successUrl}`);
         }, 2000);
       } else {
         const error = await response.json();

@@ -370,9 +370,6 @@ const RoomCard = ({ roomType, hotelId }) => {
             
             {roomType.sizeSqm && (
               <div className="flex items-center p-3 bg-green-50 rounded-xl transition-all hover:bg-green-100">
-                <div className="flex items-center justify-center w-10 h-10 bg-green-500 rounded-lg mr-3">
-                  <Maximize className="h-5 w-5 text-white" />
-                </div>
                 <div>
                   <div className="text-sm font-semibold text-gray-900">
                     {roomType.sizeSqm} ตรม.
@@ -450,13 +447,13 @@ const RoomCard = ({ roomType, hotelId }) => {
             
             {isAuthenticated ? (
               <Link 
-                href={`/room-details/${roomType.id}/book?hotelId=${hotelId}`}
+                href={`/rooms/${roomType.id}?hotelId=${hotelId}`}
                 className="group relative bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 overflow-hidden"
                 onClick={() => {
                   console.log('Booking link clicked:', {
                     roomId: roomType.id,
                     hotelId: hotelId,
-                    href: `/room-details/${roomType.id}/book?hotelId=${hotelId}`
+                    href: `/rooms/${roomType.id}?hotelId=${hotelId}`
                   });
                 }}
               >

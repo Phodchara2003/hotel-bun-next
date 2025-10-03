@@ -33,6 +33,12 @@ const AdminNavigation = ({ title, description }) => {
       active: pathname === '/admin/bookings'
     },
     {
+      name: 'ตรวจสอบใบเสร็จ',
+      href: '/admin/receipts',
+      icon: CreditCard,
+      active: pathname === '/admin/receipts'
+    },
+    {
       name: 'เช็คอิน/เช็คเอ้า',
       href: '/admin/checkin-checkout',
       icon: LogIn,

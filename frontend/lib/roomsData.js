@@ -13,7 +13,7 @@ export const roomsData = [
     ],
     price_per_night: 1800,
     max_occupancy: 2,
-    bed_type: "เตียงคู่",
+    bed_type: "double",
     room_type: "double",
     category: "room-type", // ประเภทห้อง
     amenities: [
@@ -51,7 +51,7 @@ export const roomsData = [
     ],
     price_per_night: 1200,
     max_occupancy: 1,
-    bed_type: "เตียงเดี่ยว",
+    bed_type: "single",
     room_type: "single",
     category: "room-type", // ประเภทห้อง
     amenities: [
@@ -112,7 +112,8 @@ export const getRoomsData = async () => {
         featured: true,
         floor: room.floor || '1',
         size_sqm: room.size_sqm,
-        hotel_name: room.hotel_name
+        hotel_name: room.hotel_name,
+        hotel_id: room.hotel_id || 2 // Add hotel_id from backend data
       }));
       
       console.log('✅ Loaded rooms from backend API:', convertedRooms.length);

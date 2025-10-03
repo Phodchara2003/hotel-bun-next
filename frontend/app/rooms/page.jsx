@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Calendar, Users, MapPin, Wifi, Car, Coffee, Tv, Wind, Star, ArrowLeft } from 'lucide-react';
+import { Calendar, Users, Wifi, Car, Coffee, Tv, Wind, Star, ArrowLeft } from 'lucide-react';
 import { hotelAPI } from '../../lib/api';
 import { getRoomsData } from '../../lib/roomsData';
 import { getRoomImageUrl, getRoomPlaceholder, getPlaceholderImageUrl } from '../../lib/roomImageUtils';
@@ -162,10 +162,6 @@ export default function RoomsPage() {
                   <span className="flex items-center">
                     <Users className="h-4 w-4 mr-1" />
                     {room.max_occupancy} คน
-                  </span>
-                  <span className="flex items-center">
-                    <MapPin className="h-4 w-4 mr-1" />
-                    {room.room_size}m²
                   </span>
                   <span>{room.bed_type}</span>
                 </div>

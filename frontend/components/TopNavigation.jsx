@@ -7,7 +7,7 @@ import {
   Menu, X, User, ShoppingCart, Home, Bed, Calendar, 
   Phone, BarChart3, Users, FileText, Settings, 
   Shield, UserCheck, Database, DollarSign, MessageSquare,
-  Star, LogOut, Camera
+  Star, LogOut, MapPin
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
@@ -56,12 +56,12 @@ export default function TopNavigation() {
     { name: 'แดชบอร์ด', href: '/admin/dashboard', icon: BarChart3 },
     { name: 'โรงแรม', href: '/admin/hotels', icon: Home },
     { name: 'ห้องพัก', href: '/admin/rooms', icon: Bed },
-    { name: 'รูปห้องพัก', href: '/admin/room-images', icon: Camera },
     { name: 'การจอง', href: '/admin/bookings', icon: Calendar },
     { name: 'ผู้ใช้งาน', href: '/admin/users', icon: Users },
     { name: 'รายงาน', href: '/admin/reports', icon: FileText },
     { name: 'การเงิน', href: '/admin/finance', icon: DollarSign },
     { name: 'รีวิว', href: '/admin/reviews', icon: MessageSquare },
+    { name: 'จัดการข้อมูลการติดต่อ', href: '/admin/contact-settings', icon: Phone },
     { name: 'ตั้งค่า', href: '/admin/settings', icon: Settings },
   ];
 
@@ -155,8 +155,8 @@ export default function TopNavigation() {
             <div className="flex items-center space-x-4 border-l pl-6" style={{ borderColor: 'rgba(10, 43, 40, 0.5)' }}>
               {user ? (
                 <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center">
+                  <Link href="/profile" className="flex items-center space-x-2 hover:opacity-80 transition-opacity duration-200">
+                    <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center cursor-pointer">
                       <User className="h-4 w-4 text-white" />
                     </div>
                     <div className="text-white">
@@ -167,7 +167,7 @@ export default function TopNavigation() {
                          user.role === 'staff' ? 'พนักงาน' : 'ลูกค้า'}
                       </div>
                     </div>
-                  </div>
+                  </Link>
                   <button
                     onClick={handleLogout}
                     className="flex items-center space-x-1 text-red-300 hover:text-red-200 transition-colors duration-200 text-sm font-medium"
@@ -223,8 +223,8 @@ export default function TopNavigation() {
               {/* User Info for Mobile */}
               {user && (
                 <div className="px-3 py-4 border-b mb-2" style={{ borderColor: 'rgba(10, 43, 40, 0.5)' }}>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center">
+                  <Link href="/profile" className="flex items-center space-x-3 hover:opacity-80 transition-opacity duration-200" onClick={() => setIsMenuOpen(false)}>
+                    <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center cursor-pointer">
                       <User className="h-5 w-5 text-white" />
                     </div>
                     <div>
@@ -235,7 +235,7 @@ export default function TopNavigation() {
                          user.role === 'staff' ? 'พนักงาน' : 'ลูกค้า'}
                       </p>
                     </div>
-                  </div>
+                  </Link>
                 </div>
               )}
 

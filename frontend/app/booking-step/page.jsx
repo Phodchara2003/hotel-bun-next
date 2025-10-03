@@ -73,6 +73,8 @@ function BookingStepContent() {
       const room = roomTypes.find(r => r.id === parseInt(roomId));
       console.log('🏠 Selected room in booking-step:', room);
       console.log('🖼️ Room images:', room?.images);
+      console.log('🔍 Room bed_type:', room?.bed_type);
+      console.log('📋 All room fields:', Object.keys(room || {}));
       setSelectedRoom(room);
     }
   }, [roomId, roomTypes]);
@@ -443,11 +445,18 @@ function BookingStepContent() {
       const total = calculateTotal();
       const hotel = hotels.find(h => h.id === selectedRoom.hotel_id) || { id: 1 };
 
+      // ตรวจสอบ bed_type ก่อนส่งข้อมูล
+      if (!selectedRoom.bed_type) {
+        console.error('❌ bed_type is missing from selectedRoom:', selectedRoom);
+        setErrors({ submit: 'ข้อมูลประเภทเตียงไม่ครบถ้วน กรุณาเลือกห้องใหม่' });
+        return;
+      }
+
       // สร้างการจองในฐานข้อมูล
       const bookingData = {
         user_id: user.id,
         hotel_id: hotel.id,
-        room_type_id: selectedRoom.id,
+        bed_type: selectedRoom.bed_type, // ใช้ bed_type แทน room_type_id
         check_in_date: bookingForm.checkIn,
         check_out_date: bookingForm.checkOut,
         guests: bookingForm.guests,
@@ -461,6 +470,7 @@ function BookingStepContent() {
       };
 
       console.log('Sending booking data:', bookingData);
+      console.log('🔍 bed_type value:', bookingData.bed_type);
 
       const response = await fetch('http://localhost:3001/api/bookings', {
         method: 'POST',
@@ -579,7 +589,10 @@ function BookingStepContent() {
               className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
               onClick={(e) => e.stopPropagation()}
               onError={(e) => {
-                e.target.src = "/images/rooms/placeholder.svg";
+                if (!e.target.dataset.fallbackUsed) {
+                  e.target.dataset.fallbackUsed = 'true';
+                  e.target.src = "/images/rooms/placeholder.svg";
+                }
               }}
             />
 
@@ -638,7 +651,10 @@ function BookingStepContent() {
                       alt={`รูปที่ ${index + 1}`}
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        e.target.src = "/images/rooms/placeholder.svg";
+                        if (!e.target.dataset.fallbackUsed) {
+                          e.target.dataset.fallbackUsed = 'true';
+                          e.target.src = "/images/rooms/placeholder.svg";
+                        }
                       }}
                     />
                   </button>
@@ -684,7 +700,10 @@ function BookingStepContent() {
                         }}
                         onError={(e) => {
                           console.log('❌ Booking step main image failed:', selectedRoom.images?.[0]);
-                          e.target.src = "/images/rooms/placeholder.svg";
+                          if (!e.target.dataset.fallbackUsed) {
+                            e.target.dataset.fallbackUsed = 'true';
+                            e.target.src = "/images/rooms/placeholder.svg";
+                          }
                         }}
                       />
                       <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 rounded-lg transition-all duration-200 flex items-center justify-center">
@@ -715,7 +734,10 @@ function BookingStepContent() {
                               }}
                               onError={(e) => {
                                 console.log(`❌ Booking step thumbnail ${index + 2} failed:`, image);
-                                e.target.src = "/images/rooms/placeholder.svg";
+                                if (!e.target.dataset.fallbackUsed) {
+                                  e.target.dataset.fallbackUsed = 'true';
+                                  e.target.src = "/images/rooms/placeholder.svg";
+                                }
                               }}
                               onClick={(e) => {
                                 e.stopPropagation();

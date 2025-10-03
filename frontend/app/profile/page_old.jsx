@@ -150,7 +150,7 @@ export default function ProfilePage() {
     if (!profileData.nationalId.trim()) {
       newErrors.nationalId = 'กรุณากรอกรหัสบัตรประชาชน';
     } else if (!/^[0-9]{14}$/.test(profileData.nationalId.replace(/[-\s]/g, ''))) {
-      newErrors.nationalId = 'รูปแบบเลขบัตรประชาชนไม่ถูกต้อง (14 หลัก)';
+      newErrors.nationalId = 'รูปแบบเลขบัตรประชาชนไม่ถูกต้อง (13 หลัก)';
     }
 
     setErrors(newErrors);
@@ -484,7 +484,7 @@ export default function ProfilePage() {
                       className={`w-full px-3 py-2 border rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
                         errors.nationalId ? 'border-red-300' : 'border-gray-300'
                       }`}
-                      placeholder="กรุณากรอกรหัสบัตรประชาชน 14 หลัก"
+                      placeholder="กรุณากรอกรหัสบัตรประชาชน 13 หลัก"
                       maxLength="17"
                     />
                     {errors.nationalId && (

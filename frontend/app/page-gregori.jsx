@@ -31,9 +31,11 @@ function HomePageContent() {
   const [checkInDate, setCheckInDate] = useState('');
   const [checkOutDate, setCheckOutDate] = useState('');
   const [guests, setGuests] = useState(1);
+  const [contactSettings, setContactSettings] = useState({});
 
   useEffect(() => {
     fetchData();
+    fetchContactSettings();
   }, []);
 
   const fetchData = async () => {
@@ -55,6 +57,18 @@ function HomePageContent() {
       console.error('Error fetching data:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchContactSettings = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/admin/contact-settings');
+      const data = await response.json();
+      if (data.success) {
+        setContactSettings(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching contact settings:', error);
     }
   };
 
@@ -316,23 +330,84 @@ function HomePageContent() {
             
             <div>
               <div className="text-emerald-600 text-sm font-medium tracking-widest mb-4">
-                — เกี่ยวกับเรา
+                — ติดต่อเรา
               </div>
               <h2 className="text-4xl lg:text-5xl font-light text-emerald-900 mb-8">
-                พักผ่อนอย่างมีสไตล์<br />
-                <span className="font-bold">กับโรงแรมวรุณภัฏ</span>
+                ข้อมูลติดต่อ<br />
+                <span className="font-bold">โรงแรมวรุณภัฏ</span>
               </h2>
-              <p className="text-lg text-gray-600 mb-8 leading-relaxed">
-                ตั้งอยู่ในใจกลางเมืองมหาสารคาม โรงแรมวรุณภัฏเป็นมากกว่าที่พัก 
-                เราคือจุดหมายปลายทางที่ผสมผสานความทันสมัยเข้ากับเสน่ห์ดั้งเดิม
-              </p>
-              <p className="text-lg text-gray-600 mb-12 leading-relaxed">
-                ด้วยการออกแบบที่เป็นเอกลักษณ์และบริการที่เป็นมิตร 
-                เรามุ่งมั่นที่จะทำให้การเข้าพักของคุณเป็นประสบการณ์ที่ยากลืม
-              </p>
-              <button className="bg-emerald-800 hover:bg-emerald-900 text-white px-8 py-4 rounded-lg font-medium transition-colors duration-300">
-                เรียนรู้เพิ่มเติม
-              </button>
+              
+              <div className="space-y-6 mb-12">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mr-4">
+                    <Phone className="w-6 h-6 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-emerald-600">โทรศัพท์</p>
+                    <p className="text-lg text-gray-800">{contactSettings.phone || '0912345678'}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mr-4">
+                    <Mail className="w-6 h-6 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-emerald-600">อีเมล</p>
+                    <p className="text-lg text-gray-800">{contactSettings.email || 'support@hotel.com'}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start">
+                  <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mr-4">
+                    <MapPin className="w-6 h-6 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-emerald-600">ที่อยู่</p>
+                    <p className="text-lg text-gray-800">{contactSettings.address || 'มหาวิทยาลัยราชภัฏมหาสารคาม'}</p>
+                  </div>
+                </div>
+
+                {contactSettings.facebook && (
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mr-4">
+                      <span className="text-2xl">📘</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-emerald-600">Facebook</p>
+                      <a href={contactSettings.facebook} target="_blank" rel="noopener noreferrer" className="text-lg text-emerald-800 hover:text-emerald-900 underline">
+                        {contactSettings.facebook}
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {contactSettings.line && (
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mr-4">
+                      <span className="text-2xl">💬</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-emerald-600">LINE</p>
+                      <p className="text-lg text-gray-800">{contactSettings.line}</p>
+                    </div>
+                  </div>
+                )}
+
+                {contactSettings.website && (
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mr-4">
+                      <span className="text-2xl">🌐</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-emerald-600">เว็บไซต์</p>
+                      <a href={contactSettings.website} target="_blank" rel="noopener noreferrer" className="text-lg text-emerald-800 hover:text-emerald-900 underline">
+                        {contactSettings.website}
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

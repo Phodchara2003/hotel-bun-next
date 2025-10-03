@@ -2,719 +2,443 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../../contexts/AuthContext';
-import { Calendar, Users, Bed, CreditCard, ArrowLeft, ArrowRight } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { Calendar, Users, Bed, MapPin, ArrowRight, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 export default function BookingPage() {
-  const { user } = useAuth();
   const router = useRouter();
-  const [step, setStep] = useState(1);
-  const [bookingData, setBookingData] = useState({
+  const [roomTypes, setRoomTypes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [availabilityResults, setAvailabilityResults] = useState(null);
+  const [selectedRoomType, setSelectedRoomType] = useState(null);
+  
+  const [bookingCriteria, setBookingCriteria] = useState({
     checkIn: '',
     checkOut: '',
-    guests: 1,
-    roomType: '',
-    totalAmount: 0,
-    nights: 0
+    guests: 1
   });
-  const [paymentSettings, setPaymentSettings] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [paymentSlip, setPaymentSlip] = useState(null);
-  const [uploadingSlip, setUploadingSlip] = useState(false);
 
-  // ข้อมูลประเภทห้องพัก (2 แบบ)
-  const roomTypes = [
-    { 
-      id: 'single', 
-      name: 'ห้องเตียงเดี่ยว (Single Room)', 
-      price: 1200, 
-      description: 'ห้องพักสำหรับ 1 คน เตียงเดี่ยวขนาดมาตรฐาน',
-      max_occupancy: 1,
-      bed_type: 'เตียงเดี่ยว'
-    },
-    { 
-      id: 'double', 
-      name: 'ห้องเตียงคู่ (Double Room)', 
-      price: 1800, 
-      description: 'ห้องพักสำหรับ 2 คน เตียงคู่ขนาดใหญ่',
-      max_occupancy: 2,
-      bed_type: 'เตียงคู่'
-    }
-  ];
-
-  // คำนวณจำนวนคืนและราคารวม
   useEffect(() => {
-    if (bookingData.checkIn && bookingData.checkOut && bookingData.roomType) {
-      const checkIn = new Date(bookingData.checkIn);
-      const checkOut = new Date(bookingData.checkOut);
-      const timeDiff = checkOut.getTime() - checkIn.getTime();
-      const nights = Math.ceil(timeDiff / (1000 * 3600 * 24));
-      
-      if (nights > 0) {
-        // หาราคาของประเภทห้องที่เลือก
-        const selectedRoomType = roomTypes.find(room => room.id === bookingData.roomType);
-        const roomPrice = selectedRoomType ? selectedRoomType.price : 1500;
-        const total = nights * roomPrice;
-        
-        setBookingData(prev => ({
-          ...prev,
-          nights: nights,
-          totalAmount: total
-        }));
-      }
-    }
-  }, [bookingData.checkIn, bookingData.checkOut, bookingData.roomType]);
+    fetchRoomTypes();
+  }, []);
 
-  // ดึงข้อมูล QR Code เมื่อไปถึงขั้นตอนชำระเงิน
-  useEffect(() => {
-    if (step === 4) {
-      fetchPaymentSettings();
-    }
-  }, [step]);
-
-  const fetchPaymentSettings = async () => {
+  const fetchRoomTypes = async () => {
     try {
       setLoading(true);
-      // เรียก admin payment settings เพื่อใช้ข้อมูลที่แอดมินตั้งค่า
-      const response = await fetch('http://localhost:3001/api/admin/payment-settings');
+      console.log('🏨 Fetching room types...');
       
-      if (response.ok) {
-        const result = await response.json();
-        console.log('📋 Admin payment settings loaded for booking:', result);
-        
-        if (result.success && result.data) {
-          // แปลงข้อมูลให้เข้ากับรูปแบบเดิม
-          const legacyFormat = {
-            success: true,
-            data: {
-              qrCodeUrl: result.data.promptPay.qrCodeUrl,
-              bankName: result.data.bankTransfer.bankName,
-              bankAccount: result.data.bankTransfer.accountNumber,
-              accountName: result.data.bankTransfer.accountName,
-              phoneNumber: result.data.promptPay.phoneNumber
-            }
-          };
-          setPaymentSettings(legacyFormat);
-          console.log('💾 Booking payment settings:', legacyFormat);
-        }
+      const response = await fetch('http://localhost:3001/api/room-types');
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('✅ Room types loaded:', data.data);
+        setRoomTypes(data.data);
       } else {
-        console.warn('❌ Failed to load admin settings for booking, falling back to simple settings');
-        // Fallback เรียก simple settings
-        const fallbackResponse = await fetch('http://localhost:3001/api/simple-payment-settings');
-        if (fallbackResponse.ok) {
-          const fallbackData = await fallbackResponse.json();
-          setPaymentSettings(fallbackData);
-          console.log('💳 Fallback booking payment settings loaded:', fallbackData);
-        }
+        console.error('❌ Failed to load room types:', data.message);
+        toast.error('ไม่สามารถโหลดข้อมูลประเภทห้องพักได้');
       }
     } catch (error) {
-      console.error('Error fetching payment settings:', error);
-      toast.error('ไม่สามารถโหลดข้อมูลการชำระเงินได้');
+      console.error('❌ Error fetching room types:', error);
+      toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (field, value) => {
-    setBookingData(prev => ({
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setBookingCriteria(prev => ({
       ...prev,
-      [field]: value
+      [name]: name === 'guests' ? parseInt(value) : value
     }));
   };
 
-  const validateStep = (stepNum) => {
-    switch (stepNum) {
-      case 1:
-        if (!bookingData.checkIn || !bookingData.checkOut) {
-          toast.error('กรุณาเลือกวันที่เข้าพักและออก');
-          return false;
-        }
-        if (new Date(bookingData.checkIn) >= new Date(bookingData.checkOut)) {
-          toast.error('วันที่ออกต้องหลังจากวันที่เข้าพัก');
-          return false;
-        }
-        return true;
-      case 2:
-        if (!bookingData.guests || bookingData.guests < 1) {
-          toast.error('กรุณาระบุจำนวนผู้เข้าพัก');
-          return false;
-        }
-        return true;
-      case 3:
-        if (!bookingData.roomType) {
-          toast.error('กรุณาเลือกประเภทห้องพัก');
-          return false;
-        }
-        // ตรวจสอบจำนวนคนไม่เกินความจุห้อง
-        const selectedRoom = roomTypes.find(room => room.id === bookingData.roomType);
-        if (selectedRoom && bookingData.guests > selectedRoom.max_occupancy) {
-          toast.error(`ประเภทห้องนี้รองรับได้สูงสุด ${selectedRoom.max_occupancy} คน`);
-          return false;
-        }
-        return true;
-      default:
-        return true;
-    }
-  };
-
-  const nextStep = () => {
-    if (validateStep(step)) {
-      setStep(step + 1);
-    }
-  };
-
-  const prevStep = () => {
-    setStep(step - 1);
-  };
-
-  // ฟังก์ชันอัปโหลดสลิป
-  const handleSlipUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    // ตรวจสอบประเภทไฟล์
-    if (!file.type.startsWith('image/')) {
-      toast.error('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
-      return;
-    }
-
-    // ตรวจสอบขนาดไฟล์ (ไม่เกิน 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('ขนาดไฟล์ต้องไม่เกิน 5MB');
-      return;
-    }
-
-    setUploadingSlip(true);
+  const validateBookingCriteria = () => {
+    const errors = {};
     
-    try {
-      const formData = new FormData();
-      formData.append('paymentSlip', file);
-      formData.append('bookingId', 'TEMP_' + Date.now()); // Temporary booking ID
-      formData.append('amount', bookingData.totalAmount.toString());
-
-      const response = await fetch('http://localhost:3001/api/payment-slip/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        setPaymentSlip(result.filePath);
-        toast.success('อัปโหลดสลิปเรียบร้อย!');
-      } else {
-        throw new Error('Upload failed');
-      }
-    } catch (error) {
-      console.error('Error uploading slip:', error);
-      toast.error('เกิดข้อผิดพลาดในการอัปโหลดสลิป');
-    } finally {
-      setUploadingSlip(false);
+    if (!bookingCriteria.checkIn) {
+      errors.checkIn = 'กรุณาเลือกวันที่เข้าพัก';
     }
+    
+    if (!bookingCriteria.checkOut) {
+      errors.checkOut = 'กรุณาเลือกวันที่ออก';
+    }
+    
+    if (bookingCriteria.checkIn && bookingCriteria.checkOut) {
+      const checkInDate = new Date(bookingCriteria.checkIn);
+      const checkOutDate = new Date(bookingCriteria.checkOut);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (checkInDate < today) {
+        errors.checkIn = 'วันที่เข้าพักต้องเป็นวันนี้หรือหลังจากนี้';
+      }
+      
+      if (checkOutDate <= checkInDate) {
+        errors.checkOut = 'วันที่ออกต้องหลังจากวันที่เข้าพัก';
+      }
+    }
+    
+    if (bookingCriteria.guests < 1 || bookingCriteria.guests > 10) {
+      errors.guests = 'จำนวนผู้เข้าพักต้องอยู่ระหว่าง 1-10 คน';
+    }
+    
+    return errors;
   };
 
-  const completeBooking = async () => {
-    if (!paymentSlip) {
-      toast.error('กรุณาอัปโหลดสลิปการโอนเงินก่อนยืนยันการจอง');
+  const checkRoomAvailability = async (roomType) => {
+    const errors = validateBookingCriteria();
+    if (Object.keys(errors).length > 0) {
+      Object.values(errors).forEach(error => toast.error(error));
       return;
     }
 
     try {
-      setLoading(true);
-      
-      // สร้างการจองพร้อมข้อมูลสลิป
-      const bookingPayload = {
-        ...bookingData,
-        paymentSlip: paymentSlip,
-        paymentStatus: 'pending_verification',
-        bookingDate: new Date().toISOString(),
-        userId: user?.id
-      };
+      setCheckingAvailability(true);
+      setSelectedRoomType(roomType);
+      console.log('🔍 Checking availability for room type:', roomType.name);
 
-      const response = await fetch('http://localhost:3001/api/bookings', {
+      const response = await fetch('http://localhost:3001/api/check-availability', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify(bookingPayload)
+        body: JSON.stringify({
+          room_type_id: roomType.id,
+          check_in: bookingCriteria.checkIn,
+          check_out: bookingCriteria.checkOut,
+          guests: bookingCriteria.guests
+        }),
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        toast.success('จองห้องพักเรียบร้อย! กำลังรอการตรวจสอบการชำระเงิน');
+      const data = await response.json();
+      console.log('📋 Availability response:', data);
+
+      if (data.success) {
+        setAvailabilityResults(data.data);
         
-        // ไปยังหน้าสรุปการจอง
-        router.push(`/booking-confirmation/${result.bookingId || 'HTL' + Date.now()}`);
+        if (data.data.isAvailable) {
+          toast.success(`มีห้องว่าง ${data.data.availableRooms} ห้อง จากทั้งหมด ${data.data.totalRooms} ห้อง`);
+        } else {
+          toast.error('ไม่มีห้องว่างในช่วงเวลาที่เลือก');
+        }
       } else {
-        throw new Error('Booking failed');
+        toast.error(data.message || 'เกิดข้อผิดพลาดในการตรวจสอบ');
+        setAvailabilityResults(null);
       }
-      
     } catch (error) {
-      console.error('Error creating booking:', error);
-      toast.error('เกิดข้อผิดพลาดในการจอง');
+      console.error('❌ Error checking availability:', error);
+      toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+      setAvailabilityResults(null);
     } finally {
-      setLoading(false);
+      setCheckingAvailability(false);
     }
   };
 
-  const renderStepContent = () => {
-    switch (step) {
-      case 1:
-        return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900 text-center">เลือกวันที่เข้าพัก</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  วันที่เข้าพัก
-                </label>
-                <input
-                  type="date"
-                  value={bookingData.checkIn}
-                  onChange={(e) => handleInputChange('checkIn', e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  วันที่ออก
-                </label>
-                <input
-                  type="date"
-                  value={bookingData.checkOut}
-                  onChange={(e) => handleInputChange('checkOut', e.target.value)}
-                  min={bookingData.checkIn || new Date().toISOString().split('T')[0]}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
+  const proceedToBooking = () => {
+    if (!selectedRoomType || !availabilityResults?.isAvailable) {
+      toast.error('กรุณาเลือกประเภทห้องพักที่มีห้องว่าง');
+      return;
+    }
 
-            {bookingData.checkIn && bookingData.checkOut && bookingData.nights > 0 && (
-              <div className="bg-blue-50 p-4 rounded-lg text-center">
-                <p className="text-blue-800 font-medium">
-                  จำนวนคืนที่เข้าพัก: {bookingData.nights} คืน
-                </p>
-              </div>
-            )}
-          </div>
-        );
+    const bookingParams = new URLSearchParams({
+      roomId: selectedRoomType.id,
+      checkIn: bookingCriteria.checkIn,
+      checkOut: bookingCriteria.checkOut,
+      guests: bookingCriteria.guests
+    });
 
-      case 2:
-        return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900 text-center">จำนวนผู้เข้าพัก</h2>
-            
-            <div className="max-w-md mx-auto">
+    router.push(`/booking-step?${bookingParams.toString()}`);
+  };
+
+  const calculateNights = () => {
+    if (!bookingCriteria.checkIn || !bookingCriteria.checkOut) return 0;
+    const checkIn = new Date(bookingCriteria.checkIn);
+    const checkOut = new Date(bookingCriteria.checkOut);
+    const timeDiff = checkOut.getTime() - checkIn.getTime();
+    return Math.max(0, Math.ceil(timeDiff / (1000 * 3600 * 24)));
+  };
+
+  const formatPrice = (price) => {
+    return new Intl.NumberFormat('th-TH').format(price);
+  };
+
+  const getBedTypeText = (bedType) => {
+    switch (bedType) {
+      case 'single': return 'เตียงเดี่ยว';
+      case 'double': return 'เตียงคู่';
+      case 'twin': return 'เตียงแฝด';
+      case 'king': return 'เตียงคิงส์ไซส์';
+      case 'queen': return 'เตียงควีนส์ไซส์';
+      default: return bedType || 'ไม่ระบุ';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">กำลังโหลดข้อมูลประเภทห้องพัก...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            จองห้องพัก
+          </h1>
+          <p className="text-gray-600">
+            เลือกประเภทห้องพักและตรวจสอบความพร้อมใช้งาน
+          </p>
+        </div>
+
+        {/* Booking Criteria Form */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            ข้อมูลการจอง
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Calendar className="w-4 h-4 inline mr-1" />
+                วันที่เข้าพัก
+              </label>
+              <input
+                type="date"
+                name="checkIn"
+                value={bookingCriteria.checkIn}
+                onChange={handleInputChange}
+                min={new Date().toISOString().split('T')[0]}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Calendar className="w-4 h-4 inline mr-1" />
+                วันที่ออก
+              </label>
+              <input
+                type="date"
+                name="checkOut"
+                value={bookingCriteria.checkOut}
+                onChange={handleInputChange}
+                min={bookingCriteria.checkIn || new Date().toISOString().split('T')[0]}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Users className="w-4 h-4 inline mr-1" />
                 จำนวนผู้เข้าพัก
               </label>
               <select
-                value={bookingData.guests}
-                onChange={(e) => handleInputChange('guests', parseInt(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                name="guests"
+                value={bookingCriteria.guests}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                {[1, 2, 3, 4].map(num => (
-                  <option key={num} value={num}>
-                    {num} {num === 1 ? 'คน' : 'คน'}
-                  </option>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                  <option key={num} value={num}>{num} คน</option>
                 ))}
               </select>
-              <p className="text-sm text-gray-500 mt-2">
-                💡 หากต้องการห้องเตียงเดี่ยว: สูงสุด 1 คน<br/>
-                💡 หากต้องการห้องเตียงคู่: สูงสุด 2 คน
-              </p>
-            </div>
-          </div>
-        );
-
-      case 3:
-        return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900 text-center">เลือกประเภทห้องพัก</h2>
-            <p className="text-center text-gray-600 mb-8">เลือกประเภทห้องพักที่ต้องการ ห้องพักจริงจะได้รับมอบหมายเมื่อเช็คอิน</p>
-            
-            <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-6">
-              {roomTypes.map((roomType) => (
-                <div
-                  key={roomType.id}
-                  onClick={() => handleInputChange('roomType', roomType.id)}
-                  className={`p-6 border-2 rounded-lg cursor-pointer transition-all ${
-                    bookingData.roomType === roomType.id
-                      ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200'
-                      : 'border-gray-300 hover:border-emerald-300 bg-white'
-                  }`}
-                >
-                  <div className="text-center">
-                    <Bed className={`w-16 h-16 mx-auto mb-4 ${
-                      bookingData.roomType === roomType.id ? 'text-emerald-600' : 'text-gray-400'
-                    }`} />
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">{roomType.name}</h3>
-                    <p className="text-gray-600 mb-2">{roomType.description}</p>
-                    <p className="text-sm text-gray-500 mb-4">สำหรับ {roomType.max_occupancy} คน • {roomType.bed_type}</p>
-                    <p className="text-2xl font-bold text-emerald-600 mb-2">
-                      ฿{roomType.price.toLocaleString()}/คืน
-                    </p>
-                    {bookingData.nights > 0 && bookingData.roomType === roomType.id && (
-                      <div className="bg-white rounded-lg p-4 mt-4 border border-emerald-200">
-                        <p className="text-lg font-semibold text-gray-800">
-                          รวม {bookingData.nights} คืน: ฿{(roomType.price * bookingData.nights).toLocaleString()}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
             </div>
             
-            {bookingData.roomType && (
-              <div className="max-w-md mx-auto mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <div className="flex items-start">
-                  <div className="text-yellow-600 mr-3">⚠️</div>
+            <div className="flex items-end">
+              <div className="text-sm text-gray-600">
+                {calculateNights() > 0 && (
                   <div>
-                    <h4 className="font-semibold text-yellow-800">หมายเหตุสำคัญ</h4>
-                    <p className="text-yellow-700 text-sm mt-1">
-                      การจองนี้เป็นการจองประเภทห้องพัก ห้องพักจริงจะได้รับการมอบหมายจากทางโรงแรมเมื่อเช็คอิน
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-
-      case 4:
-        return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900 text-center">ชำระเงิน</h2>
-            
-            {/* สรุปการจอง */}
-            <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">สรุปการจอง</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>วันที่เข้าพัก:</span>
-                  <span>{new Date(bookingData.checkIn).toLocaleDateString('th-TH')}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>วันที่ออก:</span>
-                  <span>{new Date(bookingData.checkOut).toLocaleDateString('th-TH')}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>จำนวนคืน:</span>
-                  <span>{bookingData.nights} คืน</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>ผู้เข้าพัก:</span>
-                  <span>{bookingData.guests} คน</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>ประเภทห้อง:</span>
-                  <span>{roomTypes.find(room => room.id === bookingData.roomType)?.name || 'ไม่ได้เลือก'}</span>
-                </div>
-                <hr className="my-3" />
-                <div className="flex justify-between text-lg font-semibold text-blue-600">
-                  <span>ยอดรวมทั้งสิ้น:</span>
-                  <span>฿{bookingData.totalAmount.toLocaleString()}</span>
-                </div>
-                <div className="text-sm text-gray-500 mt-1">
-                  (คิดราคาห้องเท่านั้น ไม่บวกตามจำนวนคน)
-                </div>
-              </div>
-            </div>
-
-            {/* แสดงประเภทห้องที่เลือก */}
-            <div className="bg-emerald-50 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-emerald-800 mb-4">ประเภทห้องที่คุณเลือก</h3>
-              <div className="max-w-md mx-auto">
-                {(() => {
-                  const selectedRoom = roomTypes.find(room => room.id === bookingData.roomType);
-                  return selectedRoom ? (
-                    <div className="p-4 border-2 border-emerald-500 bg-emerald-100 shadow-md rounded-lg">
-                      <div className="text-center">
-                        <Bed className="w-8 h-8 mx-auto mb-2 text-emerald-600" />
-                        <h4 className="font-semibold text-emerald-900 mb-1">{selectedRoom.name}</h4>
-                        <p className="text-emerald-700 text-sm mb-2">{selectedRoom.description}</p>
-                        <p className="text-sm text-emerald-600 mb-2">{selectedRoom.bed_type} • สำหรับ {selectedRoom.max_occupancy} คน</p>
-                        <p className="text-lg font-bold text-emerald-600">
-                          ฿{selectedRoom.price.toLocaleString()}/คืน
-                        </p>
-                        {bookingData.nights > 0 && (
-                          <p className="text-sm text-emerald-600 mt-1">
-                            รวม {bookingData.nights} คืน: ฿{(selectedRoom.price * bookingData.nights).toLocaleString()}
-                          </p>
-                        )}
-                        <div className="mt-3 p-2 bg-yellow-100 border border-yellow-300 rounded text-xs text-yellow-800">
-                          ⚠️ ห้องพักจริงจะได้รับมอบหมายเมื่อเช็คอิน
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center text-gray-500">ไม่ได้เลือกประเภทห้อง</div>
-                  );
-                })()}
-              </div>
-            </div>
-
-            {/* QR Code Payment */}
-            {loading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                <p className="text-gray-600">กำลังโหลดข้อมูลการชำระเงิน...</p>
-              </div>
-            ) : paymentSettings && paymentSettings.qrCodeUrl ? (
-              <div className="bg-white border-2 border-blue-200 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">
-                  ชำระเงินด้วย QR Code
-                </h3>
-                
-                <div className="text-center mb-4">
-                  <div className="bg-white p-6 rounded-lg border inline-block shadow-md">
-                    <img
-                      src={`http://localhost:3001${paymentSettings.qrCodeUrl}`}
-                      alt="QR Code สำหรับชำระเงิน"
-                      className="w-72 h-72 object-contain mx-auto"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'block';
-                      }}
-                    />
-                    <div className="w-72 h-72 bg-gray-100 flex items-center justify-center text-gray-500" style={{display: 'none'}}>
-                      <div className="text-center">
-                        <CreditCard className="w-12 h-12 mx-auto mb-2" />
-                        <p className="text-sm">ไม่สามารถโหลด QR Code ได้</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="text-center mb-4">
-                  <p className="text-gray-700 font-medium mb-2">
-                    สแกน QR Code ด้วยแอปธนาคารของคุณ
-                  </p>
-                  <p className="text-2xl font-bold text-green-600">
-                    จำนวนเงิน: ฿{bookingData.totalAmount.toLocaleString()}
-                  </p>
-                </div>
-
-                {/* ข้อมูลธนาคาร */}
-                {(paymentSettings.bankName || paymentSettings.accountNumber) && (
-                  <div className="bg-blue-50 rounded-lg p-4 mt-4">
-                    <h4 className="font-semibold text-blue-800 mb-2">หรือโอนเงินเข้าบัญชี:</h4>
-                    <div className="text-sm text-blue-700 space-y-1">
-                      {paymentSettings.bankName && (
-                        <p><span className="font-medium">ธนาคาร:</span> {paymentSettings.bankName}</p>
-                      )}
-                      {paymentSettings.accountNumber && (
-                        <p><span className="font-medium">เลขที่บัญชี:</span> {paymentSettings.accountNumber}</p>
-                      )}
-                      {paymentSettings.accountName && (
-                        <p><span className="font-medium">ชื่อบัญชี:</span> {paymentSettings.accountName}</p>
-                      )}
-                    </div>
+                    <span className="font-medium">{calculateNights()} คืน</span>
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
 
-                <div className="bg-yellow-50 rounded-lg p-4 mt-4">
-                  <p className="text-yellow-800 text-sm">
-                    <span className="font-medium">หมายเหตุ:</span> หลังจากโอนเงินแล้ว กรุณาอัปโหลดสลิปการโอนเงินด้านล่าง
-                  </p>
+        {/* Room Types Selection */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          {roomTypes.map((roomType) => (
+            <div
+              key={roomType.id}
+              className={`bg-white rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:shadow-lg ${
+                selectedRoomType?.id === roomType.id ? 'ring-2 ring-blue-500' : ''
+              }`}
+            >
+              {/* Room Image */}
+              <div className="h-48 bg-gray-200 relative">
+                {roomType.images && roomType.images.length > 0 ? (
+                  <img
+                    src={`http://localhost:3001/uploads/${roomType.images[0]}`}
+                    alt={roomType.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Prevent infinite loop by replacing with div instead of another image
+                      e.target.style.display = 'none';
+                      const parent = e.target.parentElement;
+                      parent.innerHTML = `
+                        <div class="w-full h-full flex items-center justify-center bg-gray-100">
+                          <svg class="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                          </svg>
+                        </div>
+                      `;
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                    <Bed className="w-16 h-16 text-gray-400" />
+                  </div>
+                )}
+                
+                {/* Room Type Badge */}
+                <div className="absolute top-4 left-4">
+                  <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+                    {getBedTypeText(roomType.bed_type)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Room Details */}
+              <div className="p-6">
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  {roomType.name}
+                </h3>
+                
+                <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                  {roomType.description || 'ห้องพักสะดวกสบาย พร้อมสิ่งอำนวยความสะดวกครบครัน'}
+                </p>
+
+                <div className="space-y-2 mb-4">
+                  <div className="flex items-center text-sm text-gray-600">
+                    <Users className="w-4 h-4 mr-2" />
+                    รองรับได้สูงสุด {roomType.max_guests} คน
+                  </div>
+                  
+                  <div className="flex items-center text-sm text-gray-600">
+                    <MapPin className="w-4 h-4 mr-2" />
+                    ห้องพักทั้งหมด: {roomType.total_rooms || roomType.quantity} ห้อง
+                  </div>
                 </div>
 
-                {/* ส่วนอัปโหลดสลิป */}
-                <div className="bg-green-50 border-2 border-green-200 rounded-lg p-6 mt-6">
-                  <h4 className="text-lg font-semibold text-green-800 mb-4 text-center">
-                    อัปโหลดสลิปการโอนเงิน
-                  </h4>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <span className="text-2xl font-bold text-blue-600">
+                      ฿{formatPrice(roomType.price_per_night)}
+                    </span>
+                    <span className="text-gray-500 text-sm">/คืน</span>
+                  </div>
                   
-                  {!paymentSlip ? (
-                    <div className="text-center">
-                      <div className="border-2 border-dashed border-green-300 rounded-lg p-6 mb-4">
-                        <CreditCard className="w-12 h-12 mx-auto mb-3 text-green-500" />
-                        <p className="text-green-700 mb-3">
-                          เลือกไฟล์สลิปการโอนเงิน (JPG, PNG)
-                        </p>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleSlipUpload}
-                          disabled={uploadingSlip}
-                          className="hidden"
-                          id="slip-upload"
-                        />
-                        <label
-                          htmlFor="slip-upload"
-                          className={`inline-flex items-center px-4 py-2 border border-green-300 rounded-md shadow-sm text-sm font-medium text-green-700 bg-white hover:bg-green-50 cursor-pointer ${
-                            uploadingSlip ? 'opacity-50 cursor-not-allowed' : ''
-                          }`}
-                        >
-                          {uploadingSlip ? (
-                            <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
-                              กำลังอัปโหลด...
-                            </>
-                          ) : (
-                            <>
-                              <CreditCard className="w-4 h-4 mr-2" />
-                              เลือกไฟล์สลิป
-                            </>
-                          )}
-                        </label>
-                      </div>
-                      <p className="text-sm text-green-600">
-                        ขนาดไฟล์ไม่เกิน 5MB
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="text-center">
-                      <div className="bg-white rounded-lg p-4 border-2 border-green-300">
-                        <div className="flex items-center justify-center mb-3">
-                          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                            <CreditCard className="w-6 h-6 text-green-600" />
-                          </div>
-                        </div>
-                        <p className="text-green-800 font-medium mb-2">
-                          ✅ อัปโหลดสลิปเรียบร้อยแล้ว
-                        </p>
-                        <p className="text-sm text-green-600 mb-3">
-                          ไฟล์: {paymentSlip.split('/').pop()}
-                        </p>
-                        <button
-                          onClick={() => setPaymentSlip(null)}
-                          className="text-sm text-green-700 hover:text-green-800 underline"
-                        >
-                          เปลี่ยนไฟล์
-                        </button>
+                  {calculateNights() > 0 && (
+                    <div className="text-right">
+                      <div className="text-sm text-gray-500">รวม {calculateNights()} คืน</div>
+                      <div className="text-lg font-bold text-green-600">
+                        ฿{formatPrice(roomType.price_per_night * calculateNights())}
                       </div>
                     </div>
                   )}
                 </div>
-              </div>
-            ) : (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-                <CreditCard className="w-12 h-12 mx-auto mb-3 text-red-500" />
-                <h3 className="text-lg font-semibold text-red-800 mb-2">ยังไม่สามารถชำระเงินได้</h3>
-                <p className="text-red-700">
-                  ขออภัย QR Code สำหรับชำระเงินยังไม่พร้อมใช้งาน
-                  <br />กรุณาติดต่อเจ้าหน้าที่โรงแรม
-                </p>
-              </div>
-            )}
-          </div>
-        );
 
-      default:
-        return null;
-    }
-  };
+                {/* Check Availability Button */}
+                <button
+                  onClick={() => checkRoomAvailability(roomType)}
+                  disabled={checkingAvailability}
+                  className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 mb-2"
+                >
+                  {checkingAvailability && selectedRoomType?.id === roomType.id ? (
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      กำลังตรวจสอบ...
+                    </div>
+                  ) : (
+                    'ตรวจสอบห้องว่าง'
+                  )}
+                </button>
 
-  const renderStepIndicator = () => {
-    const steps = [
-      { number: 1, title: 'เลือกวันที่', icon: Calendar },
-      { number: 2, title: 'จำนวนผู้เข้าพัก', icon: Users },
-      { number: 3, title: 'ประเภทห้อง', icon: Bed },
-      { number: 4, title: 'ชำระเงิน', icon: CreditCard },
-    ];
-
-    return (
-      <div className="flex justify-center mb-8">
-        <div className="flex items-center space-x-4">
-          {steps.map((stepInfo, index) => {
-            const Icon = stepInfo.icon;
-            const isActive = step === stepInfo.number;
-            const isCompleted = step > stepInfo.number;
-            
-            return (
-              <div key={stepInfo.number} className="flex items-center">
-                <div className={`flex items-center justify-center w-12 h-12 rounded-full border-2 ${
-                  isActive 
-                    ? 'border-blue-500 bg-blue-500 text-white' 
-                    : isCompleted 
-                    ? 'border-green-500 bg-green-500 text-white'
-                    : 'border-gray-300 text-gray-400'
-                }`}>
-                  <Icon className="w-6 h-6" />
-                </div>
-                <div className="ml-2 hidden sm:block">
-                  <p className={`text-sm font-medium ${
-                    isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-500'
+                {/* Availability Results */}
+                {selectedRoomType?.id === roomType.id && availabilityResults && (
+                  <div className={`p-3 rounded-md text-sm ${
+                    availabilityResults.isAvailable 
+                      ? 'bg-green-50 border border-green-200' 
+                      : 'bg-red-50 border border-red-200'
                   }`}>
-                    {stepInfo.title}
-                  </p>
-                </div>
-                {index < steps.length - 1 && (
-                  <div className={`mx-4 h-0.5 w-8 ${
-                    isCompleted ? 'bg-green-500' : 'bg-gray-300'
-                  }`} />
+                    {availabilityResults.isAvailable ? (
+                      <div className="flex items-center text-green-800">
+                        <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                        <div>
+                          <div className="font-medium">มีห้องว่าง!</div>
+                          <div>ห้องพร้อมใช้งาน: {availabilityResults.availableRooms} ห้อง</div>
+                          <div>จากทั้งหมด: {availabilityResults.totalRooms} ห้อง</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center text-red-800">
+                        <XCircle className="w-4 h-4 mr-2 text-red-600" />
+                        <div>
+                          <div className="font-medium">ไม่มีห้องว่าง</div>
+                          <div>ห้องที่จองแล้ว: {availabilityResults.bookedRooms} ห้อง</div>
+                          <div>จากทั้งหมด: {availabilityResults.totalRooms} ห้อง</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">จองห้องพัก</h1>
-          <p className="text-gray-600">เลือกรายละเอียดการเข้าพักของคุณ</p>
+            </div>
+          ))}
         </div>
 
-        {renderStepIndicator()}
-
-        <div className="bg-white rounded-lg shadow-md p-8 mb-8">
-          {renderStepContent()}
-        </div>
-
-        <div className="flex justify-between">
-          <button
-            onClick={prevStep}
-            disabled={step === 1}
-            className="flex items-center px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ArrowLeft className="w-5 h-5 mr-2" />
-            ย้อนกลับ
-          </button>
-
-          {step < 4 ? (
+        {/* Proceed to Booking */}
+        {selectedRoomType && availabilityResults?.isAvailable && (
+          <div className="bg-white rounded-lg shadow-md p-6 text-center">
+            <div className="flex items-center justify-center mb-4">
+              <CheckCircle className="w-6 h-6 text-green-600 mr-2" />
+              <h3 className="text-xl font-semibold text-gray-900">
+                พร้อมจองห้องพัก {selectedRoomType.name}
+              </h3>
+            </div>
+            
+            <div className="text-gray-600 mb-6">
+              <div>วันที่: {new Date(bookingCriteria.checkIn).toLocaleDateString('th-TH')} - {new Date(bookingCriteria.checkOut).toLocaleDateString('th-TH')}</div>
+              <div>จำนวน: {calculateNights()} คืน, {bookingCriteria.guests} คน</div>
+              <div className="text-lg font-semibold text-blue-600 mt-2">
+                ราคารวม: ฿{formatPrice(selectedRoomType.price_per_night * calculateNights())}
+              </div>
+            </div>
+            
             <button
-              onClick={nextStep}
-              className="flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              onClick={proceedToBooking}
+              className="bg-green-600 text-white py-3 px-8 rounded-md hover:bg-green-700 transition-colors duration-200 flex items-center justify-center mx-auto"
             >
-              ถัดไป
+              ดำเนินการจอง
               <ArrowRight className="w-5 h-5 ml-2" />
             </button>
-          ) : (
-            <button
-              onClick={completeBooking}
-              disabled={loading || !paymentSettings?.qrCodeUrl || !paymentSlip}
-              className="flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                  กำลังจอง...
-                </div>
-              ) : !paymentSlip ? (
-                <>
-                  <CreditCard className="w-5 h-5 mr-2" />
-                  กรุณาอัปโหลดสลิปก่อน
-                </>
-              ) : (
-                <>
-                  <CreditCard className="w-5 h-5 mr-2" />
-                  ยืนยันการจองและชำระเงิน
-                </>
-              )}
-            </button>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* No Rooms Available Message */}
+        {roomTypes.length === 0 && !loading && (
+          <div className="text-center py-12">
+            <AlertTriangle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              ไม่มีประเภทห้องพักในขณะนี้
+            </h3>
+            <p className="text-gray-600">
+              กรุณาติดต่อแผนกต้อนรับ หรือลองใหม่อีกครั้ง
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

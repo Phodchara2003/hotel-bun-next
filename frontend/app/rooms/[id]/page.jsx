@@ -4,13 +4,14 @@ import { useState, useEffect } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
-  ArrowLeft, Calendar, Users, MapPin, Wifi, Car, Coffee, Tv, Wind, 
+  ArrowLeft, Calendar, Users, Wifi, Car, Coffee, Tv, Wind, 
   Phone, Mail, Star, Check, X, ChevronLeft, ChevronRight 
 } from 'lucide-react';
-import { hotelAPI, bookingAPI } from '../../../lib/api';
+import { hotelAPI, bookingAPI, authAPI } from '../../../lib/api';
 import { getRoomById } from '../../../lib/roomsData';
 import { getRoomImageUrl, getRoomPlaceholder } from '../../../lib/roomImageUtils';
 import { useAuth } from '../../../contexts/AuthContext';
+import CustomDatePicker from '../../../components/CustomDatePicker';
 import toast from 'react-hot-toast';
 
 export default function RoomDetailPage() {
@@ -22,6 +23,36 @@ export default function RoomDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isBooking, setIsBooking] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [checkInDate, setCheckInDate] = useState(null);
+  const [checkOutDate, setCheckOutDate] = useState(null);
+  const [guests, setGuests] = useState(1);
+  
+  // Guest information form
+  const [guestInfo, setGuestInfo] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    nationalId: '',
+    email: ''
+  });
+
+  // Format phone number
+  const formatPhoneNumber = (value) => {
+    const cleaned = value.replace(/\D/g, '');
+    if (cleaned.length <= 3) return cleaned;
+    if (cleaned.length <= 6) return `${cleaned.slice(0, 3)}-${cleaned.slice(3)}`;
+    return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
+  };
+
+  // Format national ID
+  const formatNationalId = (value) => {
+    const cleaned = value.replace(/\D/g, '');
+    if (cleaned.length <= 1) return cleaned;
+    if (cleaned.length <= 5) return `${cleaned.slice(0, 1)}-${cleaned.slice(1)}`;
+    if (cleaned.length <= 10) return `${cleaned.slice(0, 1)}-${cleaned.slice(1, 5)}-${cleaned.slice(5)}`;
+    if (cleaned.length <= 12) return `${cleaned.slice(0, 1)}-${cleaned.slice(1, 5)}-${cleaned.slice(5, 10)}-${cleaned.slice(10)}`;
+    return `${cleaned.slice(0, 1)}-${cleaned.slice(1, 5)}-${cleaned.slice(5, 10)}-${cleaned.slice(10, 12)}-${cleaned.slice(12, 13)}`;
+  };
   
   const searchCriteria = {
     checkin: searchParams.get('checkin') || '',
@@ -31,7 +62,65 @@ export default function RoomDetailPage() {
 
   useEffect(() => {
     fetchRoomDetails();
-  }, [params.id]);
+    
+    // Load dates from URL parameters (แก้ไข timezone issue)
+    if (searchCriteria.checkin) {
+      // สร้างวันที่โดยไม่ให้ timezone มีผล
+      const [year, month, day] = searchCriteria.checkin.split('-').map(Number);
+      setCheckInDate(new Date(year, month - 1, day));
+    }
+    if (searchCriteria.checkout) {
+      // สร้างวันที่โดยไม่ให้ timezone มีผล
+      const [year, month, day] = searchCriteria.checkout.split('-').map(Number);
+      setCheckOutDate(new Date(year, month - 1, day));
+    }
+    if (searchCriteria.guests) {
+      setGuests(searchCriteria.guests);
+    }
+  }, [params.id, searchParams]);
+
+  // Auto-fill guest information from user profile
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (user) {
+        try {
+          // Try to get fresh profile data from API
+          const profileResponse = await authAPI.getProfile();
+          if (profileResponse.success && profileResponse.data) {
+            const profileData = profileResponse.data;
+            setGuestInfo({
+              firstName: profileData.first_name || user.first_name || user.name?.split(' ')[0] || '',
+              lastName: profileData.last_name || user.last_name || user.name?.split(' ').slice(1).join(' ') || '',
+              phone: profileData.phone || user.phone || user.phone_number || '',
+              nationalId: profileData.national_id || user.national_id || user.nationalId || user.id_number || '',
+              email: profileData.email || user.email || ''
+            });
+          } else {
+            // Fallback to user data from AuthContext
+            setGuestInfo({
+              firstName: user.first_name || user.name?.split(' ')[0] || '',
+              lastName: user.last_name || user.name?.split(' ').slice(1).join(' ') || '',
+              phone: user.phone || user.phone_number || '',
+              nationalId: user.national_id || user.nationalId || user.id_number || '',
+              email: user.email || ''
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching profile:', error);
+          // Fallback to user data from AuthContext
+          setGuestInfo({
+            firstName: user.first_name || user.name?.split(' ')[0] || '',
+            lastName: user.last_name || user.name?.split(' ').slice(1).join(' ') || '',
+            phone: user.phone || user.phone_number || '',
+            nationalId: user.national_id || user.nationalId || user.id_number || '',
+            email: user.email || ''
+          });
+        }
+      }
+    };
+
+    fetchUserProfile();
+  }, [user]);
 
   const fetchRoomDetails = async () => {
     try {
@@ -67,16 +156,35 @@ export default function RoomDetailPage() {
   };
 
   const calculateNights = () => {
-    if (!searchCriteria.checkin || !searchCriteria.checkout) return 1;
-    const checkin = new Date(searchCriteria.checkin);
-    const checkout = new Date(searchCriteria.checkout);
-    const timeDiff = checkout.getTime() - checkin.getTime();
+    // ใช้ state แทน searchCriteria เพื่อหลีกเลี่ยงปัญหา timezone
+    if (!checkInDate || !checkOutDate) return 1;
+    const timeDiff = checkOutDate.getTime() - checkInDate.getTime();
     return Math.ceil(timeDiff / (1000 * 3600 * 24));
   };
 
   const calculateTotal = () => {
     if (!room) return 0;
     return room.price_per_night * calculateNights();
+  };
+
+  // Handle date picker changes
+  const handleCheckInChange = (date) => {
+    setCheckInDate(date);
+    // Reset checkout date if it's before checkin
+    if (checkOutDate && date && checkOutDate <= date) {
+      setCheckOutDate(null);
+    }
+    // ไม่ต้อง update URL อัตโนมัติ ให้ใช้ state เป็นหลัก
+  };
+
+  const handleCheckOutChange = (date) => {
+    setCheckOutDate(date);
+    // ไม่ต้อง update URL อัตโนมัติ ให้ใช้ state เป็นหลัก
+  };
+
+  const handleGuestsChange = (newGuests) => {
+    setGuests(newGuests);
+    // ไม่ต้อง update URL อัตโนมัติ ให้ใช้ state เป็นหลัก
   };
 
   const handleBooking = async () => {
@@ -86,7 +194,16 @@ export default function RoomDetailPage() {
       return;
     }
 
-    if (!searchCriteria.checkin || !searchCriteria.checkout) {
+    // ใช้วิธีสร้าง date string ที่ปลอดภัยจาก timezone
+    const checkinDate = checkInDate ? 
+      `${checkInDate.getFullYear()}-${String(checkInDate.getMonth() + 1).padStart(2, '0')}-${String(checkInDate.getDate()).padStart(2, '0')}` : 
+      null;
+    const checkoutDate = checkOutDate ? 
+      `${checkOutDate.getFullYear()}-${String(checkOutDate.getMonth() + 1).padStart(2, '0')}-${String(checkOutDate.getDate()).padStart(2, '0')}` : 
+      null;
+    const guestCount = guests;
+
+    if (!checkinDate || !checkoutDate) {
       toast.error('กรุณาเลือกวันที่เข้าพักและออก');
       return;
     }
@@ -94,37 +211,67 @@ export default function RoomDetailPage() {
     try {
       setIsBooking(true);
       
+      // Validate required data
+      if (!room.id) {
+        toast.error('ไม่พบข้อมูลห้องพัก กรุณาลองใหม่');
+        return;
+      }
+      
+      if (!user?.id) {
+        toast.error('กรุณาเข้าสู่ระบบก่อนทำการจอง');
+        router.push('/login');
+        return;
+      }
+      
+      // Calculate and validate price
+      const totalPrice = calculateTotal();
+      const nights = calculateNights();
+      
+      if (totalPrice <= 0 || nights <= 0) {
+        toast.error('ข้อมูลราคาหรือจำนวนคืนไม่ถูกต้อง');
+        return;
+      }
+      
+      // ตรวจสอบว่า bed_type มีค่าหรือไม่
+      if (!room.bed_type) {
+        console.error('❌ bed_type is missing from room data:', room);
+        toast.error('ข้อมูลประเภทเตียงไม่ครบถ้วน กรุณาลองใหม่');
+        return;
+      }
+
       const bookingData = {
-        room_id: room.id,
-        checkin_date: searchCriteria.checkin,
-        checkout_date: searchCriteria.checkout,
-        guests: searchCriteria.guests,
-        total_amount: calculateTotal(),
-        nights: calculateNights()
+        user_id: parseInt(user.id),
+        hotel_id: parseInt(room.hotel_id || 2), // Use hotel_id 2 as default (from database)
+        bed_type: room.bed_type, // ใช้ bed_type แทน room_type_id
+        check_in_date: checkinDate,
+        check_out_date: checkoutDate,
+        guests: parseInt(guestCount),
+        total_price: parseFloat(totalPrice),
+        guest_name: '', // Will be filled in payment page
+        guest_phone: '', // Will be filled in payment page
+        guest_email: '', // Will be filled in payment page
+        guest_national_id: '', // Will be filled in payment page
+        special_requests: ''
       };
 
-      console.log('Creating booking:', bookingData);
+      console.log('🔍 Creating booking with data:', bookingData);
+      console.log('🔍 bed_type value:', bookingData.bed_type);
+      console.log('📊 Calculated nights:', nights, 'Total price:', totalPrice);
       
-      // พยายามสร้างการจอง
-      try {
-        const response = await bookingAPI.createBooking(bookingData);
-        if (response.success) {
-          toast.success('จองห้องพักสำเร็จ!');
-          router.push('/bookings');
-        } else {
-          throw new Error(response.message || 'การจองล้มเหลว');
-        }
-      } catch (apiError) {
-        // Fallback สำหรับการทดสอบ
-        console.log('Booking API not available, showing success message');
-        toast.success('จองห้องพักสำเร็จ! (โหมดทดสอบ)');
-        setTimeout(() => {
-          router.push('/');
-        }, 2000);
-      }
+      // เก็บข้อมูลการจองไว้ใน localStorage
+      localStorage.setItem('pendingBookingData', JSON.stringify(bookingData));
+      
+      toast.success('กำลังพาไปยังหน้าชำระเงิน...');
+      
+      // สร้าง URL สำหรับหน้าชำระเงินโดยไม่ต้องมี booking ID
+      const paymentUrl = `/payment/create?room=${room.id}&checkin=${checkinDate}&checkout=${checkoutDate}&guests=${guestCount}`;
+      setTimeout(() => {
+        router.push(paymentUrl);
+      }, 1000);
+      
     } catch (error) {
-      console.error('Booking error:', error);
-      toast.error('เกิดข้อผิดพลาดในการจอง กรุณาลองใหม่อีกครั้ง');
+      console.error('Error preparing booking data:', error);
+      toast.error('เกิดข้อผิดพลาดในการเตรียมข้อมูล');
     } finally {
       setIsBooking(false);
     }
@@ -139,6 +286,15 @@ export default function RoomDetailPage() {
       day: 'numeric',
       weekday: 'long'
     });
+  };
+
+  // Function to convert bed_type to Thai display text
+  const getBedTypeDisplay = (bedType) => {
+    switch (bedType) {
+      case 'single': return 'เตียงเดี่ยว';
+      case 'double': return 'เตียงคู่';
+      default: return bedType;
+    }
   };
 
   const nextImage = () => {
@@ -267,10 +423,6 @@ export default function RoomDetailPage() {
                   <Users className="h-5 w-5 mr-1" />
                   {room.max_occupancy} ผู้เข้าพัก
                 </span>
-                <span className="flex items-center">
-                  <MapPin className="h-5 w-5 mr-1" />
-                  {room.room_size}m²
-                </span>
                 <span>{room.bed_type}</span>
               </div>
               <p className="text-slate-700 leading-relaxed font-thai">{room.description}</p>
@@ -295,53 +447,87 @@ export default function RoomDetailPage() {
             <div className="bg-white rounded-2xl p-6 shadow-lg">
               <h3 className="text-xl font-semibold text-slate-800 mb-4 font-thai-header">สรุปการจอง</h3>
               
-              {searchCriteria.checkin && searchCriteria.checkout ? (
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center font-thai">
-                    <span className="text-slate-600">วันที่เข้าพัก:</span>
-                    <span className="font-medium">{formatDate(searchCriteria.checkin)}</span>
+              {/* Date Picker Section - Always Visible */}
+              <div className="space-y-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <CustomDatePicker
+                    selected={checkInDate}
+                    onChange={handleCheckInChange}
+                    label="วันที่เข้าพัก"
+                    placeholder="เลือกวันที่เข้าพัก"
+                    minDate={new Date()}
+                    selectsStart
+                    startDate={checkInDate}
+                    endDate={checkOutDate}
+                    required
+                  />
+                  <CustomDatePicker
+                    selected={checkOutDate}
+                    onChange={handleCheckOutChange}
+                    label="วันที่ออก"
+                    placeholder="เลือกวันที่ออก"
+                    minDate={checkInDate ? new Date(checkInDate.getTime() + 24 * 60 * 60 * 1000) : new Date()}
+                    selectsEnd
+                    startDate={checkInDate}
+                    endDate={checkOutDate}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    จำนวนผู้เข้าพัก
+                  </label>
+                  <select
+                    value={guests}
+                    onChange={(e) => handleGuestsChange(parseInt(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  >
+                    {Array.from({ length: room.max_occupancy || 4 }, (_, i) => i + 1).map(num => (
+                      <option key={num} value={num}>{num} คน</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+
+
+              {/* Price Summary - Show when dates are selected */}
+              {checkInDate && checkOutDate ? (
+                <div className="bg-amber-50 p-4 rounded-lg space-y-3">
+                  <div className="flex justify-between items-center text-sm text-gray-600">
+                    <span>จำนวนคืน:</span>
+                    <span className="font-medium">
+                      {calculateNights()} คืน
+                    </span>
                   </div>
-                  <div className="flex justify-between items-center font-thai">
-                    <span className="text-slate-600">วันที่ออก:</span>
-                    <span className="font-medium">{formatDate(searchCriteria.checkout)}</span>
-                  </div>
-                  <div className="flex justify-between items-center font-thai">
-                    <span className="text-slate-600">จำนวนคืน:</span>
-                    <span className="font-medium">{calculateNights()} คืน</span>
-                  </div>
-                  <div className="flex justify-between items-center font-thai">
-                    <span className="text-slate-600">ผู้เข้าพัก:</span>
-                    <span className="font-medium">{searchCriteria.guests} คน</span>
-                  </div>
-                  <hr className="my-4" />
-                  <div className="flex justify-between items-center font-thai">
-                    <span className="text-slate-600">ราคาต่อคืน:</span>
+                  <div className="flex justify-between items-center text-sm text-gray-600">
+                    <span>ราคาต่อคืน:</span>
                     <span className="font-medium">฿{room.price_per_night?.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between items-center text-xl font-bold text-slate-800 font-thai">
+                  <div className="flex justify-between items-center text-lg font-bold text-amber-600 border-t pt-2">
                     <span>ราคารวม:</span>
-                    <span className="text-amber-600">฿{calculateTotal().toLocaleString()}</span>
+                    <span>
+                      ฿{calculateTotal().toLocaleString()}
+                    </span>
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-4">
-                  <p className="text-slate-600 font-thai">กรุณาเลือกวันที่เพื่อดูราคา</p>
-                  <Link
-                    href="/"
-                    className="inline-block mt-2 text-amber-600 hover:text-amber-700 font-medium font-thai"
-                  >
-                    เลือกวันที่
-                  </Link>
+                <div className="bg-gray-50 p-4 rounded-lg text-center">
+                  <p className="text-gray-600 font-thai">เลือกวันที่เพื่อดูราคา</p>
                 </div>
               )}
 
               {/* Book Button */}
               <button
                 onClick={handleBooking}
-                disabled={isBooking || !searchCriteria.checkin || !searchCriteria.checkout}
+                disabled={
+                  isBooking || 
+                  !checkInDate || !checkOutDate
+                }
                 className="w-full mt-6 bg-amber-600 hover:bg-amber-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white py-4 rounded-lg font-semibold transition-colors duration-200 font-thai"
               >
-                {isBooking ? 'กำลังจอง...' : 'จองห้องพักนี้'}
+                {isBooking ? 'กำลังจอง...' : 'ดำเนินการต่อ'}
               </button>
 
               {!user && (

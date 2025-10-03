@@ -68,7 +68,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       try {
         // Find user
         const user = await sql`
-          SELECT id, email, password, first_name, last_name, role
+          SELECT id, email, password, first_name, last_name, role, phone, address, national_id
           FROM users 
           WHERE email = ${validatedData.email}
         `;
@@ -100,7 +100,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
             email: userData.email,
             firstName: userData.first_name,
             lastName: userData.last_name,
-            role: userData.role
+            role: userData.role,
+            phone: userData.phone,
+            address: userData.address,
+            national_id: userData.national_id
           },
           token
         };

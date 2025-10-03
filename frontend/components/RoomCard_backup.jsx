@@ -370,9 +370,6 @@ const RoomCard = ({ roomType, hotelId }) => {
           
           {roomType.sizeSqm && (
             <div className="flex items-center p-3 bg-green-50 rounded-xl transition-all hover:bg-green-100">
-              <div className="flex items-center justify-center w-10 h-10 bg-green-500 rounded-lg mr-3">
-                <Maximize className="h-5 w-5 text-white" />
-              </div>
               <div>
                 <div className="text-sm font-semibold text-gray-900">
                   {roomType.sizeSqm} ตรม.
@@ -395,8 +392,11 @@ const RoomCard = ({ roomType, hotelId }) => {
             <Clock className="h-4 w-4" />
             เหลือ {mockAvailableRooms} ห้อง
           </div>
-        </div></div>
+        </div>
+      </div>
 
+      {/* Enhanced Room Info */}
+      <div className="p-6 space-y-4">
         {/* Description */}
         <p className="dark-text-secondary text-sm mb-6 line-clamp-2 leading-relaxed">
           {roomType.description}

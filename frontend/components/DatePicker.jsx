@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { useTranslation } from '@/translations';
+import { useState, forwardRef } from 'react';
+import DatePicker from 'react-datepicker';
+import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import "react-datepicker/dist/react-datepicker.css";
 
 const DatePicker = ({ 
   selectedDate, 

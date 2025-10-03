@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
-import { bookingAPI } from '../../../lib/api';
+import { bookingAPI, paymentAPI, authAPI } from '../../../lib/api';
 import { 
   CreditCard, 
   User, 
@@ -20,7 +20,6 @@ import {
   Building2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import Image from 'next/image';
 
 export default function PaymentPage() {
   const params = useParams();
@@ -49,52 +48,135 @@ export default function PaymentPage() {
     }
   }, [isAuthenticated, params.bookingId]);
 
-  const fetchPaymentSettings = async () => {
+  // Load user profile data from database
+  useEffect(() => {
+    if (user?.id) {
+      fetchUserProfile();
+    }
+  }, [user]);
+
+  const fetchUserProfile = async () => {
     try {
-      console.log('🔍 Fetching payment settings for user...');
-      // เพิ่ม timestamp เพื่อป้องกัน cache
-      const timestamp = new Date().getTime();
-      // เรียก admin payment settings เพื่อใช้ข้อมูลที่แอดมินตั้งค่า
-      const response = await fetch(`http://localhost:3001/api/admin/payment-settings?t=${timestamp}`, {
-        method: 'GET'
-      });
-      console.log('📡 Response status:', response.status);
+      console.log('🔍 Fetching user profile from database...');
       
+      // ใช้ endpoint เดียวกับหน้า profile
+      let token = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('auth_token='))
+        ?.split('=')[1];
+      
+      if (!token && typeof window !== 'undefined') {
+        token = localStorage.getItem('auth_token_persistent') || 
+                localStorage.getItem('auth_token_backup');
+      }
+      
+      if (!token) {
+        console.warn('No token found for profile loading');
+        throw new Error('No token available');
+      }
+
+      const response = await fetch('/api/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
       if (response.ok) {
-        const result = await response.json();
-        console.log('📋 Admin payment settings loaded for booking payment:', result);
+        const data = await response.json();
+        console.log('✅ Profile data from database:', data);
         
-        if (result.success && result.data) {
-          // แปลงข้อมูลให้เข้ากับรูปแบบเดิม
-          const legacyFormat = {
-            success: true,
-            data: {
-              qrCodeUrl: result.data.promptPay.qrCodeUrl,
-              bankName: result.data.bankTransfer.bankName,
-              bankAccount: result.data.bankTransfer.accountNumber,
-              accountName: result.data.bankTransfer.accountName,
-              phoneNumber: result.data.promptPay.phoneNumber
-            }
-          };
-          setPaymentSettings(legacyFormat);
-          console.log('💾 Booking payment settings:', legacyFormat);
+        if (data.profile) {
+          const profile = data.profile;
+          setCustomerInfo(prev => ({
+            ...prev,
+            guestEmail: profile.email || '',
+            guestName: profile.firstName && profile.lastName ? `${profile.firstName} ${profile.lastName}` : (profile.first_name && profile.last_name ? `${profile.first_name} ${profile.last_name}` : ''),
+            guestPhone: profile.phone || '',
+            guestAddress: profile.address || '',
+            guestIdNumber: profile.nationalId || profile.national_id || ''
+          }));
+          console.log('✅ Customer info loaded from database with national ID:', profile.nationalId || profile.national_id || 'ไม่พบ');
+        } else {
+          throw new Error('Invalid profile data structure');
         }
       } else {
-        console.warn('❌ Failed to load admin settings for booking payment, falling back to simple settings');
-        // Fallback เรียก simple settings
-        const fallbackResponse = await fetch('http://localhost:3001/api/simple-payment-settings');
-        if (fallbackResponse.ok) {
-          const fallbackData = await fallbackResponse.json();
-          console.log('💳 Fallback payment settings loaded:', fallbackData);
-          setPaymentSettings(fallbackData);
-        } else {
-          console.error('❌ Failed to fetch fallback payment settings:', fallbackResponse.status);
-          const errorText = await fallbackResponse.text();
-          console.error('❌ Error response:', errorText);
-        }
+        throw new Error(`HTTP ${response.status}`);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching user profile:', error);
+      console.log('⚠️ Could not fetch profile from database, using cached user data');
+      
+      // Fallback to cached user data
+      if (user) {
+        setCustomerInfo(prev => ({
+          ...prev,
+          guestEmail: user.email || '',
+          guestName: user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : (user.name || ''),
+          guestPhone: user.phone || '',
+          guestAddress: user.address || '',
+          guestIdNumber: user.national_id || user.nationalId || user.id_number || ''
+        }));
+      }
+    }
+  };
+
+  const fetchPaymentSettings = async () => {
+    try {
+      console.log('🔍 Fetching payment settings from database...');
+      
+      // เรียก payment settings จากฐานข้อมูลผ่าน API
+      const result = await paymentAPI.getPaymentSettings();
+      console.log('📋 Payment settings from database:', result);
+      
+      if (result.success && result.data) {
+        // แปลงข้อมูลจากฐานข้อมูลให้เข้ากับรูปแบบที่หน้าใช้
+        const paymentData = {
+          success: true,
+          data: {
+            qrCodeUrl: result.data.qr_code_url || '/uploads/qr-codes/qr-code.jpg',
+            bankName: result.data.bank_name || 'ธนาคารกสิกรไทย',
+            bankAccount: result.data.bank_account || '123-456-7890',
+            accountName: result.data.account_name || 'โรงแรมวรุณภัฏ',
+            phoneNumber: result.data.phone_number || '081-234-5678'
+          }
+        };
+        setPaymentSettings(paymentData);
+        console.log('💾 Database payment settings loaded:', paymentData);
+        
+        // แสดงข้อมูลที่ได้จากแอดมิน
+        console.log('💳 Admin configured payment settings:');
+        console.log('🏦 Bank:', paymentData.data.bankName);
+        console.log('💰 Account:', paymentData.data.bankAccount);
+        console.log('👤 Account Name:', paymentData.data.accountName);
+        console.log('📱 PromptPay:', paymentData.data.phoneNumber);
+        console.log('🏷️ QR Code:', paymentData.data.qrCodeUrl);
+      } else {
+        console.warn('❌ No payment settings found in database, using defaults');
+        setPaymentSettings({
+          success: true,
+          data: {
+            qrCodeUrl: '/uploads/qr-codes/qr-code.jpg',
+            bankName: 'ธนาคารกสิกรไทย',
+            bankAccount: '123-456-7890',
+            accountName: 'โรงแรมวรุณภัฏ',
+            phoneNumber: '081-234-5678'
+          }
+        });
       }
     } catch (error) {
       console.error('❌ Error fetching payment settings:', error);
+      // ใช้ค่าเริ่มต้นเมื่อเกิดข้อผิดพลาด
+      setPaymentSettings({
+        success: true,
+        data: {
+          qrCodeUrl: '/uploads/qr-codes/qr-code.jpg',
+          bankName: 'ธนาคารกสิกรไทย',
+          bankAccount: '123-456-7890',
+          accountName: 'โรงแรมวรุณภัฏ',
+          phoneNumber: '081-234-5678'
+        }
+      });
     }
   };
 
@@ -103,14 +185,7 @@ export default function PaymentPage() {
       const response = await bookingAPI.getBookingById(params.bookingId);
       setBooking(response);
       
-      // Pre-fill customer info with user data
-      if (user) {
-        setCustomerInfo(prev => ({
-          ...prev,
-          guestEmail: user.email || '',
-          guestName: user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : ''
-        }));
-      }
+      // Customer info will be loaded from user profile via useEffect
     } catch (error) {
       console.error('Error fetching booking:', error);
       toast.error('ไม่สามารถโหลดข้อมูลการจองได้');
@@ -195,13 +270,49 @@ export default function PaymentPage() {
     }
 
     try {
-      const response = await bookingAPI.saveCustomerInfo(params.bookingId, customerInfo);
-      setPaymentStep('completed');
-      toast.success('บันทึกข้อมูลสำเร็จ รอการอนุมัติจากผู้ดูแลระบบ');
+      // Save customer info first
+      await bookingAPI.saveCustomerInfo(params.bookingId, customerInfo);
+      
+      // Then confirm payment
+      await confirmPayment();
+      
     } catch (error) {
       console.error('Error saving customer info:', error);
       const message = error.response?.data?.error || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล';
       toast.error(message);
+    }
+  };
+
+  const confirmPayment = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/bookings/confirm-payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookingId: params.bookingId,
+          paymentMethod: 'bank_transfer',
+          paymentRef: `PAY-${Date.now()}`
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setPaymentStep('completed');
+        toast.success('🎉 ยืนยันการชำระเงินสำเร็จ! ห้องพักได้รับการจองแล้ว');
+        
+        // Refresh booking data
+        setTimeout(() => {
+          fetchBookingDetails();
+        }, 1000);
+      } else {
+        toast.error(result.message || 'ไม่สามารถยืนยันการชำระเงินได้');
+      }
+    } catch (error) {
+      console.error('Error confirming payment:', error);
+      toast.error('เกิดข้อผิดพลาดในการยืนยันการชำระเงิน');
     }
   };
 
@@ -239,271 +350,257 @@ export default function PaymentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto container-padding">
+    <div className="min-h-screen bg-gray-50 py-4">
+      <div className="max-w-5xl mx-auto px-4">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-4">
           <button
             onClick={() => router.back()}
-            className="flex items-center text-gray-700 hover:text-gray-900 mb-4 transition-colors"
+            className="flex items-center text-gray-700 hover:text-gray-900 mb-2 transition-colors"
           >
-            <ArrowLeft className="h-5 w-5 mr-2" />
+            <ArrowLeft className="h-4 w-4 mr-2" />
             กลับ
           </button>
           
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">ชำระเงิน</h1>
-          <p className="text-gray-600">รหัสการจอง: {booking.bookingReference}</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">ชำระเงิน</h1>
+          <p className="text-sm text-gray-600">รหัสการจอง: {booking.bookingReference}</p>
         </div>
 
-        {/* Progress Steps */}
-        <div className="mb-8">
-          <div className="flex items-center">
-            <div className={`flex items-center ${paymentStep === 'payment' ? 'text-primary-600' : paymentStep === 'customer-info' || paymentStep === 'completed' ? 'text-green-600' : 'text-gray-400'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${paymentStep === 'payment' ? 'border-primary-600 bg-primary-600 text-white' : paymentStep === 'customer-info' || paymentStep === 'completed' ? 'border-green-600 bg-green-600 text-white' : 'border-gray-300'}`}>
-                {paymentStep === 'customer-info' || paymentStep === 'completed' ? (
-                  <CheckCircle className="h-5 w-5" />
-                ) : (
-                  <span>1</span>
-                )}
-              </div>
-              <span className="ml-2 font-medium">ชำระเงิน</span>
-            </div>
-            
-            <div className={`flex-1 h-1 mx-4 ${paymentStep === 'customer-info' || paymentStep === 'completed' ? 'bg-green-600' : 'bg-gray-300'}`}></div>
-            
-            <div className={`flex items-center ${paymentStep === 'customer-info' ? 'text-primary-600' : paymentStep === 'completed' ? 'text-green-600' : 'text-gray-400'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${paymentStep === 'customer-info' ? 'border-primary-600 bg-primary-600 text-white' : paymentStep === 'completed' ? 'border-green-600 bg-green-600 text-white' : 'border-gray-300'}`}>
-                {paymentStep === 'completed' ? (
-                  <CheckCircle className="h-5 w-5" />
-                ) : (
-                  <span>2</span>
-                )}
-              </div>
-              <span className="ml-2 font-medium">ข้อมูลผู้เข้าพัก</span>
-            </div>
-            
-            <div className={`flex-1 h-1 mx-4 ${paymentStep === 'completed' ? 'bg-orange-500' : 'bg-gray-300'}`}></div>
-            
-            <div className={`flex items-center ${paymentStep === 'completed' ? 'text-orange-600' : 'text-gray-400'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${paymentStep === 'completed' ? 'border-orange-600 bg-orange-600 text-white' : 'border-gray-300'}`}>
-                {paymentStep === 'completed' ? (
-                  <Clock className="h-5 w-5" />
-                ) : (
-                  <span>3</span>
-                )}
-              </div>
-              <span className="ml-2 font-medium">รอการอนุมัติ</span>
-            </div>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2">
+
+        <div className="max-w-4xl mx-auto">
+          {/* Payment Section */}
+          <div className="space-y-4">
             {paymentStep === 'payment' && (
-              <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-900 mb-6">ชำระเงิน</h2>
-                
-                {/* Bank Information */}
-                {paymentSettings && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                    <h3 className="font-semibold text-blue-900 mb-3 flex items-center">
-                      <Building2 className="h-5 w-5 mr-2" />
-                      ข้อมูลบัญชีธนาคาร
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                      <div className="bg-white rounded-lg p-3 border border-blue-200 shadow-sm">
-                        <span className="block text-gray-600 text-xs mb-1">ธนาคาร</span>
-                        <span className="text-blue-800 font-semibold">{paymentSettings.bankName}</span>
-                      </div>
-                      <div className="bg-white rounded-lg p-3 border border-green-200 shadow-sm">
-                        <span className="block text-gray-600 text-xs mb-1">เลขที่บัญชี</span>
-                        <span className="text-green-800 font-mono font-semibold">{paymentSettings.accountNumber}</span>
-                      </div>
-                      <div className="bg-white rounded-lg p-3 border border-orange-200 shadow-sm">
-                        <span className="block text-gray-600 text-xs mb-1">ชื่อบัญชี</span>
-                        <span className="text-orange-800 font-semibold">{paymentSettings.accountName}</span>
-                      </div>
+              <>
+                {/* Customer Info + Payment Information Section */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left: Customer Information */}
+                  <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center">
+                      <User className="h-6 w-6 mr-3 text-green-600" />
+                      ข้อมูลผู้เข้าพัก
+                    </h2>
+                    <div className="mb-4 p-3 bg-green-50 rounded-lg border border-green-200">
+                      <p className="text-sm text-green-700 flex items-center">
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        ข้อมูลถูกดึงมาจากโปรไฟล์ของคุณ คุณสามารถแก้ไขได้หากต้องการ
+                      </p>
                     </div>
-                    <div className="mt-4 pt-3 border-t border-blue-200">
-                      <p className="text-xs text-blue-700">{paymentSettings.instructions}</p>
+                    
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">ชื่อ-นามสกุล *</label>
+                          <input
+                            type="text"
+                            name="guestName"
+                            value={customerInfo.guestName}
+                            onChange={handleCustomerInfoChange}
+                            className="w-full px-4 py-3 text-base bg-white border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
+                            required
+                            placeholder="ชื่อจริง นามสกุล"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">เบอร์โทรศัพท์ *</label>
+                          <input
+                            type="tel"
+                            name="guestPhone"
+                            value={customerInfo.guestPhone}
+                            onChange={handleCustomerInfoChange}
+                            className="w-full px-4 py-3 text-base bg-white border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
+                            required
+                            placeholder="08X-XXX-XXXX"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">อีเมล *</label>
+                          <input
+                            type="email"
+                            name="guestEmail"
+                            value={customerInfo.guestEmail}
+                            onChange={handleCustomerInfoChange}
+                            className="w-full px-4 py-3 text-base bg-white border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
+                            required
+                            placeholder="email@example.com"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">รหัสบัตรประชาชน *</label>
+                          <input
+                            type="text"
+                            name="guestIdNumber"
+                            value={customerInfo.guestIdNumber}
+                            onChange={handleCustomerInfoChange}
+                            className="w-full px-4 py-3 text-base bg-white border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
+                            required
+                            placeholder="X-XXXX-XXXXX-XX-X"
+                            maxLength="17"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">ที่อยู่</label>
+                          <textarea
+                            name="guestAddress"
+                            value={customerInfo.guestAddress}
+                            onChange={handleCustomerInfoChange}
+                            rows="3"
+                            className="w-full px-4 py-3 text-base bg-white border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
+                            placeholder="ที่อยู่ (ไม่บังคับ)"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">ความต้องการพิเศษ</label>
+                          <textarea
+                            name="specialRequests"
+                            value={customerInfo.specialRequests}
+                            onChange={handleCustomerInfoChange}
+                            rows="3"
+                            className="w-full px-4 py-3 text-base bg-white border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
+                            placeholder="เตียงเสริม, ห้องติดกัน, อื่นๆ"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Bank Account Information */}
+                      {paymentSettings && (
+                        <div className="bg-green-50 rounded-lg p-6 border-2 border-green-200 mt-6">
+                          <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                            <Building2 className="h-6 w-6 mr-3 text-green-600" />
+                            ข้อมูลธนาคาร
+                          </h3>
+                          
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="bg-white rounded-lg p-4 border-2 border-green-100 shadow-sm">
+                                <span className="text-gray-600 block mb-2 text-sm font-medium">ธนาคาร</span>
+                                <span className="text-gray-900 font-bold text-lg">{paymentSettings.data.bankName}</span>
+                              </div>
+                              <div className="bg-white rounded-lg p-4 border-2 border-green-100 shadow-sm">
+                                <span className="text-gray-600 block mb-2 text-sm font-medium">ชื่อบัญชี</span>
+                                <span className="text-gray-900 font-bold text-lg">{paymentSettings.data.accountName}</span>
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="bg-white rounded-lg p-4 border-2 border-green-100 shadow-sm">
+                                <span className="text-gray-600 block mb-2 text-sm font-medium">เลขที่บัญชี</span>
+                                <span className="text-gray-900 font-bold text-xl font-mono tracking-wider">{paymentSettings.data.bankAccount}</span>
+                              </div>
+                              {paymentSettings.data.phoneNumber && (
+                                <div className="bg-white rounded-lg p-4 border-2 border-green-100 shadow-sm">
+                                  <span className="text-gray-600 block mb-2 text-sm font-medium">PromptPay</span>
+                                  <span className="text-gray-900 font-bold text-xl font-mono tracking-wider">{paymentSettings.data.phoneNumber}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                )}
-                
-                {/* Bank Transfer Payment */}
-                <div className="text-center mb-8">
-                  <div className="bg-gray-50 rounded-lg p-8 mb-4 border border-gray-200">
+
+                  {/* Right: Payment Information */}
+                  <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                      <CreditCard className="h-6 w-6 mr-3 text-green-600" />
+                      ข้อมูลการชำระเงิน
+                    </h2>
+
                     {paymentSettings ? (
-                      <div className="flex flex-col items-center">
-                        {paymentSettings.bankImageUrl ? (
-                          <div className="mb-6">
-                            <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center justify-center">
-                              <ImageIcon className="h-6 w-6 mr-2 text-green-600" />
-                              สแกน QR Code เพื่อชำระเงิน
+                      <div className="space-y-6">
+                        {/* QR Code Section */}
+                        {paymentSettings.data.qrCodeUrl && (
+                          <div className="text-center bg-green-50 rounded-lg p-8 border-2 border-green-200">
+                            <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center justify-center">
+                              <ImageIcon className="h-6 w-6 mr-3 text-green-600" />
+                              QR Code สำหรับชำระเงิน
                             </h3>
-                            <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-200">
+                            <div className="bg-white rounded-lg p-6 shadow-lg border-2 border-green-300">
                               <img 
-                                src={`http://localhost:3001${paymentSettings.bankImageUrl}`} 
-                                alt="QR Code ธนาคาร" 
-                                className="w-96 h-96 object-contain mx-auto rounded-lg"
+                                src={`http://localhost:3001${paymentSettings.data.qrCodeUrl}`} 
+                                alt="QR Code สำหรับชำระเงิน" 
+                                className="w-80 h-80 object-contain mx-auto"
                                 onError={(e) => {
                                   console.error('❌ Failed to load QR Code image:', e.target.src);
-                                  console.error('❌ Payment settings:', paymentSettings);
-                                }}
-                                onLoad={() => {
-                                  console.log('✅ QR Code image loaded successfully:', paymentSettings.bankImageUrl);
                                 }}
                               />
                             </div>
-                            <p className="text-green-700 font-medium mt-4 mb-2">สแกน QR Code ด้านบนเพื่อชำระเงิน</p>
-                            {/* <p className="text-xs text-gray-500">Debug: {paymentSettings.bankImageUrl}</p> */}
-                          </div>
-                        ) : (
-                          <div className="mb-4">
-                            <Building2 className="h-32 w-32 mx-auto text-blue-600 mb-4" />
-                            {/* <p className="text-xs text-red-600">Debug: No bankImageUrl - {JSON.stringify(paymentSettings, null, 2)}</p> */}
+                            <p className="text-gray-700 font-semibold text-base mt-4">สแกน QR Code ด้านบนเพื่อชำระเงิน</p>
                           </div>
                         )}
-                        
-                        <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                          {paymentSettings.bankImageUrl ? 'หรือโอนเงินตามข้อมูลด้านล่าง' : 'ข้อมูลบัญชีธนาคาร'}
-                        </h3>
-                        <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-6 border border-gray-200 shadow-sm">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="text-center p-4 bg-white rounded-lg border border-blue-200 shadow-sm">
-                              <span className="block text-gray-600 text-sm mb-2">ธนาคาร</span>
-                              <span className="text-blue-800 font-bold text-lg">{paymentSettings.bankName}</span>
-                            </div>
-                            <div className="text-center p-4 bg-white rounded-lg border border-green-200 shadow-sm">
-                              <span className="block text-gray-600 text-sm mb-2">เลขที่บัญชี</span>
-                              <span className="text-green-800 font-bold text-lg font-mono">{paymentSettings.accountNumber}</span>
-                            </div>
-                            <div className="text-center p-4 bg-white rounded-lg border border-orange-200 shadow-sm">
-                              <span className="block text-gray-600 text-sm mb-2">ชื่อบัญชี</span>
-                              <span className="text-orange-800 font-bold text-lg">{paymentSettings.accountName}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="mt-6 bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg p-4 border border-primary-500 shadow-lg">
-                          <p className="text-white font-bold text-2xl">
-                            จำนวนเงิน: ฿{booking.totalPrice?.toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center">
-                        <Building2 className="h-32 w-32 mx-auto text-gray-600 mb-4" />
-                        <p className="text-gray-600 mb-2">กำลังโหลดข้อมูลบัญชีธนาคาร...</p>
-                        <p className="text-lg font-semibold text-primary-600">
-                          จำนวนเงิน: ฿{booking.totalPrice?.toLocaleString()}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Payment Instructions */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                    <h3 className="font-semibold text-blue-900 mb-3 flex items-center">
-                      <CheckCircle className="h-5 w-5 mr-2" />
-                      วิธีการชำระเงิน
-                    </h3>
-                    <div className="text-sm text-blue-800 space-y-2">
-                      {paymentSettings?.bankImageUrl ? (
-                        <>
-                          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
-                            <p className="font-semibold text-green-800 mb-2">🔥 วิธีที่ 1: สแกน QR Code (แนะนำ - รวดเร็ว)</p>
-                            <div className="text-green-700 space-y-1 ml-4">
-                              <p>• เปิดแอพธนาคารบนมือถือ</p>
-                              <p>• เลือกเมนู "สแกน QR Code"</p>
-                              <p>• สแกน QR Code ด้านบน</p>
-                              <p>• ตรวจสอบจำนวนเงินและยืนยันการชำระ</p>
-                            </div>
-                          </div>
-                          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-3">
-                            <p className="font-semibold text-orange-800 mb-2">💰 วิธีที่ 2: โอนเงินด้วยตนเอง</p>
-                            <div className="text-orange-700 space-y-1 ml-4">
-                              <p>• โอนเงินผ่านแอพธนาคารหรือ ATM</p>
-                              <p>• ใช้ข้อมูลบัญชีธนาคารด้านบน</p>
-                              <p>• โอนจำนวนเงินที่แสดงด้านบน</p>
-                            </div>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3">
-                          <div className="text-gray-700 space-y-1">
-                            <p>• โอนเงินผ่านแอพธนาคารหรือ ATM</p>
-                            <p>• ใช้ข้อมูลบัญชีธนาคารด้านบน</p>
-                            <p>• โอนจำนวนเงินที่แสดงด้านบน</p>
-                          </div>
-                        </div>
-                      )}
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                        <p className="font-semibold text-red-800 mb-2">📋 สุดท้าย - สำคัญมาก:</p>
-                        <div className="text-red-700 space-y-1 ml-4">
-                          <p>• เก็บหลักฐานการโอนเงิน</p>
-                          <p>• อัพโหลดรูปใบเสร็จการโอนเงิน</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Payment Receipt Upload */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6 shadow-sm">
-                    <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
-                      <Upload className="h-5 w-5 mr-2 text-green-600" />
-                      อัพโหลดใบเสร็จการโอนเงิน
-                    </h3>
-                    
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          เลือกไฟล์รูปภาพใบเสร็จการโอนเงิน (JPEG, PNG, GIF - ขนาดไม่เกิน 5MB)
-                        </label>
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/jpg,image/png,image/gif"
-                          onChange={handleReceiptFileChange}
-                          className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 bg-gray-50 border border-gray-300 rounded-md"
-                        />
-                      </div>
-                      
-                      {paymentReceiptUrl && (
-                        <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
-                          <h4 className="font-medium text-gray-900 mb-2">ตัวอย่างใบเสร็จการโอนเงินที่อัพโหลด:</h4>
-                          <div className="flex justify-center">
-                            <img
-                              src={paymentReceiptUrl}
-                              alt="ใบเสร็จการโอนเงิน"
-                              className="max-w-full max-h-64 object-contain border border-gray-300 rounded"
+                        {/* Payment Receipt Upload */}
+                        <div className="bg-green-50 rounded-lg p-6 border-2 border-green-200">
+                          <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                            <Upload className="h-6 w-6 mr-3 text-green-600" />
+                            อัพโหลดใบเสร็จการโอนเงิน
+                          </h3>
+                          
+                          <div className="space-y-4">
+                            <div className="bg-green-100 border-2 border-green-300 rounded-lg p-4">
+                              <p className="text-gray-700 text-sm font-semibold">
+                                เลือกไฟล์รูปภาพใบเสร็จ (JPEG, PNG, GIF - ไม่เกิน 5MB)
+                              </p>
+                            </div>
+                            
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/jpg,image/png,image/gif"
+                              onChange={handleReceiptFileChange}
+                              className="block w-full text-sm text-gray-700 file:mr-3 file:py-3 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-green-100 file:text-green-700 hover:file:bg-green-200 bg-white border-2 border-green-300 rounded-lg"
                             />
+                            
+                            {paymentReceiptUrl && (
+                              <div className="border-2 border-green-300 rounded-lg p-6 bg-white shadow-lg">
+                                <p className="text-base text-gray-900 mb-4 text-center font-bold">ใบเสร็จที่อัพโหลดแล้ว</p>
+                                <div className="flex justify-center">
+                                  <img
+                                    src={paymentReceiptUrl}
+                                    alt="ใบเสร็จการโอนเงิน"
+                                    className="max-w-full max-h-80 object-contain border-2 border-gray-300 rounded-lg shadow-lg"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                            
+                            <button
+                              onClick={handlePaymentConfirm}
+                              disabled={!paymentReceiptFile || isUploadingReceipt}
+                              className={`bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold py-4 px-6 rounded-lg shadow-lg flex items-center justify-center w-full transition-all duration-200 ${
+                                !paymentReceiptFile || isUploadingReceipt ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-xl transform hover:scale-105'
+                              }`}
+                            >
+                              {isUploadingReceipt ? (
+                                <>
+                                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-3"></div>
+                                  กำลังอัพโหลด...
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle className="h-6 w-6 mr-3" />
+                                  ยืนยันการโอนเงิน
+                                </>
+                              )}
+                            </button>
                           </div>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <button
-                    onClick={handlePaymentConfirm}
-                    disabled={!paymentReceiptFile || isUploadingReceipt}
-                    className={`bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold py-4 px-6 rounded-lg shadow-lg flex items-center justify-center w-full transition-all duration-200 transform hover:scale-105 ${
-                      !paymentReceiptFile || isUploadingReceipt ? 'opacity-50 cursor-not-allowed hover:scale-100' : ''
-                    }`}
-                  >
-                    {isUploadingReceipt ? (
-                      <>
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                        กำลังอัพโหลด...
-                      </>
+                      </div>
                     ) : (
-                      <>
-                        <CheckCircle className="h-6 w-6 mr-2" />
-                        ยืนยันการโอนเงิน
-                      </>
+                      <div className="text-center py-8">
+                        <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                        <p className="text-gray-600 text-sm">กำลังโหลดข้อมูลการชำระเงิน...</p>
+                      </div>
                     )}
-                  </button>
+                  </div>
                 </div>
-              </div>
+
+
+              </>
             )}
 
             {paymentStep === 'customer-info' && (
@@ -658,45 +755,6 @@ export default function PaymentPage() {
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Booking Summary Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-lg p-6 sticky top-8 border border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">สรุปการจอง</h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-medium text-gray-900">{booking.hotel?.name}</h4>
-                  <p className="text-sm text-gray-600">{booking.roomType?.name}</p>
-                </div>
-
-                <div className="flex items-center text-sm text-gray-600">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  <span>
-                    {new Date(booking.checkInDate).toLocaleDateString('th-TH')} - {new Date(booking.checkOutDate).toLocaleDateString('th-TH')}
-                  </span>
-                </div>
-
-                <div className="flex items-center text-sm text-gray-600">
-                  <User className="h-4 w-4 mr-2" />
-                  <span>{booking.guests} ผู้เข้าพัก</span>
-                </div>
-
-                <div className="border-t border-gray-300 pt-4">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-gray-900">ราคารวม</span>
-                    <span className="text-xl font-bold text-primary-600">
-                      ฿{booking.totalPrice?.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="text-xs text-gray-500">
-                  <p>* ราคารวมภาษีและค่าบริการแล้ว</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>

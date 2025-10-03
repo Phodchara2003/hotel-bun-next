@@ -419,6 +419,9 @@ async function getBookings(userId = null) {
         b.user_id,
         b.hotel_id,
         b.room_type_id,
+        b.room_id,
+        b.room_number,
+        b.floor,
         b.check_in_date,
         b.check_out_date,
         b.guests,
@@ -429,6 +432,7 @@ async function getBookings(userId = null) {
         b.guest_phone,
         b.guest_email,
         b.special_requests,
+        b.payment_status,
         b.created_at,
         h.name as hotel_name,
         h.address as hotel_address,
@@ -459,6 +463,43 @@ async function getBookings(userId = null) {
     console.error('❌ Stack trace:', error.stack);
     // Return empty array instead of crashing
     return [];
+  }
+}
+
+async function getBookingDetails(bookingId) {
+  try {
+    console.log(`🔍 Fetching detailed booking info for ID: ${bookingId}`);
+    
+    const query = `
+      SELECT 
+        b.*,
+        h.name as hotel_name,
+        h.address as hotel_address,
+        rt.name as room_type_name,
+        rt.price_per_night as room_price,
+        CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')) as username,
+        u.email as user_email
+      FROM bookings b
+      LEFT JOIN hotels h ON b.hotel_id = h.id
+      LEFT JOIN room_types rt ON b.room_type_id = rt.id
+      LEFT JOIN users u ON b.user_id = u.id
+      WHERE b.id = ?
+    `;
+    
+    console.log(`📝 Executing booking details query for ID: ${bookingId}`);
+    const [rows] = await connection.execute(query, [bookingId]);
+    
+    if (rows.length > 0) {
+      console.log(`✅ Found booking details:`, rows[0]);
+      return rows[0];
+    } else {
+      console.log(`❌ No booking found with ID: ${bookingId}`);
+      return null;
+    }
+  } catch (error) {
+    console.error('❌ Error fetching booking details:', error.message);
+    console.error('❌ Full error:', error);
+    throw error;
   }
 }
 
@@ -495,12 +536,17 @@ async function getDetailedBookingsForAdmin(userId = null, date = null) {
         rt.size_sqm as room_size,
         rt.amenities as room_amenities,
         rt.images as room_images,
+        b.payment_receipt_url,
+        b.payment_status,
+        b.receipt_uploaded_at,
+        b.receipt_filename,
+        b.receipt_file_size,
         ps.id as payment_slip_id,
         ps.file_name as payment_file_name,
         ps.file_path as payment_file_path,
         ps.amount as payment_amount,
         ps.payment_date,
-        ps.status as payment_status,
+        ps.status as payment_slip_status,
         u.first_name as user_first_name,
         u.last_name as user_last_name,
         u.email as user_email,
@@ -582,6 +628,12 @@ async function getDetailedBookingsForAdmin(userId = null, date = null) {
             email: row.user_email,
             phone: row.user_phone
           },
+          // Payment receipt data from payment receipt endpoint
+          payment_receipt_url: row.payment_receipt_url,
+          payment_status: row.payment_status,
+          receipt_uploaded_at: row.receipt_uploaded_at,
+          receipt_filename: row.receipt_filename,
+          receipt_file_size: row.receipt_file_size,
           payment_slips: []
         });
       }
@@ -612,12 +664,12 @@ async function getDetailedBookingsForAdmin(userId = null, date = null) {
 
 async function createBooking(bookingData) {
   try {
-    console.log('🏨 Creating new booking:', bookingData);
+    console.log('🏨 Creating new booking with automatic room assignment:', bookingData);
     
     const {
       user_id,
       hotel_id,
-      room_type_id,
+      bed_type, // เพิ่ม bed_type สำหรับเลือกประเภทเตียง
       check_in_date,
       check_out_date,
       guests,
@@ -625,21 +677,62 @@ async function createBooking(bookingData) {
       guest_email,
       guest_phone,
       guest_national_id,
-      total_price,
       special_requests = null
     } = bookingData;
 
-    // ตรวจสอบห้องว่างก่อนสร้างการจอง
-    console.log('🔍 Checking room availability before booking...');
-    const availability = await checkRoomAvailability(room_type_id, check_in_date, check_out_date);
-    
-    if (!availability.isAvailable) {
-      console.log('❌ Room not available for the selected dates');
-      throw new Error('ห้องไม่ว่างในช่วงเวลาที่เลือก กรุณาเลือกวันที่อื่น');
-    }
-    
-    console.log('✅ Room is available, proceeding with booking');
+    // Log the booking data for debugging
+    console.log('📝 Booking data received:');
+    console.log('  - user_id:', user_id);
+    console.log('  - hotel_id:', hotel_id);
+    console.log('  - bed_type:', bed_type);
+    console.log('  - guest_national_id:', guest_national_id);
+    console.log('  - guest_name:', guest_name);
+    console.log('  - guest_phone:', guest_phone);
+    console.log('  - guest_email:', guest_email);
 
+    // 1. ค้นหาห้องว่างตามประเภทเตียง
+    console.log(`🔍 Finding available ${bed_type} bed room...`);
+    
+    const [availableRooms] = await connection.execute(`
+      SELECT r.id, r.room_type_id, r.room_number, r.floor, r.bed_type, rt.name as room_type_name, rt.price_per_night
+      FROM rooms r 
+      JOIN room_types rt ON r.room_type_id = rt.id
+      WHERE r.bed_type = ? 
+      AND r.status = 'available'
+      AND r.id NOT IN (
+        SELECT DISTINCT COALESCE(b.room_id, 0)
+        FROM bookings b 
+        WHERE b.room_id IS NOT NULL
+        AND b.status IN ('confirmed', 'checked_in')
+        AND (
+          (? >= b.check_in_date AND ? < b.check_out_date) OR
+          (? > b.check_in_date AND ? <= b.check_out_date) OR
+          (? <= b.check_in_date AND ? >= b.check_out_date)
+        )
+      )
+      ORDER BY r.floor, r.room_number
+      LIMIT 1
+    `, [bed_type, check_in_date, check_in_date, check_out_date, check_out_date, check_in_date, check_out_date]);
+
+    if (availableRooms.length === 0) {
+      console.log(`❌ No ${bed_type} bed rooms available for selected dates`);
+      throw new Error(`ไม่มีห้อง${bed_type === 'single' ? 'เตียงเดี่ยว' : 'เตียงคู่'}ว่างในช่วงเวลาที่เลือก กรุณาเลือกวันที่อื่น`);
+    }
+
+    const selectedRoom = availableRooms[0];
+    console.log(`✅ Room assigned: ${selectedRoom.room_number} (Floor ${selectedRoom.floor})`);
+
+    // 2. คำนวณราคารวม
+    const checkIn = new Date(check_in_date);
+    const checkOut = new Date(check_out_date);
+    const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+    const total_price = nights * selectedRoom.price_per_night;
+    
+    console.log(`💰 Price calculation: ${nights} nights × ฿${selectedRoom.price_per_night} = ฿${total_price}`);
+
+    // 3. สร้างการจองพร้อมข้อมูลห้อง
+    console.log('� Creating booking with room assignment...');
+    
     // Generate booking reference
     const bookingReference = `HTL${Date.now().toString().slice(-6)}`;
     console.log('📋 Generated booking reference:', bookingReference);
@@ -649,6 +742,9 @@ async function createBooking(bookingData) {
         user_id,
         hotel_id,
         room_type_id,
+        room_id,
+        room_number,
+        floor,
         check_in_date,
         check_out_date,
         guests,
@@ -661,16 +757,19 @@ async function createBooking(bookingData) {
         guest_id_number,
         special_requests,
         created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     `, [
       user_id,
       hotel_id,
-      room_type_id,
+      selectedRoom.room_type_id,
+      selectedRoom.id,
+      selectedRoom.room_number,
+      selectedRoom.floor,
       check_in_date,
       check_out_date,
       guests,
       total_price,
-      'pending', // status
+      'pending', // status - รอการชำระเงิน
       bookingReference,
       guest_name,
       guest_phone,
@@ -681,7 +780,17 @@ async function createBooking(bookingData) {
 
     const bookingId = result.insertId;
     console.log(`✅ Booking created with ID: ${bookingId}`);
-    console.log('📊 Insert result:', result);
+    console.log(`🏨 Room ${selectedRoom.room_number} (Floor ${selectedRoom.floor}) assigned to booking`);
+
+    // อัปเดตสถานะห้องเป็น 'reserved' และเซ็ต current_booking_id
+    console.log(`🔄 Updating room ${selectedRoom.id} status to 'reserved'`);
+    await connection.execute(`
+      UPDATE rooms 
+      SET status = 'reserved', current_booking_id = ? 
+      WHERE id = ?
+    `, [bookingId, selectedRoom.id]);
+    
+    console.log(`✅ Room ${selectedRoom.room_number} status updated to 'reserved'`);
 
     // Fetch the created booking with joined data
     const [bookingRows] = await connection.execute(`
@@ -794,6 +903,86 @@ async function deleteBooking(bookingId) {
       success: false,
       message: 'เกิดข้อผิดพลาดในการลบการจอง: ' + error.message
     };
+  }
+}
+
+async function updateRoomStatus(roomId, newStatus, bookingId = null) {
+  try {
+    console.log(`🔄 Updating room ${roomId} status to '${newStatus}' with booking ${bookingId}`);
+    
+    const updateQuery = bookingId 
+      ? 'UPDATE rooms SET status = ?, current_booking_id = ? WHERE id = ?'
+      : 'UPDATE rooms SET status = ?, current_booking_id = NULL WHERE id = ?';
+    
+    const params = bookingId 
+      ? [newStatus, bookingId, roomId]
+      : [newStatus, roomId];
+    
+    const [result] = await connection.execute(updateQuery, params);
+    
+    if (result.affectedRows > 0) {
+      console.log(`✅ Room ${roomId} status updated to '${newStatus}'`);
+      return { success: true };
+    } else {
+      console.log(`❌ Failed to update room ${roomId} status`);
+      return { success: false, message: 'ไม่สามารถอัปเดตสถานะห้องได้' };
+    }
+  } catch (error) {
+    console.error(`❌ Error updating room status:`, error);
+    return { success: false, message: 'เกิดข้อผิดพลาดในการอัปเดตสถานะห้อง' };
+  }
+}
+
+async function handleBookingStatusChange(bookingId, oldStatus, newStatus) {
+  try {
+    console.log(`🔄 Handling booking status change: ${oldStatus} -> ${newStatus} for booking ${bookingId}`);
+    
+    // ดึงข้อมูลการจอง
+    const [bookingRows] = await connection.execute(
+      'SELECT room_id FROM bookings WHERE id = ?',
+      [bookingId]
+    );
+    
+    if (bookingRows.length === 0) {
+      console.log(`❌ Booking ${bookingId} not found`);
+      return;
+    }
+    
+    const roomId = bookingRows[0].room_id;
+    
+    // จัดการสถานะห้องตามสถานะการจอง
+    switch (newStatus) {
+      case 'pending':
+        // จองแล้วแต่รอการยืนยัน -> reserved
+        await updateRoomStatus(roomId, 'reserved', bookingId);
+        break;
+        
+      case 'confirmed':
+        // ได้รับการยืนยันแล้ว -> reserved (ยังคงจอง)
+        await updateRoomStatus(roomId, 'reserved', bookingId);
+        break;
+        
+      case 'checked_in':
+        // เช็คอินแล้ว -> occupied
+        await updateRoomStatus(roomId, 'occupied', bookingId);
+        break;
+        
+      case 'checked_out':
+      case 'completed':
+        // เช็คเอาท์แล้วหรือเสร็จสิ้น -> available
+        await updateRoomStatus(roomId, 'available');
+        break;
+        
+      case 'cancelled':
+        // ยกเลิกการจอง -> available
+        await updateRoomStatus(roomId, 'available');
+        break;
+        
+      default:
+        console.log(`⚠️ Unknown booking status: ${newStatus}`);
+    }
+  } catch (error) {
+    console.error(`❌ Error handling booking status change:`, error);
   }
 }
 
@@ -1674,6 +1863,109 @@ async function createRoom(roomData) {
   }
 }
 
+async function createIndividualRoom(roomData) {
+  try {
+    console.log('🏠 Creating new individual room in rooms table:', roomData);
+    
+    const {
+      hotel_id,
+      room_number,
+      floor,
+      room_type_id,
+      bed_type,
+      status
+    } = roomData;
+    
+    // Validate required fields
+    if (!room_number || !floor || !room_type_id) {
+      return {
+        success: false,
+        message: 'ข้อมูลที่จำเป็นไม่ครบถ้วน (room_number, floor, room_type_id)'
+      };
+    }
+    
+    // Check if room number already exists
+    const [existingRoom] = await connection.execute(
+      'SELECT id FROM rooms WHERE room_number = ?',
+      [room_number]
+    );
+    
+    if (existingRoom.length > 0) {
+      return {
+        success: false,
+        message: `หมายเลขห้อง ${room_number} มีอยู่แล้ว`
+      };
+    }
+    
+    // Check if room_type exists
+    const [roomType] = await connection.execute(
+      'SELECT id FROM room_types WHERE id = ?',
+      [room_type_id]
+    );
+    
+    if (roomType.length === 0) {
+      return {
+        success: false,
+        message: 'ไม่พบประเภทห้องที่ระบุ'
+      };
+    }
+    
+    // Use default hotel_id if not provided
+    const finalHotelId = hotel_id || 2;
+    
+    const [result] = await connection.execute(`
+      INSERT INTO rooms (
+        hotel_id,
+        room_type_id,
+        room_number,
+        floor,
+        bed_type,
+        status,
+        created_at,
+        updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+    `, [
+      finalHotelId,
+      room_type_id,
+      room_number,
+      floor,
+      bed_type || 'single',
+      status || 'available'
+    ]);
+    
+    const roomId = result.insertId;
+    console.log(`✅ Individual room created with ID: ${roomId}`);
+    
+    // Fetch the created room with type information
+    const [newRoomData] = await connection.execute(`
+      SELECT 
+        r.id,
+        r.room_number,
+        r.floor,
+        r.bed_type,
+        r.status,
+        rt.name as room_type_name,
+        rt.price_per_night,
+        rt.max_guests
+      FROM rooms r
+      LEFT JOIN room_types rt ON r.room_type_id = rt.id
+      WHERE r.id = ?
+    `, [roomId]);
+    
+    return {
+      success: true,
+      message: 'สร้างห้องพักเรียบร้อยแล้ว',
+      data: newRoomData[0]
+    };
+  } catch (error) {
+    console.error('❌ Error creating individual room:', error);
+    return {
+      success: false,
+      message: 'เกิดข้อผิดพลาดในการสร้างห้องพัก: ' + error.message
+    };
+  }
+}
+
 async function updateRoom(roomId, roomData) {
   try {
     console.log(`🏠 Updating room ${roomId}:`, JSON.stringify(roomData, null, 2));
@@ -1910,7 +2202,7 @@ async function deleteRoom(roomId) {
     console.log(`🔍 Checking active bookings for room ${roomId}...`);
     
     const [bookingCheck] = await connection.execute(
-      'SELECT COUNT(*) as count FROM bookings WHERE room_type_id = ? AND status IN ("confirmed", "pending")',
+      'SELECT COUNT(*) as count FROM bookings WHERE room_type_id = ? AND status IN ("confirmed", "checked_in")',
       [roomId]
     );
     
@@ -1921,7 +2213,7 @@ async function deleteRoom(roomId) {
       
       // Get details of active bookings for better error message
       const [activeBookings] = await connection.execute(
-        'SELECT id, check_in_date, check_out_date, status FROM bookings WHERE room_type_id = ? AND status IN ("confirmed", "pending") ORDER BY check_in_date',
+        'SELECT id, check_in_date, check_out_date, status FROM bookings WHERE room_type_id = ? AND status IN ("confirmed", "checked_in") ORDER BY check_in_date',
         [roomId]
       );
       
@@ -2027,6 +2319,8 @@ const server = createServer(async (req, res) => {
   console.log(`${req.method} ${normalizedPathname}`);
 
   try {
+
+
     // Routes
     switch (normalizedPathname) {
       case '/':
@@ -2507,6 +2801,65 @@ const server = createServer(async (req, res) => {
         });
         break;
 
+      case '/api/check-availability':
+        setCorsHeaders(res);
+        
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => {
+            body += chunk.toString();
+          });
+          
+          req.on('end', async () => {
+            try {
+              console.log('🔍 POST /api/check-availability - Checking room availability');
+              const requestData = JSON.parse(body);
+              console.log('📋 Request data:', requestData);
+              
+              const { room_type_id, check_in, check_out, guests } = requestData;
+              
+              if (!room_type_id || !check_in || !check_out) {
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'กรุณาระบุ room_type_id, check_in และ check_out'
+                });
+                return;
+              }
+              
+              // ตรวจสอบความพร้อมใช้งานของห้องพัก
+              const availability = await checkRoomAvailability(
+                parseInt(room_type_id),
+                check_in,
+                check_out
+              );
+              
+              console.log('✅ Availability result:', availability);
+              
+              sendJSON(res, 200, {
+                success: true,
+                data: availability,
+                message: availability.isAvailable ? 
+                  `มีห้องว่าง ${availability.availableRooms} ห้อง จากทั้งหมด ${availability.totalRooms} ห้อง` :
+                  'ไม่มีห้องว่างในช่วงเวลาที่เลือก'
+              });
+              
+            } catch (error) {
+              console.error('❌ Error in /api/check-availability:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในการตรวจสอบห้องว่าง',
+                error: error.message
+              });
+            }
+          });
+        } else {
+          sendJSON(res, 405, {
+            success: false,
+            message: 'Method not allowed'
+          });
+        }
+        break;
+
       case '/api/admin/payment-settings':
         setCorsHeaders(res);
         // Add no-cache headers to prevent caching of payment settings
@@ -2549,11 +2902,113 @@ const server = createServer(async (req, res) => {
           req.on('end', async () => {
             try {
               console.log('📝 Payment settings POST body:', body);
-              const { settings } = JSON.parse(body);
-              console.log('🔧 Parsed settings:', settings);
+              const data = JSON.parse(body);
+              console.log('🔧 Parsed data:', data);
               
               // Get current settings for comparison
               const currentSettings = await getPaymentSettings();
+              
+              // Handle new direct format from admin settings page
+              if (data.settings && typeof data.settings === 'object' && data.settings.qr_code_url !== undefined) {
+                const directSettings = data.settings;
+                const updates = {};
+                const changes = [];
+                
+                // Direct field mapping
+                if (directSettings.bank_name !== undefined && directSettings.bank_name !== currentSettings.bank_name) {
+                  updates.bank_name = directSettings.bank_name;
+                  changes.push({
+                    type: 'bank_transfer',
+                    field: 'bank_name',
+                    oldValue: currentSettings.bank_name,
+                    newValue: directSettings.bank_name,
+                    description: `เปลี่ยนชื่อธนาคารจาก "${currentSettings.bank_name}" เป็น "${directSettings.bank_name}"`
+                  });
+                }
+                
+                if (directSettings.bank_account !== undefined && directSettings.bank_account !== currentSettings.bank_account) {
+                  updates.bank_account = directSettings.bank_account;
+                  changes.push({
+                    type: 'bank_transfer',
+                    field: 'bank_account',
+                    oldValue: currentSettings.bank_account,
+                    newValue: directSettings.bank_account,
+                    description: `เปลี่ยนเลขบัญชีจาก "${currentSettings.bank_account}" เป็น "${directSettings.bank_account}"`
+                  });
+                }
+                
+                if (directSettings.account_name !== undefined && directSettings.account_name !== currentSettings.account_name) {
+                  updates.account_name = directSettings.account_name;
+                  changes.push({
+                    type: 'bank_transfer',
+                    field: 'account_name',
+                    oldValue: currentSettings.account_name,
+                    newValue: directSettings.account_name,
+                    description: `เปลี่ยนชื่อบัญชีจาก "${currentSettings.account_name}" เป็น "${directSettings.account_name}"`
+                  });
+                }
+                
+                if (directSettings.phone_number !== undefined && directSettings.phone_number !== currentSettings.phone_number) {
+                  updates.phone_number = directSettings.phone_number;
+                  changes.push({
+                    type: 'promptpay',
+                    field: 'phone_number',
+                    oldValue: currentSettings.phone_number,
+                    newValue: directSettings.phone_number,
+                    description: `เปลี่ยนหมายเลขพร้อมเพย์จาก "${currentSettings.phone_number}" เป็น "${directSettings.phone_number}"`
+                  });
+                }
+                
+                if (directSettings.qr_code_url !== undefined && directSettings.qr_code_url !== currentSettings.qr_code_url) {
+                  updates.qr_code_url = directSettings.qr_code_url;
+                  changes.push({
+                    type: 'qr_code',
+                    field: 'qr_code_url',
+                    oldValue: currentSettings.qr_code_url,
+                    newValue: directSettings.qr_code_url,
+                    description: `เปลี่ยน QR Code`
+                  });
+                }
+                
+                console.log('💾 Direct updates to apply:', updates);
+                console.log('📋 Direct changes detected:', changes.length);
+                
+                if (Object.keys(updates).length > 0) {
+                  await updatePaymentSettings(updates);
+                  
+                  // Log changes
+                  const ipAddress = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+                  const userAgent = req.headers['user-agent'];
+                  
+                  for (const change of changes) {
+                    await logPaymentSettingsChange(
+                      1, // admin_user_id
+                      'admin@hotel.com', // admin_email
+                      'Admin User', // admin_name
+                      change.type,
+                      change.field,
+                      change.oldValue,
+                      change.newValue,
+                      change.description,
+                      ipAddress,
+                      userAgent
+                    );
+                  }
+                  
+                  console.log(`✅ Logged ${changes.length} direct payment settings changes`);
+                }
+                
+                sendJSON(res, 200, {
+                  success: true,
+                  message: 'Payment settings updated successfully',
+                  changesLogged: changes.length
+                });
+                return;
+              }
+              
+              // Handle legacy format (bankTransfer/promptPay structure)
+              const { settings } = data;
+              console.log('🔧 Legacy format settings:', settings);
               
               // Update payment settings in database
               const updates = {};
@@ -2614,7 +3069,7 @@ const server = createServer(async (req, res) => {
                     field: 'phone_number',
                     oldValue,
                     newValue,
-                    description: `เปลี่ยนเบอร์ PromptPay จาก "${oldValue}" เป็น "${newValue}"`
+                    description: `เปลี่ยนหมายเลขพร้อมเพย์จาก "${oldValue}" เป็น "${newValue}"`
                   });
                 }
               }
@@ -2661,6 +3116,78 @@ const server = createServer(async (req, res) => {
               });
             }
           });
+        } else {
+          sendJSON(res, 405, {
+            success: false,
+            message: 'Method not allowed'
+          });
+        }
+        break;
+
+      case '/api/admin/upload-qr':
+        setCorsHeaders(res);
+        if (req.method === 'POST') {
+          try {
+            console.log('📸 Admin QR upload request received');
+            
+            uploadQRCode.single('qrCode')(req, res, async (err) => {
+              if (err) {
+                console.error('💥 QR upload multer error:', err);
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'File upload error: ' + err.message
+                });
+                return;
+              }
+
+              if (!req.file) {
+                console.log('❌ No QR file received');
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'No QR code file uploaded'
+                });
+                return;
+              }
+
+              console.log('📁 QR file received:', {
+                filename: req.file.filename,
+                originalname: req.file.originalname,
+                size: req.file.size,
+                path: req.file.path
+              });
+
+              try {
+                const qrUrl = `/uploads/qr-codes/${req.file.filename}`;
+                
+                // Update QR code URL in database
+                await updatePaymentSettings({
+                  qr_code_url: qrUrl
+                });
+                
+                console.log('✅ Admin QR Code uploaded and updated in database:', qrUrl);
+                
+                sendJSON(res, 200, {
+                  success: true,
+                  message: 'QR Code uploaded successfully',
+                  qrCodeUrl: qrUrl
+                });
+                
+              } catch (dbError) {
+                console.error('💥 Database update error:', dbError);
+                sendJSON(res, 500, {
+                  success: false,
+                  message: 'Failed to update QR code in database'
+                });
+              }
+            });
+            
+          } catch (error) {
+            console.error('💥 Admin QR upload setup error:', error);
+            sendJSON(res, 500, {
+              success: false,
+              message: 'Server error during QR code upload'
+            });
+          }
         } else {
           sendJSON(res, 405, {
             success: false,
@@ -2871,17 +3398,41 @@ const server = createServer(async (req, res) => {
         break;
 
       case '/api/global-settings':
-        // Return global settings
-        sendJSON(res, 200, {
-          success: true,
-          data: {
-            room_price_per_night: 2000,
-            currency: 'THB',
-            check_in_time: '14:00',
-            check_out_time: '12:00',
-            max_occupancy: 4
-          }
-        });
+        // Return payment settings from database
+        try {
+          const [settings] = await connection.execute(`
+            SELECT setting_key, setting_value 
+            FROM payment_settings
+          `);
+          
+          const settingsObj = {};
+          settings.forEach(setting => {
+            settingsObj[setting.setting_key] = setting.setting_value;
+          });
+
+          sendJSON(res, 200, {
+            success: true,
+            data: {
+              qr_code_url: settingsObj.qr_code_url || '',
+              bank_name: settingsObj.bank_name || '',
+              bank_account: settingsObj.bank_account || '',
+              account_name: settingsObj.account_name || '',
+              phone_number: settingsObj.phone_number || '',
+              // Default system settings
+              room_price_per_night: 2000,
+              currency: 'THB',
+              check_in_time: '14:00',
+              check_out_time: '12:00',
+              max_occupancy: 4
+            }
+          });
+        } catch (error) {
+          console.error('❌ Error fetching global settings:', error);
+          sendJSON(res, 500, {
+            success: false,
+            message: 'ไม่สามารถดึงข้อมูลการตั้งค่าได้'
+          });
+        }
         break;
 
       case '/api/database/status':
@@ -3036,7 +3587,57 @@ const server = createServer(async (req, res) => {
         });
         break;
 
+      case '/api/booking-details':
+        setCorsHeaders(res);
+        if (req.method === 'GET') {
+          try {
+            const bookingId = query.booking_id;
+            console.log(`🔍 Getting booking details for ID: ${bookingId}`);
+            
+            if (!bookingId) {
+              sendJSON(res, 400, {
+                success: false,
+                message: 'กรุณาระบุ booking_id'
+              });
+              return;
+            }
+
+            const querySQL = `
+              SELECT 
+                b.*,
+                h.name as hotel_name,
+                rt.name as room_type_name
+              FROM bookings b
+              LEFT JOIN hotels h ON b.hotel_id = h.id
+              LEFT JOIN room_types rt ON b.room_type_id = rt.id
+              WHERE b.id = ?
+            `;
+            
+            const [rows] = await connection.execute(querySQL, [parseInt(bookingId)]);
+            
+            if (rows.length > 0) {
+              sendJSON(res, 200, {
+                success: true,
+                data: rows[0]
+              });
+            } else {
+              sendJSON(res, 404, {
+                success: false,
+                message: 'ไม่พบข้อมูลการจอง'
+              });
+            }
+          } catch (error) {
+            console.error('❌ Error fetching booking details:', error);
+            sendJSON(res, 500, {
+              success: false,
+              message: 'เกิดข้อผิดพลาดในการดึงข้อมูล'
+            });
+          }
+        }
+        break;
+
       case '/api/bookings':
+        setCorsHeaders(res);
         if (req.method === 'POST') {
           let body = '';
           req.on('data', chunk => {
@@ -3046,23 +3647,25 @@ const server = createServer(async (req, res) => {
           req.on('end', async () => {
             try {
               const bookingData = JSON.parse(body);
+              console.log('📥 Received booking request:', bookingData);
               
-              // ตรวจสอบห้องว่างก่อนสร้างการจอง
-              const availability = await checkRoomAvailability(
-                bookingData.room_type_id, 
-                bookingData.check_in_date, 
-                bookingData.check_out_date
-              );
+              // Validate required fields
+              const requiredFields = ['user_id', 'hotel_id', 'bed_type', 'check_in_date', 'check_out_date'];
+              const missingFields = requiredFields.filter(field => !bookingData[field]);
               
-              if (!availability.isAvailable) {
+              if (missingFields.length > 0) {
+                console.error('❌ Missing required fields:', missingFields);
                 sendJSON(res, 400, {
                   success: false,
-                  message: 'ห้องไม่ว่างในช่วงเวลาที่เลือก กรุณาเลือกวันที่อื่น',
-                  error: 'ROOM_NOT_AVAILABLE',
-                  availability: availability
+                  message: `ข้อมูลไม่ครบถ้วน: ${missingFields.join(', ')}`,
+                  error: 'MISSING_REQUIRED_FIELDS',
+                  missingFields: missingFields
                 });
                 return;
               }
+              
+              // สร้างการจองพร้อมการมอบหมายห้องอัตโนมัติ
+              console.log('🏨 Creating booking with automatic room assignment...');
               
               const booking = await createBooking(bookingData);
               
@@ -3089,26 +3692,180 @@ const server = createServer(async (req, res) => {
                 });
               }
             } catch (error) {
-              console.error('Error creating booking:', error);
-              sendJSON(res, 500, {
-                success: false,
-                message: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์'
-              });
+              console.error('❌ Error creating booking:', error);
+              console.error('❌ Error stack:', error.stack);
+              
+              // Check for specific MySQL errors
+              if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'ข้อมูลอ้างอิงไม่ถูกต้อง (hotel_id หรือ room_type_id ไม่มีในระบบ)',
+                  error: 'INVALID_REFERENCE',
+                  sqlError: error.code
+                });
+              } else if (error.code && error.code.startsWith('ER_')) {
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'ข้อมูลไม่ถูกต้องหรือไม่สมบูรณ์',
+                  error: 'DATABASE_ERROR',
+                  sqlError: error.code
+                });
+              } else {
+                sendJSON(res, 500, {
+                  success: false,
+                  message: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์',
+                  error: error.message
+                });
+              }
             }
           });
           
           return; // Important: return here to prevent fall-through
-        } else {
-          // Handle GET request (existing code)
+        } else if (req.method === 'GET') {
+          // Handle GET request for booking details
           const userId = query.user_id;
-          const bookings = await getBookings(userId ? parseInt(userId) : null);
-          sendJSON(res, 200, {
-            success: true,
-            count: bookings.length,
-            data: bookings
+          const bookingId = query.booking_id;
+          
+          console.log(`🔍 GET /api/bookings - userId: ${userId}, bookingId: ${bookingId}`);
+          
+          if (bookingId) {
+            // Get specific booking details with room assignment
+            console.log(`📋 Fetching booking details for ID: ${bookingId}`);
+            try {
+              const bookingDetails = await getBookingDetails(parseInt(bookingId));
+              if (bookingDetails) {
+                sendJSON(res, 200, {
+                  success: true,
+                  data: bookingDetails
+                });
+              } else {
+                sendJSON(res, 404, {
+                  success: false,
+                  message: 'ไม่พบข้อมูลการจอง'
+                });
+              }
+            } catch (error) {
+              console.error('❌ Error fetching booking details:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในการดึงข้อมูลการจอง'
+              });
+            }
+          } else {
+            // Get all bookings for user (existing code)
+            const bookings = await getBookings(userId ? parseInt(userId) : null);
+            sendJSON(res, 200, {
+              success: true,
+              count: bookings.length,
+              data: bookings
+            });
+          }
+        } else if (req.method === 'PUT') {
+          // Handle PUT request for updating booking dates
+          const urlParts = req.url.split('/');
+          const bookingId = urlParts[3]; // /api/bookings/{id}
+          
+          console.log(`🔄 PUT request - URL: ${req.url}, Parts: ${JSON.stringify(urlParts)}, BookingID: ${bookingId}`);
+          
+          if (!bookingId || isNaN(parseInt(bookingId))) {
+            sendJSON(res, 400, {
+              success: false,
+              message: 'กรุณาระบุ booking ID ที่ถูกต้อง'
+            });
+            return;
+          }
+
+          let body = '';
+          req.on('data', chunk => {
+            body += chunk.toString();
           });
+          
+          req.on('end', async () => {
+            try {
+              const updateData = JSON.parse(body);
+              console.log(`🔄 Updating booking ${bookingId} with data:`, updateData);
+
+              // Validate booking exists and belongs to user
+              const [existingBooking] = await connection.execute(
+                'SELECT * FROM bookings WHERE id = ?',
+                [parseInt(bookingId)]
+              );
+
+              if (existingBooking.length === 0) {
+                sendJSON(res, 404, {
+                  success: false,
+                  message: 'ไม่พบการจองที่ระบุ'
+                });
+                return;
+              }
+
+              const booking = existingBooking[0];
+
+              // Only allow updates for pending bookings
+              if (booking.status !== 'pending') {
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'สามารถแก้ไขได้เฉพาะการจองที่รอการยืนยันเท่านั้น'
+                });
+                return;
+              }
+
+              // Update booking dates
+              const updateFields = [];
+              const updateValues = [];
+
+              if (updateData.check_in_date) {
+                updateFields.push('check_in_date = ?');
+                updateValues.push(updateData.check_in_date);
+              }
+
+              if (updateData.check_out_date) {
+                updateFields.push('check_out_date = ?');
+                updateValues.push(updateData.check_out_date);
+              }
+
+              if (updateFields.length === 0) {
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'ไม่มีข้อมูลที่จะอัปเดต'
+                });
+                return;
+              }
+
+              updateFields.push('updated_at = NOW()');
+              updateValues.push(parseInt(bookingId));
+
+              const updateQuery = `UPDATE bookings SET ${updateFields.join(', ')} WHERE id = ?`;
+              await connection.execute(updateQuery, updateValues);
+
+              console.log('✅ Booking dates updated successfully');
+
+              // Return updated booking data
+              const [updatedBooking] = await connection.execute(
+                'SELECT * FROM bookings WHERE id = ?',
+                [parseInt(bookingId)]
+              );
+
+              sendJSON(res, 200, {
+                success: true,
+                message: 'อัปเดตวันที่เข้าพักสำเร็จ',
+                data: updatedBooking[0]
+              });
+
+            } catch (error) {
+              console.error('❌ Error updating booking:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในการอัปเดตข้อมูล'
+              });
+            }
+          });
+
+          return;
         }
         break;
+
+
 
       case '/api/users/profile':
         setCorsHeaders(res);
@@ -3265,6 +4022,53 @@ const server = createServer(async (req, res) => {
         }
         break;
 
+      case '/api/bookings/confirm-payment':
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => {
+            body += chunk.toString();
+          });
+          
+          req.on('end', async () => {
+            try {
+              setCorsHeaders(res);
+              const paymentData = JSON.parse(body);
+              console.log('💳 Received payment confirmation:', paymentData);
+              
+              const { bookingId, paymentMethod, paymentRef } = paymentData;
+              
+              if (!bookingId) {
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'กรุณาระบุรหัสการจอง'
+                });
+                return;
+              }
+              
+              const result = await confirmBookingPayment(bookingId, {
+                method: paymentMethod || 'online',
+                reference: paymentRef || ''
+              });
+              
+              sendJSON(res, result.success ? 200 : 400, result);
+              
+            } catch (error) {
+              console.error('❌ Payment confirmation error:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในการยืนยันการชำระเงิน'
+              });
+            }
+          });
+        } else {
+          setCorsHeaders(res);
+          sendJSON(res, 405, {
+            success: false,
+            message: 'Method not allowed'
+          });
+        }
+        break;
+
       case '/api/admin/bookings/detailed':
         if (req.method === 'GET') {
           try {
@@ -3374,6 +4178,80 @@ const server = createServer(async (req, res) => {
               sendJSON(res, 500, {
                 success: false,
                 message: 'เกิดข้อผิดพลาดในการอัปเดตการจอง'
+              });
+            }
+          });
+        } else {
+          setCorsHeaders(res);
+          sendJSON(res, 405, {
+            success: false,
+            message: 'Method not allowed'
+          });
+        }
+        break;
+
+      // Admin Payment Slips Management
+      case '/api/admin/payment-slips':
+        const slipIdMatch = path.match(/^\/api\/admin\/payment-slips\/(\d+)\/status$/);
+        if (slipIdMatch && req.method === 'PUT') {
+          const slipId = parseInt(slipIdMatch[1]);
+          let body = '';
+          
+          req.on('data', chunk => {
+            body += chunk.toString();
+          });
+          
+          req.on('end', async () => {
+            try {
+              const updateData = JSON.parse(body);
+              const { status } = updateData;
+              
+              if (!['approved', 'rejected'].includes(status)) {
+                setCorsHeaders(res);
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'Invalid status. Must be approved or rejected'
+                });
+                return;
+              }
+              
+              // Update payment slip status
+              await connection.execute(
+                'UPDATE payment_slips SET status = ?, updated_at = NOW() WHERE id = ?',
+                [status, slipId]
+              );
+              
+              // Get updated payment slip with booking info
+              const [updatedSlip] = await connection.execute(`
+                SELECT ps.*, 
+                       b.room_number, b.guest_name, b.check_in_date, b.check_out_date,
+                       b.total_amount
+                FROM payment_slips ps
+                LEFT JOIN bookings b ON ps.booking_id = b.id
+                WHERE ps.id = ?
+              `, [slipId]);
+              
+              if (updatedSlip.length === 0) {
+                setCorsHeaders(res);
+                sendJSON(res, 404, {
+                  success: false,
+                  message: 'Payment slip not found'
+                });
+                return;
+              }
+              
+              sendJSON(res, 200, {
+                success: true,
+                message: `Payment slip ${status} successfully`,
+                data: updatedSlip[0]
+              });
+              
+            } catch (error) {
+              console.error('❌ Error updating payment slip status:', error);
+              setCorsHeaders(res);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในการอัปเดตสถานะ'
               });
             }
           });
@@ -4027,10 +4905,18 @@ const server = createServer(async (req, res) => {
           req.on('end', async () => {
             try {
               const roomData = JSON.parse(body);
-              console.log('🏠 Creating new room:', roomData);
+              console.log('🏠 Creating new individual room:', roomData);
               
-              const result = await createRoom(roomData);
-              sendJSON(res, result.success ? 201 : 400, result);
+              // Check if this is for individual room or room type
+              if (roomData.room_number) {
+                // Creating individual room in 'rooms' table
+                const result = await createIndividualRoom(roomData);
+                sendJSON(res, result.success ? 201 : 400, result);
+              } else {
+                // Creating room type in 'room_types' table  
+                const result = await createRoom(roomData);
+                sendJSON(res, result.success ? 201 : 400, result);
+              }
             } catch (error) {
               console.error('❌ Error creating room:', error);
               sendJSON(res, 500, {
@@ -4039,6 +4925,128 @@ const server = createServer(async (req, res) => {
               });
             }
           });
+        } else {
+          sendJSON(res, 405, {
+            success: false,
+            message: 'Method not allowed'
+          });
+        }
+        break;
+
+      case '/api/admin/individual-rooms':
+        setCorsHeaders(res);
+        if (req.method === 'GET') {
+          try {
+            console.log('🏠 Admin requesting individual rooms');
+            
+            const query = `
+              SELECT 
+                r.id,
+                r.room_number,
+                r.floor,
+                r.status,
+                rt.name as room_type_name,
+                rt.bed_type,
+                rt.price_per_night,
+                rt.max_guests,
+                b.id as booking_id,
+                CONCAT(u.first_name, ' ', u.last_name) as guest_name,
+                b.check_in_date,
+                b.check_out_date,
+                b.status as booking_status
+              FROM rooms r
+              LEFT JOIN room_types rt ON r.room_type_id = rt.id
+              LEFT JOIN bookings b ON r.id = b.room_id 
+                AND b.status IN ('confirmed', 'checked_in') 
+                AND CURDATE() BETWEEN b.check_in_date AND b.check_out_date
+              LEFT JOIN users u ON b.user_id = u.id
+              ORDER BY r.room_number
+            `;
+            
+            const [rows] = await connection.execute(query);
+            
+            sendJSON(res, 200, {
+              success: true,
+              count: rows.length,
+              data: rows
+            });
+          } catch (error) {
+            console.error('❌ Error fetching individual rooms:', error);
+            sendJSON(res, 500, {
+              success: false,
+              message: 'เกิดข้อผิดพลาดในการดึงข้อมูลห้องพัก'
+            });
+          }
+        } else {
+          sendJSON(res, 405, {
+            success: false,
+            message: 'Method not allowed'
+          });
+        }
+        break;
+
+      case '/api/admin/room-stats':
+        setCorsHeaders(res);
+        if (req.method === 'GET') {
+          try {
+            console.log('📊 Admin requesting room statistics');
+            
+            // ข้อมูลภาพรวม
+            const overviewQuery = `
+              SELECT 
+                COUNT(*) as total_rooms,
+                SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) as available_rooms,
+                SUM(CASE WHEN status = 'occupied' THEN 1 ELSE 0 END) as occupied_rooms,
+                SUM(CASE WHEN status = 'maintenance' THEN 1 ELSE 0 END) as maintenance_rooms,
+                SUM(CASE WHEN status = 'reserved' THEN 1 ELSE 0 END) as reserved_rooms
+              FROM rooms
+            `;
+            
+            // สถิติแยกตามชั้น
+            const floorQuery = `
+              SELECT 
+                floor,
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) as available,
+                SUM(CASE WHEN status = 'occupied' THEN 1 ELSE 0 END) as occupied,
+                SUM(CASE WHEN status = 'maintenance' THEN 1 ELSE 0 END) as maintenance
+              FROM rooms
+              GROUP BY floor
+              ORDER BY floor
+            `;
+            
+            // สถิติแยกตามประเภทเตียง
+            const bedTypeQuery = `
+              SELECT 
+                rt.bed_type,
+                COUNT(*) as total,
+                SUM(CASE WHEN r.status = 'available' THEN 1 ELSE 0 END) as available,
+                SUM(CASE WHEN r.status = 'occupied' THEN 1 ELSE 0 END) as occupied,
+                SUM(CASE WHEN r.status = 'maintenance' THEN 1 ELSE 0 END) as maintenance
+              FROM rooms r
+              JOIN room_types rt ON r.room_type_id = rt.id
+              GROUP BY rt.bed_type
+            `;
+
+            const [overviewRows] = await connection.execute(overviewQuery);
+            const [floorRows] = await connection.execute(floorQuery);
+            const [bedTypeRows] = await connection.execute(bedTypeQuery);
+            
+            sendJSON(res, 200, {
+              success: true,
+              data: {
+                overview: overviewRows[0],
+                byFloor: floorRows,
+                byBedType: bedTypeRows
+              }
+            });
+          } catch (error) {
+            console.error('❌ Error fetching room stats:', error);
+            sendJSON(res, 500, {
+              success: false,
+              message: 'เกิดข้อผิดพลาดในการดึงสถิติห้องพัก'
+            });
+          }
         } else {
           sendJSON(res, 405, {
             success: false,
@@ -4433,6 +5441,106 @@ const server = createServer(async (req, res) => {
 
       default:
         // Handle dynamic routes
+        // Handle booking date updates (PUT /api/bookings/{id})
+        if (normalizedPathname.match(/^\/api\/bookings\/\d+$/)) {
+          console.log('✅ Path matches booking update pattern:', normalizedPathname);
+          const pathParts = normalizedPathname.split('/');
+          const bookingId = parseInt(pathParts[3]);
+          console.log('📝 Extracted booking ID for date update:', bookingId);
+          
+          if (req.method === 'PUT') {
+            setCorsHeaders(res);
+            
+            let body = '';
+            req.on('data', chunk => {
+              body += chunk.toString();
+            });
+            
+            req.on('end', async () => {
+              try {
+                const updateData = JSON.parse(body);
+                console.log(`🔄 Updating booking ${bookingId} with data:`, updateData);
+
+                // Validate booking exists
+                const [existingBooking] = await connection.execute(
+                  'SELECT * FROM bookings WHERE id = ?',
+                  [bookingId]
+                );
+
+                if (existingBooking.length === 0) {
+                  sendJSON(res, 404, {
+                    success: false,
+                    message: 'ไม่พบการจองที่ระบุ'
+                  });
+                  return;
+                }
+
+                const booking = existingBooking[0];
+
+                // Only allow updates for pending bookings
+                if (booking.status !== 'pending') {
+                  sendJSON(res, 400, {
+                    success: false,
+                    message: 'สามารถแก้ไขได้เฉพาะการจองที่รอการยืนยันเท่านั้น'
+                  });
+                  return;
+                }
+
+                // Update booking dates
+                const updateFields = [];
+                const updateValues = [];
+
+                if (updateData.check_in_date) {
+                  updateFields.push('check_in_date = ?');
+                  updateValues.push(updateData.check_in_date);
+                }
+
+                if (updateData.check_out_date) {
+                  updateFields.push('check_out_date = ?');
+                  updateValues.push(updateData.check_out_date);
+                }
+
+                if (updateFields.length === 0) {
+                  sendJSON(res, 400, {
+                    success: false,
+                    message: 'ไม่มีข้อมูลที่จะอัปเดต'
+                  });
+                  return;
+                }
+
+                updateFields.push('updated_at = NOW()');
+                updateValues.push(bookingId);
+
+                const updateQuery = `UPDATE bookings SET ${updateFields.join(', ')} WHERE id = ?`;
+                await connection.execute(updateQuery, updateValues);
+
+                console.log('✅ Booking dates updated successfully');
+
+                // Return updated booking data
+                const [updatedBooking] = await connection.execute(
+                  'SELECT * FROM bookings WHERE id = ?',
+                  [bookingId]
+                );
+
+                sendJSON(res, 200, {
+                  success: true,
+                  message: 'อัปเดตวันที่เข้าพักสำเร็จ',
+                  data: updatedBooking[0]
+                });
+
+              } catch (error) {
+                console.error('❌ Error updating booking:', error);
+                sendJSON(res, 500, {
+                  success: false,
+                  message: 'เกิดข้อผิดพลาดในการอัปเดตข้อมูล'
+                });
+              }
+            });
+
+            return;
+          }
+        }
+        
         // Handle booking status updates
         console.log('🔍 Checking path for booking status update:', normalizedPathname);
         if (normalizedPathname.match(/^\/api\/bookings\/\d+\/status$/)) {
@@ -4926,6 +6034,289 @@ const server = createServer(async (req, res) => {
                 message: 'เกิดข้อผิดพลาดในการเปลี่ยนสถานะห้องพัก'
               });
             }
+          } else if (req.method === 'GET' && roomId && action === 'details') {
+            // GET /api/admin/rooms/{id}/details
+            try {
+              console.log(`🏠 Fetching room details for room ID: ${roomId}`);
+              
+              const query = `
+                SELECT 
+                  r.id,
+                  r.room_number,
+                  r.floor,
+                  r.status,
+                  rt.id as room_type_id,
+                  rt.name as room_type_name,
+                  rt.description,
+                  rt.price_per_night,
+                  rt.max_guests,
+                  rt.size_sqm,
+                  rt.amenities,
+                  rt.bed_type
+                FROM rooms r
+                JOIN room_types rt ON r.room_type_id = rt.id
+                WHERE r.id = ?
+              `;
+              
+              const [rows] = await connection.execute(query, [parseInt(roomId)]);
+              
+              if (rows.length === 0) {
+                return sendJSON(res, 404, {
+                  success: false,
+                  message: 'ไม่พบห้องที่ระบุ'
+                });
+              }
+              
+              sendJSON(res, 200, {
+                success: true,
+                data: rows[0]
+              });
+              
+            } catch (error) {
+              console.error('❌ Error fetching room details:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในการดึงข้อมูลห้อง'
+              });
+            }
+          } else if (req.method === 'PUT' && roomId && action === 'details') {
+            // PUT /api/admin/rooms/{id}/details
+            try {
+              const body = await getRequestBody(req);
+              const { name, description, price_per_night, max_guests, size_sqm, amenities } = body;
+              
+              console.log(`🏠 Updating room details for room ID: ${roomId}`);
+              
+              // ตรวจสอบว่าห้องมีอยู่จริง
+              const [roomCheck] = await connection.execute(
+                'SELECT id, room_type_id FROM rooms WHERE id = ?',
+                [parseInt(roomId)]
+              );
+              
+              if (roomCheck.length === 0) {
+                return sendJSON(res, 404, {
+                  success: false,
+                  message: 'ไม่พบห้องที่ระบุ'
+                });
+              }
+              
+              const room = roomCheck[0];
+              
+              // อัปเดตข้อมูล room_type
+              await connection.execute(`
+                UPDATE room_types 
+                SET 
+                  name = ?,
+                  description = ?,
+                  price_per_night = ?,
+                  max_guests = ?,
+                  size_sqm = ?,
+                  amenities = ?,
+                  updated_at = NOW()
+                WHERE id = ?
+              `, [
+                name,
+                description,
+                parseFloat(price_per_night),
+                parseInt(max_guests),
+                size_sqm ? parseInt(size_sqm) : null,
+                JSON.stringify(amenities || []),
+                room.room_type_id
+              ]);
+              
+              console.log(`✅ Room details updated for room ${roomId}`);
+              
+              sendJSON(res, 200, {
+                success: true,
+                message: 'อัปเดตรายละเอียดห้องเรียบร้อยแล้ว'
+              });
+              
+            } catch (error) {
+              console.error('❌ Error updating room details:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในการอัปเดตรายละเอียดห้อง'
+              });
+            }
+          } else {
+            sendJSON(res, 405, {
+              success: false,
+              message: 'Method not allowed'
+            });
+          }
+          break;
+        }
+        
+
+        
+        // Handle individual room by ID (PUT for full update)
+        if (normalizedPathname.startsWith('/api/admin/individual-rooms/') && normalizedPathname.split('/').length === 5) {
+          const pathParts = normalizedPathname.split('/');
+          const roomId = pathParts[4]; // /api/admin/individual-rooms/{id}
+          
+          setCorsHeaders(res);
+          
+          if (req.method === 'PUT') {
+            // PUT /api/admin/individual-rooms/{id} - Update room data
+            try {
+              const body = await getRequestBody(req);
+              const { 
+                room_number, 
+                floor, 
+                status, 
+                guest_name, 
+                booking_id, 
+                check_in_date, 
+                check_out_date, 
+                booking_status, 
+                notes 
+              } = body;
+              
+              console.log(`🏠 Updating room ${roomId} data:`, body);
+              
+              // ตรวจสอบว่าห้องมีอยู่จริง
+              const [roomCheck] = await connection.execute(
+                'SELECT id, room_number FROM rooms WHERE id = ?',
+                [parseInt(roomId)]
+              );
+              
+              if (roomCheck.length === 0) {
+                return sendJSON(res, 404, {
+                  success: false,
+                  message: 'ไม่พบห้องที่ระบุ'
+                });
+              }
+              
+              // อัปเดตข้อมูลห้อง
+              await connection.execute(`
+                UPDATE rooms SET 
+                  room_number = COALESCE(?, room_number),
+                  floor = COALESCE(?, floor),
+                  status = COALESCE(?, status),
+                  guest_name = ?,
+                  booking_id = ?,
+                  check_in_date = ?,
+                  check_out_date = ?,
+                  booking_status = ?,
+                  notes = ?,
+                  updated_at = NOW()
+                WHERE id = ?
+              `, [
+                room_number, 
+                floor, 
+                status, 
+                guest_name || null, 
+                booking_id || null, 
+                check_in_date || null, 
+                check_out_date || null, 
+                booking_status || null, 
+                notes || null, 
+                parseInt(roomId)
+              ]);
+              
+              console.log(`✅ Room ${roomCheck[0].room_number} updated successfully`);
+              
+              sendJSON(res, 200, {
+                success: true,
+                message: `อัปเดตข้อมูลห้อง ${roomCheck[0].room_number} เรียบร้อยแล้ว`
+              });
+              
+            } catch (error) {
+              console.error('❌ Error updating room data:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในการอัปเดตข้อมูลห้อง'
+              });
+            }
+          } else {
+            sendJSON(res, 405, {
+              success: false,
+              message: 'Method not allowed'
+            });
+          }
+          break;
+        }
+
+        if (normalizedPathname.startsWith('/api/admin/individual-rooms/') && normalizedPathname.split('/').length >= 6) {
+          const pathParts = normalizedPathname.split('/');
+          const roomId = pathParts[4]; // /api/admin/individual-rooms/{id}
+          const action = pathParts[5]; // /api/admin/individual-rooms/{id}/status
+          
+          setCorsHeaders(res);
+          
+          if (req.method === 'PUT' && action === 'status') {
+            // PUT /api/admin/individual-rooms/{id}/status
+            try {
+              const body = await getRequestBody(req);
+              const { status, adminNote } = body;
+              
+              console.log(`🏠 Updating room ${roomId} status to: ${status}`);
+              
+              // ตรวจสอบว่าห้องมีอยู่จริง
+              const [roomCheck] = await connection.execute(
+                'SELECT id, room_number, status FROM rooms WHERE id = ?',
+                [parseInt(roomId)]
+              );
+              
+              if (roomCheck.length === 0) {
+                return sendJSON(res, 404, {
+                  success: false,
+                  message: 'ไม่พบห้องที่ระบุ'
+                });
+              }
+              
+              const room = roomCheck[0];
+              
+              // ตรวจสอบการจองที่ยังมีผลอยู่
+              const [activeBookings] = await connection.execute(`
+                SELECT 
+                  b.id,
+                  b.check_in_date,
+                  b.check_out_date,
+                  CONCAT(u.first_name, ' ', u.last_name) as guest_name
+                FROM bookings b
+                JOIN users u ON b.user_id = u.id
+                WHERE b.room_id = ? 
+                  AND b.status IN ('confirmed', 'checked_in')
+                  AND CURDATE() BETWEEN b.check_in_date AND b.check_out_date
+              `, [parseInt(roomId)]);
+              
+              // อัปเดตสถานะห้อง
+              await connection.execute(
+                'UPDATE rooms SET status = ?, updated_at = NOW() WHERE id = ?',
+                [status, parseInt(roomId)]
+              );
+              
+              // บันทึกประวัติการเปลี่ยนแปลง
+              if (adminNote) {
+                await connection.execute(`
+                  INSERT INTO room_status_logs (room_id, old_status, new_status, admin_note, created_at)
+                  VALUES (?, ?, ?, ?, NOW())
+                `, [parseInt(roomId), room.status, status, adminNote]);
+              }
+              
+              console.log(`✅ Room ${room.room_number} status updated from ${room.status} to ${status}`);
+              
+              const response = {
+                success: true,
+                message: `อัปเดตสถานะห้อง ${room.room_number} เรียบร้อยแล้ว`
+              };
+              
+              // แจ้งเตือนถ้ามีการจอง
+              if (activeBookings.length > 0) {
+                response.activeBookings = activeBookings;
+                response.warning = `ห้องนี้มีการจองที่ยังมีผลอยู่ ${activeBookings.length} รายการ`;
+              }
+              
+              sendJSON(res, 200, response);
+              
+            } catch (error) {
+              console.error('❌ Error updating room status:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในการอัปเดตสถานะห้อง'
+              });
+            }
           } else {
             sendJSON(res, 405, {
               success: false,
@@ -5138,7 +6529,157 @@ const server = createServer(async (req, res) => {
           break;
         }
         
+        // Contact Settings API
+        if (normalizedPathname === '/api/admin/contact-settings') {
+          if (req.method === 'GET') {
+            console.log('📞 GET /api/admin/contact-settings - Get contact settings');
+            
+            try {
+              const [rows] = await connection.execute('SELECT * FROM contact_settings ORDER BY setting_key');
+              
+              // Convert to object format
+              const contactSettings = {};
+              rows.forEach(row => {
+                contactSettings[row.setting_key] = row.setting_value;
+              });
+              
+              sendJSON(res, 200, {
+                success: true,
+                data: contactSettings
+              });
+              
+            } catch (error) {
+              console.error('❌ Error fetching contact settings:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในการดึงข้อมูลติดต่อ'
+              });
+            }
+          } else if (req.method === 'PUT') {
+            console.log('📞 PUT /api/admin/contact-settings - Update contact settings');
+            
+            let body = '';
+            req.on('data', chunk => {
+              body += chunk.toString();
+            });
+            
+            req.on('end', async () => {
+              try {
+                const data = JSON.parse(body);
+                
+                // Update each setting
+                for (const [key, value] of Object.entries(data)) {
+                  await connection.execute(
+                    'INSERT INTO contact_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?, updated_at = NOW()',
+                    [key, value, value]
+                  );
+                }
+                
+                sendJSON(res, 200, {
+                  success: true,
+                  message: 'อัปเดตข้อมูลติดต่อเรียบร้อยแล้ว'
+                });
+                
+              } catch (error) {
+                console.error('❌ Error updating contact settings:', error);
+                sendJSON(res, 500, {
+                  success: false,
+                  message: 'เกิดข้อผิดพลาดในการอัปเดตข้อมูลติดต่อ'
+                });
+              }
+            });
+          } else {
+            sendJSON(res, 405, {
+              success: false,
+              message: 'Method not allowed'
+            });
+          }
+          break;
+        }
+        
         if (normalizedPathname.startsWith('/api/bookings/')) {
+          // Handle payment receipt upload endpoint first
+          const paymentReceiptMatch = normalizedPathname.match(/^\/api\/bookings\/(\d+)\/payment-receipt$/);
+          if (paymentReceiptMatch && req.method === 'POST') {
+            const bookingId = paymentReceiptMatch[1];
+            console.log(`📸 POST /api/bookings/${bookingId}/payment-receipt - Payment receipt upload`);
+            
+            let body = '';
+            req.on('data', chunk => {
+              body += chunk.toString();
+            });
+            
+            req.on('end', async () => {
+              try {
+                const { receiptUrl, filename, fileSize } = JSON.parse(body);
+                
+                if (!receiptUrl) {
+                  setCorsHeaders(res);
+                  sendJSON(res, 400, {
+                    success: false,
+                    message: 'Payment receipt URL is required'
+                  });
+                  return;
+                }
+                
+                // Update booking with payment receipt URL and metadata
+                console.log(`📸 Updating booking ${bookingId} with payment receipt`);
+                const [result] = await connection.execute(
+                  `UPDATE bookings SET 
+                     payment_receipt_url = ?, 
+                     payment_status = ?, 
+                     receipt_uploaded_at = NOW(),
+                     receipt_filename = ?,
+                     receipt_file_size = ?,
+                     updated_at = NOW() 
+                   WHERE id = ?`,
+                  [receiptUrl, 'paid', filename || null, fileSize || null, parseInt(bookingId)]
+                );
+                
+                if (result.affectedRows === 0) {
+                  setCorsHeaders(res);
+                  sendJSON(res, 404, {
+                    success: false,
+                    message: 'Booking not found'
+                  });
+                  return;
+                }
+                
+                // Create notification for payment receipt upload
+                try {
+                  await connection.execute(
+                    `INSERT INTO notifications (user_id, title, message, type, created_at) 
+                     VALUES ((SELECT user_id FROM bookings WHERE id = ?), ?, ?, ?, NOW())`,
+                    [
+                      parseInt(bookingId),
+                      'อัพโหลดใบเสร็จเรียบร้อย',
+                      `การจองหมายเลข #${bookingId} ได้รับการอัพโหลดใบเสร็จการชำระเงินเรียบร้อยแล้ว`,
+                      'payment_receipt_uploaded'
+                    ]
+                  );
+                } catch (notificationError) {
+                  console.log('⚠️ Could not create notification:', notificationError.message);
+                }
+                
+                setCorsHeaders(res);
+                sendJSON(res, 200, {
+                  success: true,
+                  message: 'อัพโหลดใบเสร็จเรียบร้อยแล้ว'
+                });
+                
+              } catch (error) {
+                console.error('❌ Error uploading payment receipt:', error);
+                setCorsHeaders(res);
+                sendJSON(res, 500, {
+                  success: false,
+                  message: 'เกิดข้อผิดพลาดในการอัพโหลดใบเสร็จ'
+                });
+              }
+            });
+            break;
+          }
+          
+          // Handle regular booking endpoints
           const bookingId = normalizedPathname.split('/').pop();
           
           if (req.method === 'GET') {
@@ -5703,6 +7244,7 @@ server.listen(PORT, () => {
   console.log('   PUT /api/bookings/{id}/status - Update booking status');
   console.log('   POST /api/bookings/check-in  - Check-in a confirmed booking');
   console.log('   POST /api/bookings/check-out - Check-out a checked-in booking');
+  console.log('   POST /api/bookings/{id}/payment-receipt - Upload payment receipt');
   console.log('   GET /api/bookings/checkin-history - Get check-in/check-out history');
   console.log('   GET /api/admin/bookings/detailed - Detailed bookings for admin');
   console.log('   PUT /api/admin/bookings/{id} - Update booking (admin)');
@@ -5723,6 +7265,8 @@ server.listen(PORT, () => {
   console.log('   GET /api/admin/users/{id}    - Get user by ID (admin)');
   console.log('   PUT /api/admin/users/{id}    - Update user (admin)');
   console.log('   DELETE /api/admin/users/{id} - Delete user (admin)');
+  console.log('   GET /api/admin/contact-settings - Get hotel contact settings');
+  console.log('   PUT /api/admin/contact-settings - Update hotel contact settings');
   console.log('   GET /api/notifications       - Get notifications list');
   console.log('   PUT /api/notifications       - Mark notification as read/unread');
   console.log('   POST /api/notifications      - Create new notification');
@@ -5923,11 +7467,12 @@ async function checkRoomAvailability(roomTypeId, checkInDate, checkOutDate) {
     const totalAvailableRooms = roomCountRows[0]?.totalRooms || 0;
     
     // Get conflicting bookings for this room type and date range
+    // เฉพาะการจองที่ชำระเงินแล้วเท่านั้นที่จะถือว่าจองจริง
     const query = `
       SELECT COUNT(*) as conflictCount
       FROM bookings 
       WHERE room_type_id = ? 
-      AND status IN ('confirmed', 'checked_in', 'pending')
+      AND status IN ('confirmed', 'checked_in')
       AND (
         (check_in_date <= ? AND check_out_date > ?) OR
         (check_in_date < ? AND check_out_date >= ?) OR
@@ -5944,9 +7489,9 @@ async function checkRoomAvailability(roomTypeId, checkInDate, checkOutDate) {
     
     const conflictCount = rows[0].conflictCount;
     
-    // ห้ามจองซ้ำในวันที่เดียวกันโดยสิ้นเชิง - ถ้ามีการจองอยู่แล้วให้ถือว่าไม่ว่าง
+    // คำนวณจำนวนห้องว่างจริง
     const availableRooms = Math.max(0, totalAvailableRooms - conflictCount);
-    const isAvailable = conflictCount === 0; // เปลี่ยนจาก availableRooms > 0 เป็น conflictCount === 0
+    const isAvailable = availableRooms > 0; // เปลี่ยนกลับเป็น availableRooms > 0
     
     console.log(`🔍 Room availability check:
       - Room type ID: ${roomTypeId}
@@ -5965,7 +7510,7 @@ async function checkRoomAvailability(roomTypeId, checkInDate, checkOutDate) {
         status
       FROM bookings 
       WHERE room_type_id = ? 
-      AND status IN ('confirmed', 'checked_in', 'pending')
+      AND status IN ('confirmed', 'checked_in')
       AND check_out_date >= CURDATE()
       ORDER BY check_in_date
     `;
@@ -6008,7 +7553,7 @@ async function checkRoomAvailabilityForModification(roomTypeId, checkInDate, che
       SELECT COUNT(*) as conflictCount
       FROM bookings 
       WHERE room_type_id = ? 
-      AND status IN ('confirmed', 'checked_in', 'pending')
+      AND status IN ('confirmed', 'checked_in')
       AND id != ?
       AND (
         (check_in_date <= ? AND check_out_date > ?) OR
@@ -6049,6 +7594,74 @@ async function checkRoomAvailabilityForModification(roomTypeId, checkInDate, che
   } catch (error) {
     console.error('Error checking room availability for modification:', error);
     throw error;
+  }
+}
+
+// Update booking status after payment
+async function confirmBookingPayment(bookingId, paymentData = {}) {
+  try {
+    console.log(`💳 Confirming payment for booking ID: ${bookingId}`);
+    
+    // Get booking details
+    const [bookingRows] = await connection.execute(`
+      SELECT * FROM bookings WHERE id = ? AND status = 'pending'
+    `, [bookingId]);
+    
+    if (bookingRows.length === 0) {
+      return { success: false, message: 'ไม่พบการจองที่รอการชำระเงิน' };
+    }
+    
+    const booking = bookingRows[0];
+    
+    // Check room availability again before confirming
+    const availability = await checkRoomAvailability(
+      booking.room_type_id, 
+      booking.check_in_date, 
+      booking.check_out_date
+    );
+    
+    if (!availability.isAvailable) {
+      // Cancel this booking due to room unavailability
+      await connection.execute(`
+        UPDATE bookings SET status = 'cancelled', updated_at = NOW() 
+        WHERE id = ?
+      `, [bookingId]);
+      
+      return { 
+        success: false, 
+        message: 'ห้องพักไม่ว่างแล้ว การจองถูกยกเลิก เงินจะถูกคืนให้' 
+      };
+    }
+    
+    // Update booking status to confirmed
+    const [result] = await connection.execute(`
+      UPDATE bookings 
+      SET status = 'confirmed', 
+          payment_status = 'paid',
+          payment_method = ?,
+          payment_date = NOW(),
+          updated_at = NOW()
+      WHERE id = ?
+    `, [paymentData.method || 'unknown', bookingId]);
+    
+    if (result.affectedRows > 0) {
+      console.log(`✅ Booking ${bookingId} confirmed after payment`);
+      
+      // Create notification
+      await createBookingNotification(booking);
+      
+      return { 
+        success: true, 
+        message: 'ยืนยันการชำระเงินเรียบร้อย ห้องพักได้รับการจองแล้ว',
+        bookingId: bookingId
+      };
+    } else {
+      return { success: false, message: 'ไม่สามารถยืนยันการชำระเงินได้' };
+    }
+    
+  } catch (error) {
+    console.error('❌ Error confirming booking payment:', error);
+    return { success: false, message: 'เกิดข้อผิดพลาดในการยืนยันการชำระเงิน' };
   }
 }
 

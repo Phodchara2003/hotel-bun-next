@@ -23,6 +23,14 @@ export default function BookingsPage() {
     roomName: '', 
     hotelName: '' 
   });
+  const [editDateModal, setEditDateModal] = useState({
+    isOpen: false,
+    bookingId: null,
+    currentCheckIn: '',
+    currentCheckOut: '',
+    newCheckIn: '',
+    newCheckOut: ''
+  });
 
   const fetchBookings = async () => {
     try {
@@ -88,6 +96,52 @@ export default function BookingsPage() {
 
   const openCancelModal = (bookingId, bookingRef, roomName, hotelName) => {
     setCancelModal({ isOpen: true, bookingId, bookingRef, roomName, hotelName });
+  };
+
+  const openEditDateModal = (booking) => {
+    const checkIn = booking.check_in_date || booking.checkInDate || booking.checkin_date;
+    const checkOut = booking.check_out_date || booking.checkOutDate || booking.checkout_date;
+    
+    setEditDateModal({
+      isOpen: true,
+      bookingId: booking.id,
+      currentCheckIn: checkIn ? new Date(checkIn).toISOString().split('T')[0] : '',
+      currentCheckOut: checkOut ? new Date(checkOut).toISOString().split('T')[0] : '',
+      newCheckIn: checkIn ? new Date(checkIn).toISOString().split('T')[0] : '',
+      newCheckOut: checkOut ? new Date(checkOut).toISOString().split('T')[0] : ''
+    });
+  };
+
+  const closeEditDateModal = () => {
+    setEditDateModal({
+      isOpen: false,
+      bookingId: null,
+      currentCheckIn: '',
+      currentCheckOut: '',
+      newCheckIn: '',
+      newCheckOut: ''
+    });
+  };
+
+  const handleUpdateDates = async () => {
+    try {
+      const response = await api.put(`/bookings/${editDateModal.bookingId}`, {
+        check_in_date: editDateModal.newCheckIn,
+        check_out_date: editDateModal.newCheckOut
+      });
+
+      if (response.data.success) {
+        toast.success('แก้ไขวันที่เข้าพักสำเร็จ');
+        fetchBookings(); // Refresh list
+        closeEditDateModal();
+      } else {
+        throw new Error(response.data.message || 'ไม่สามารถแก้ไขวันที่ได้');
+      }
+    } catch (error) {
+      console.error('Error updating dates:', error);
+      const message = error.response?.data?.message || error.message || 'ไม่สามารถแก้ไขวันที่ได้';
+      toast.error(message);
+    }
   };
 
   const closeCancelModal = () => {
@@ -279,9 +333,19 @@ export default function BookingsPage() {
                   {/* Booking Details */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex items-center text-sm text-gray-600 mb-1">
-                        <Calendar className="h-4 w-4 mr-1" />
-                        วันที่เข้าพัก
+                      <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
+                        <div className="flex items-center">
+                          <Calendar className="h-4 w-4 mr-1" />
+                          วันที่เข้าพัก
+                        </div>
+                        {canCancelBooking(booking) && booking.status === 'pending' && (
+                          <button
+                            onClick={() => openEditDateModal(booking)}
+                            className="text-blue-600 hover:text-blue-800 text-xs underline"
+                          >
+                            แก้ไข
+                          </button>
+                        )}
                       </div>
                       <div className="font-semibold text-gray-900">
                         {new Date(booking.check_in_date || booking.checkInDate || booking.checkin_date).toLocaleDateString('th-TH')}
@@ -307,15 +371,42 @@ export default function BookingsPage() {
                     </div>
                   </div>
 
-                  {/* Room & Price */}
+                  {/* Room Details & Assignment */}
+                  <div className="bg-blue-50 rounded-lg p-4 mb-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-gray-900">{booking.room_type_name || booking.roomTypeName}</div>
+                        <div className="text-sm text-gray-600">รหัสการจอง: {booking.booking_reference || booking.bookingReference}</div>
+                      </div>
+                      {(booking.room_number || booking.floor) && (
+                        <div className="bg-white rounded-lg p-3">
+                          <div className="flex items-center space-x-4">
+                            <div className="text-center">
+                              <div className="text-sm text-gray-600">หมายเลขห้อง</div>
+                              <div className="text-lg font-bold text-blue-600">
+                                {booking.room_number || 'กำลังจัดสรร'}
+                              </div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-sm text-gray-600">ชั้น</div>
+                              <div className="text-lg font-bold text-blue-600">
+                                {booking.floor ? `${booking.floor}` : 'กำลังจัดสรร'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Price */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="font-semibold text-gray-900">{booking.roomTypeName}</div>
-                      <div className="text-sm text-gray-600">รหัสการจอง: {booking.bookingReference}</div>
+                      <div className="text-sm text-gray-600">ราคารวม</div>
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-primary-600">
-                        ฿{booking.totalPrice.toLocaleString()}
+                        ฿{(booking.total_price || booking.totalPrice || 0).toLocaleString()}
                       </div>
                       <div className="text-sm text-gray-500">รวมทั้งหมด</div>
                     </div>
@@ -433,6 +524,70 @@ export default function BookingsPage() {
           cancelText="กลับ"
           type="danger"
         />
+
+        {/* Edit Date Modal */}
+        {editDateModal.isOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">แก้ไขวันที่เข้าพัก</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    วันที่เข้าพัก
+                  </label>
+                  <input
+                    type="date"
+                    value={editDateModal.newCheckIn}
+                    onChange={(e) => setEditDateModal(prev => ({ ...prev, newCheckIn: e.target.value }))}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    วันที่ออก
+                  </label>
+                  <input
+                    type="date"
+                    value={editDateModal.newCheckOut}
+                    onChange={(e) => setEditDateModal(prev => ({ ...prev, newCheckOut: e.target.value }))}
+                    min={editDateModal.newCheckIn || new Date().toISOString().split('T')[0]}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div className="bg-gray-50 p-3 rounded-lg text-sm">
+                  <div className="font-medium text-gray-700 mb-1">วันที่เดิม:</div>
+                  <div>เข้าพัก: {new Date(editDateModal.currentCheckIn).toLocaleDateString('th-TH')}</div>
+                  <div>ออก: {new Date(editDateModal.currentCheckOut).toLocaleDateString('th-TH')}</div>
+                </div>
+
+                <div className="bg-yellow-50 p-3 rounded-lg text-sm">
+                  <p className="text-yellow-800 font-medium">⚠️ หมายเหตุ:</p>
+                  <p className="text-yellow-700">สามารถแก้ไขวันที่ได้เฉพาะการจองที่ยังไม่ได้รับการยืนยันเท่านั้น</p>
+                </div>
+              </div>
+
+              <div className="flex space-x-3 mt-6">
+                <button
+                  onClick={closeEditDateModal}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  onClick={handleUpdateDates}
+                  disabled={!editDateModal.newCheckIn || !editDateModal.newCheckOut}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                >
+                  บันทึก
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
