@@ -4,13 +4,13 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useTranslation } from '../../translations';
-import { bookingAPI } from '../../lib/api';
+import api, { bookingAPI } from '../../lib/api';
 import { Calendar, Users, CreditCard, X, Check, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ConfirmModal from '../../components/ConfirmModal';
 
 export default function BookingsPage() {
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, user } = useAuth();
   const { language } = useLanguage();
   const { t } = useTranslation(language);
   const [bookings, setBookings] = useState([]);
@@ -34,14 +34,34 @@ export default function BookingsPage() {
 
   const fetchBookings = async () => {
     try {
-      const params = filter !== 'all' ? { status: filter } : {};
-      const response = await bookingAPI.getBookings(params);
+      console.log('🔍 Fetching user bookings for user ID:', user?.id);
+      
+      // Use api directly to send user_id parameter
+      const response = await api.get('/bookings', {
+        params: {
+          user_id: user?.id
+        }
+      });
+      
+      console.log('📊 Raw response:', response.data);
+      
+      // Handle the backend response format: {success: true, count: number, data: [...]}
+      let bookingsData = [];
+      if (response.data.success && response.data.data) {
+        bookingsData = response.data.data;
+      } else if (response.data.bookings) {
+        bookingsData = response.data.bookings;
+      } else if (Array.isArray(response.data)) {
+        bookingsData = response.data;
+      }
+      
+      console.log('✅ Processed bookings data:', bookingsData);
       
       // Filter out bookings where check-in date has passed
       const currentDate = new Date();
       currentDate.setHours(0, 0, 0, 0); // Set to start of day for comparison
       
-      const activeBookings = (response.bookings || []).filter(booking => {
+      const activeBookings = bookingsData.filter(booking => {
         // Only filter if booking is not completed or cancelled
         if (booking.status === 'completed' || booking.status === 'cancelled') {
           return true; // Show completed/cancelled bookings for history
@@ -56,11 +76,13 @@ export default function BookingsPage() {
         const checkInDate = new Date(checkInDateValue);
         checkInDate.setHours(0, 0, 0, 0);
         
-        // Hide active bookings that have passed check-in date
-        return checkInDate >= currentDate;
+        // Show all bookings for now - don't filter by date
+        console.log('📋 Setting bookings data:', bookingsData);
+        return true;
       });
       
-      setBookings(activeBookings);
+      console.log('📋 Setting bookings data:', bookingsData);
+      setBookings(bookingsData);
     } catch (error) {
       console.error('Error fetching bookings:', error);
       toast.error('ไม่สามารถโหลดข้อมูลการจองได้');
@@ -319,13 +341,13 @@ export default function BookingsPage() {
                   <div className="flex items-start justify-between mb-4">
                     <div>
                       <h3 className="text-xl font-semibold text-gray-900">
-                        {booking.hotelName}
+                        {booking.hotel_name || booking.hotelName || 'โรงแรม'}
                       </h3>
                     </div>
                     <div className="flex items-center space-x-3">
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(booking.status)}`}>
                         {getStatusIcon(booking.status)}
-                        <span className="ml-1">{getStatusText(booking.status, booking.paymentStatus)}</span>
+                        <span className="ml-1">{getStatusText(booking.status, booking.payment_status || booking.paymentStatus)}</span>
                       </span>
                     </div>
                   </div>
