@@ -359,10 +359,8 @@ export const hotelAPI = {
       console.log('🔍 Searching rooms with params:', searchParams);
       const response = await api.get('/rooms/search', { params: searchParams });
       console.log('✅ Room search results:', response.data);
-      return {
-        success: true,
-        data: response.data
-      };
+      // Return backend response directly
+      return response.data;
     } catch (error) {
       console.error('❌ Error searching rooms:', error);
       return {
@@ -578,6 +576,28 @@ export const bookingAPI = {
     return response.data;
   },
 
+  // Check specific room type availability
+  checkRoomTypeAvailability: async (roomTypeId, checkIn, checkOut) => {
+    try {
+      console.log('🔍 Checking room type availability:', { roomTypeId, checkIn, checkOut });
+      const response = await api.get('/rooms/availability', {
+        params: { 
+          room_type_id: roomTypeId,
+          check_in: checkIn,
+          check_out: checkOut
+        }
+      });
+      console.log('✅ Room type availability result:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error checking room type availability:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  },
+
   // Upload payment receipt
   uploadPaymentReceipt: async (bookingId, base64Image, filename = null, fileSize = null) => {
     try {
@@ -669,11 +689,10 @@ export const roomsAPI = {
         size_sqm: roomData.size ? parseInt(roomData.size) : null,
         type: roomData.type || 'standard',
         bed_type: roomData.bed_type || 'single', // Include bed_type
-        floor: roomData.floor || '1', // Include floor field (added to room_types table)
         amenities: Array.isArray(roomData.amenities) ? roomData.amenities : (roomData.amenities ? [roomData.amenities] : []),
         // Only include images if explicitly provided AND not empty, otherwise let backend preserve existing images
         ...(roomData.images !== undefined && Array.isArray(roomData.images) && roomData.images.length > 0 && { images: roomData.images })
-        // Note: Fields like status, view_type are NOT in room_types table and will be ignored
+        // Note: Fields like status, view_type, floor are NOT in room_types table and will be ignored
       };
 
       console.log('🔧 API: Updating room ID:', id);
@@ -1231,30 +1250,6 @@ export const hotelsAPI = {
   // Get hotel by ID
   getHotel: async (id) => {
     const response = await api.get(`/hotels/${id}`);
-    return response.data;
-  },
-
-  // Create hotel (Admin)
-  createHotel: async (hotelData) => {
-    const response = await api.post('/admin/hotels', hotelData);
-    return response.data;
-  },
-
-  // Update hotel (Admin)
-  updateHotel: async (id, hotelData) => {
-    const response = await api.put(`/admin/hotels/${id}`, hotelData);
-    return response.data;
-  },
-
-  // Delete hotel (Admin)
-  deleteHotel: async (id) => {
-    const response = await api.delete(`/admin/hotels/${id}`);
-    return response.data;
-  },
-
-  // Get hotel statistics (Admin)
-  getHotelStats: async (params = {}) => {
-    const response = await api.get('/admin/hotels/stats', { params });
     return response.data;
   }
 };

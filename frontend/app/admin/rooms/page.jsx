@@ -18,7 +18,7 @@ import {
   Hotel,
   Users,
   Bed,
-  MapPin,
+
   Wifi,
   Star,
   FileText,
@@ -80,7 +80,6 @@ export default function RoomsManagement() {
   const [showSubRoomModal, setShowSubRoomModal] = useState(false);
   const [subRoomFormData, setSubRoomFormData] = useState({
     room_number: '',
-    floor: '',
     available: true,
     status: 'available',
     guest_name: '',
@@ -96,7 +95,6 @@ export default function RoomsManagement() {
   const [editingIndividualRoom, setEditingIndividualRoom] = useState(null);
   const [individualRoomFormData, setIndividualRoomFormData] = useState({
     room_number: '',
-    floor: '',
     status: 'available',
     guest_name: '',
     booking_id: '',
@@ -124,7 +122,6 @@ export default function RoomsManagement() {
   // Form state
   const [formData, setFormData] = useState({
     name: '',
-    floor: '',
     capacity: '',
     price: '',
     description: '',
@@ -143,10 +140,7 @@ export default function RoomsManagement() {
 
   const bedTypes = [
     { value: 'single', label: 'เตียงเดี่ยว' },
-    { value: 'double', label: 'เตียงคู่' },
-    { value: 'queen', label: 'เตียงควีน' },
-    { value: 'king', label: 'เตียงคิง' },
-    { value: 'twin', label: 'เตียงแฝด' }
+    { value: 'double', label: 'เตียงคู่' }
   ];
 
   // Helper function to get bed type label
@@ -155,7 +149,7 @@ export default function RoomsManagement() {
     return bedTypeObj ? bedTypeObj.label : bedType;
   };
 
-  const amenitiesOptions = [
+  const [amenitiesOptions, setAmenitiesOptions] = useState([
     'WiFi ฟรี',
     'เครื่องปรับอากาศ',
     'โทรทัศน์',
@@ -170,7 +164,68 @@ export default function RoomsManagement() {
     'เครื่องใช้ในห้องน้ำ',
     'รูมเซอร์วิส',
     'ที่นั่งพักผ่อน'
-  ];
+  ]);
+
+  // States for managing amenities
+  const [newAmenity, setNewAmenity] = useState('');
+  const [editingAmenity, setEditingAmenity] = useState(null);
+  const [editAmenityValue, setEditAmenityValue] = useState('');
+
+  // Add new amenity
+  const handleAddAmenity = () => {
+    if (newAmenity.trim() && !amenitiesOptions.includes(newAmenity.trim())) {
+      setAmenitiesOptions([...amenitiesOptions, newAmenity.trim()]);
+      setNewAmenity('');
+      toast.success('เพิ่มสิ่งอำนวยความสะดวกใหม่สำเร็จ');
+    } else if (amenitiesOptions.includes(newAmenity.trim())) {
+      toast.error('สิ่งอำนวยความสะดวกนี้มีอยู่แล้ว');
+    }
+  };
+
+  // Delete amenity
+  const handleDeleteAmenity = (amenityToDelete) => {
+    setAmenitiesOptions(amenitiesOptions.filter(amenity => amenity !== amenityToDelete));
+    // Remove from form data if selected
+    setFormData(prev => ({
+      ...prev,
+      amenities: prev.amenities.filter(amenity => amenity !== amenityToDelete)
+    }));
+    toast.success('ลบสิ่งอำนวยความสะดวกสำเร็จ');
+  };
+
+  // Start editing amenity
+  const handleStartEditAmenity = (amenity) => {
+    setEditingAmenity(amenity);
+    setEditAmenityValue(amenity);
+  };
+
+  // Save edited amenity
+  const handleSaveEditAmenity = () => {
+    if (editAmenityValue.trim() && editAmenityValue.trim() !== editingAmenity) {
+      const updatedOptions = amenitiesOptions.map(amenity => 
+        amenity === editingAmenity ? editAmenityValue.trim() : amenity
+      );
+      setAmenitiesOptions(updatedOptions);
+      
+      // Update form data if the edited amenity was selected
+      setFormData(prev => ({
+        ...prev,
+        amenities: prev.amenities.map(amenity => 
+          amenity === editingAmenity ? editAmenityValue.trim() : amenity
+        )
+      }));
+      
+      toast.success('แก้ไขสิ่งอำนวยความสะดวกสำเร็จ');
+    }
+    setEditingAmenity(null);
+    setEditAmenityValue('');
+  };
+
+  // Cancel editing amenity
+  const handleCancelEditAmenity = () => {
+    setEditingAmenity(null);
+    setEditAmenityValue('');
+  };
 
   useEffect(() => {
     setIsVisible(true);
@@ -196,8 +251,19 @@ export default function RoomsManagement() {
       console.log('✅ Rooms API response:', response);
       
       if (response.data && Array.isArray(response.data)) {
-        console.log('� Room count:', response.data.length);
-        console.log('�🔧 Sample room data from API:', response.data[0]);
+        console.log('🏠 Room count:', response.data.length);
+        console.log('🔧 Sample room data from API:', response.data[0]);
+        
+        // Debug sub_rooms data
+        response.data.forEach((room, index) => {
+          console.log(`🏠 Room ${index + 1}: ${room.name}`);
+          console.log(`   - sub_rooms exists: ${!!room.sub_rooms}`);
+          console.log(`   - sub_rooms length: ${room.sub_rooms ? room.sub_rooms.length : 0}`);
+          if (room.sub_rooms && room.sub_rooms.length > 0) {
+            console.log(`   - First sub-room:`, room.sub_rooms[0]);
+          }
+        });
+        
         setRooms(response.data);
         calculateStats(response.data);
         setLastUpdated(new Date());
@@ -288,12 +354,55 @@ export default function RoomsManagement() {
     }
   };
 
+  // ฟังก์ชันเปลี่ยนประเภทเตียง
+  const handleChangeBedType = async (roomId, newBedType) => {
+    try {
+      const bedTypeLabels = {
+        single: 'เตียงเดี่ยว',
+        double: 'เตียงคู่'
+      };
+      
+      const bedTypeLabel = bedTypeLabels[newBedType] || newBedType;
+      const confirmMessage = `ต้องการเปลี่ยนประเภทเตียงเป็น ${bedTypeLabel} ใช่หรือไม่?`;
+      
+      if (!confirm(confirmMessage)) {
+        // ถ้าผู้ใช้ยกเลิก ให้รีเฟรชข้อมูลเพื่อคืนค่าเดิม
+        fetchIndividualRooms();
+        return;
+      }
+
+      const response = await fetch(`http://localhost:3001/api/admin/individual-rooms/${roomId}/bed-type`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ bed_type: newBedType }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(`เปลี่ยนประเภทเตียงเป็น${bedTypeLabel}สำเร็จ`);
+        fetchIndividualRooms();
+      } else {
+        toast.error(data.message || 'เกิดข้อผิดพลาดในการเปลี่ยนประเภทเตียง');
+        // รีเฟรชข้อมูลเพื่อคืนค่าเดิม
+        fetchIndividualRooms();
+      }
+    } catch (error) {
+      console.error('Error updating bed type:', error);
+      toast.error('เกิดข้อผิดพลาดในการเปลี่ยนประเภทเตียง');
+      // รีเฟรชข้อมูลเพื่อคืนค่าเดิม
+      fetchIndividualRooms();
+    }
+  };
+
   // Individual Room Modal Functions
   const openIndividualRoomModal = (room) => {
     setEditingIndividualRoom(room);
     setIndividualRoomFormData({
       room_number: room.room_number || '',
-      floor: room.floor || '',
+
       status: room.status || 'available',
       guest_name: room.guest_name || '',
       booking_id: room.booking_id || '',
@@ -310,7 +419,6 @@ export default function RoomsManagement() {
     setEditingIndividualRoom(null);
     setIndividualRoomFormData({
       room_number: '',
-      floor: '',
       status: 'available',
       guest_name: '',
       booking_id: '',
@@ -453,7 +561,6 @@ export default function RoomsManagement() {
       const mappedFormData = {
         name: room.name || '',
         bed_type: room.bed_type || 'single', // Map bed_type field
-        floor: room.floor || '1', // Default floor if not available
         capacity: room.max_guests || room.capacity || 2, // Map max_guests to capacity
         price: room.price_per_night || room.price || 1500, // Map price_per_night to price
         description: room.description || '',
@@ -497,7 +604,7 @@ export default function RoomsManagement() {
       console.log('  - max_guests ➜ capacity:', room.max_guests, '➜', mappedFormData.capacity);
       console.log('  - price_per_night ➜ price:', room.price_per_night, '➜', mappedFormData.price);
       console.log('  - Generated defaults:');
-      console.log('    - floor:', mappedFormData.floor);
+
       console.log('    - status:', mappedFormData.status);
       console.log('    - bed_type:', mappedFormData.bed_type);
       console.log('    - view_type:', mappedFormData.view_type);
@@ -508,7 +615,6 @@ export default function RoomsManagement() {
       // Reset form for new room
       const emptyFormData = {
         name: '',
-        floor: '1',
         capacity: 2,
         price: 1500,
         description: '',
@@ -530,7 +636,6 @@ export default function RoomsManagement() {
     setUploadingImages(false);
     setFormData({
       name: '',
-      floor: '',
       capacity: '',
       price: '',
       description: '',
@@ -786,7 +891,6 @@ export default function RoomsManagement() {
     setEditingSubRoom({ ...subRoom, parentRoomId: roomId });
     setSubRoomFormData({
       room_number: subRoom.room_number || '',
-      floor: subRoom.floor || '',
       available: subRoom.available !== false,
       status: subRoom.status || 'available',
       guest_name: subRoom.guest_name || '',
@@ -801,7 +905,6 @@ export default function RoomsManagement() {
     setEditingSubRoom(null);
     setSubRoomFormData({
       room_number: '',
-      floor: '',
       available: true,
       status: 'available',
       guest_name: '',
@@ -1133,13 +1236,7 @@ export default function RoomsManagement() {
                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                 รีเฟรช
               </button>
-              <button
-                onClick={() => setShowIndividualRooms(!showIndividualRooms)}
-                className="btn-secondary flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:from-emerald-600 hover:to-green-700 shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                <MapPin className="h-4 w-4" />
-                {showIndividualRooms ? 'ซ่อนจัดการห้องแต่ละห้อง' : 'จัดการห้องแต่ละห้อง'}
-              </button>
+
               <button
                 onClick={() => openModal('add')}
                 className="btn-primary flex items-center gap-2"
@@ -1227,161 +1324,7 @@ export default function RoomsManagement() {
           </div>
         </div>
 
-        {/* Individual Rooms Management */}
-        {showIndividualRooms && (
-          <div className={`bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-neutral-200 dark:border-neutral-700 p-6 mb-8 transform transition-all duration-700 delay-300 ease-out ${
-            isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
-          }`}>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-500 to-green-600 bg-clip-text text-transparent flex items-center">
-                <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-green-600 rounded-lg flex items-center justify-center mr-3">
-                  <MapPin className="h-5 w-5 text-white" />
-                </div>
-                จัดการห้องพักแต่ละห้อง
-              </h2>
-              <button
-                onClick={() => fetchIndividualRooms()}
-                disabled={individualRoomsLoading}
-                className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-              >
-                <RefreshCw className={`h-4 w-4 ${individualRoomsLoading ? 'animate-spin' : ''}`} />
-                รีเฟรช
-              </button>
-            </div>
 
-            {individualRoomsLoading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-600 dark:text-gray-400">กำลังโหลดข้อมูล...</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto rounded-lg shadow-inner">
-                <table className="min-w-full divide-y divide-neutral-200 dark:divide-neutral-700">
-                  <thead className="bg-gradient-to-r from-emerald-500 to-green-600">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                        ห้อง
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                        ประเภท
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                        สถานะ
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                        ผู้เข้าพัก
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                        การจอง
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                        จัดการ
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-neutral-800 divide-y divide-neutral-200 dark:divide-neutral-700">
-                    {individualRooms.map((room, index) => (
-                      <tr key={room.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-750 transition-colors duration-200">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <Bed className="w-5 h-5 text-neutral-400 mr-3" />
-                            <div>
-                              <div className="text-sm font-medium text-neutral-900 dark:text-white">
-                                ห้อง {room.room_number}
-                              </div>
-                              <div className="text-sm text-neutral-500 dark:text-neutral-400">
-                                <MapPin className="w-3 h-3 inline mr-1" />
-                                ชั้น {room.floor}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-neutral-900 dark:text-white">{room.room_type_name}</div>
-                          <div className="text-sm text-neutral-500 dark:text-neutral-400">
-                            {room.bed_type === 'single' ? 'เตียงเดี่ยว' : 'เตียงคู่'} •{' '}
-                            <Users className="w-3 h-3 inline mr-1" />
-                            {room.max_guests} คน
-                          </div>
-                          <div className="text-sm text-neutral-500 dark:text-neutral-400">
-                            <DollarSign className="w-3 h-3 inline mr-1" />
-                            {room.price_per_night?.toLocaleString()} บาท/คืน
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            {getIndividualRoomStatusIcon(room.status)}
-                            <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${getIndividualRoomStatusColor(room.status)}`}>
-                              {getIndividualRoomStatusText(room.status)}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {room.guest_name ? (
-                            <div className="text-sm text-neutral-900 dark:text-white">{room.guest_name}</div>
-                          ) : (
-                            <span className="text-sm text-neutral-500 dark:text-neutral-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {room.booking_id ? (
-                            <div className="text-xs">
-                              <div className="text-neutral-900 dark:text-white">#{room.booking_id}</div>
-                              <div className="text-neutral-500 dark:text-neutral-400">
-                                {room.check_in_date} - {room.check_out_date}
-                              </div>
-                              <div className={`inline-block px-2 py-1 rounded-full text-xs ${
-                                room.booking_status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-                                room.booking_status === 'checked_in' ? 'bg-green-100 text-green-800' :
-                                'bg-neutral-100 text-neutral-800'
-                              }`}>
-                                {room.booking_status === 'confirmed' ? 'ยืนยันแล้ว' :
-                                 room.booking_status === 'checked_in' ? 'เช็คอินแล้ว' :
-                                 room.booking_status}
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-sm text-neutral-500 dark:text-neutral-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => openIndividualRoomModal(room)}
-                              className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded text-xs font-medium transition-colors"
-                              title="แก้ไขข้อมูลห้อง"
-                            >
-                              <Edit className="h-3 w-3" />
-                              แก้ไข
-                            </button>
-                            <select
-                              value={room.status}
-                              onChange={(e) => handleIndividualRoomStatusChange(room.id, e.target.value)}
-                              className="text-xs border border-neutral-300 dark:border-neutral-600 rounded px-2 py-1 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white"
-                              disabled={room.status === 'occupied' && room.booking_id}
-                            >
-                              <option value="available">ว่าง</option>
-                              <option value="maintenance">ซ่อมบำรุง</option>
-                              <option value="reserved">จองแล้ว</option>
-                              {room.booking_id && <option value="occupied">มีผู้เข้าพัก</option>}
-                            </select>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                
-                {individualRooms.length === 0 && (
-                  <div className="text-center py-12">
-                    <Bed className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
-                    <p className="text-neutral-500 dark:text-neutral-400">ไม่มีข้อมูลห้องพัก</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Filters */}
         <div className={`bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-neutral-200 dark:border-neutral-700 p-6 mb-8 transform transition-all duration-700 delay-300 ease-out ${
@@ -1519,6 +1462,24 @@ export default function RoomsManagement() {
                               สำหรับ {room.max_occupancy} คน
                             </span>
                             <span className="flex items-center gap-1">
+                              <Bed className="h-4 w-4" />
+                              {getBedTypeLabel(room.bed_type || 'double')}
+                              <select
+                                value={room.bed_type || 'double'}
+                                onChange={(e) => handleChangeBedType(room.id, e.target.value)}
+                                disabled={room.total_bookings > 0}
+                                className={`ml-2 px-2 py-1 text-xs border rounded transition-colors ${
+                                  room.total_bookings > 0
+                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200'
+                                    : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'
+                                }`}
+                                title={room.total_bookings > 0 ? 'ไม่สามารถเปลี่ยนประเภทเตียงได้เนื่องจากมีการจองอยู่' : 'เลือกประเภทเตียง'}
+                              >
+                                <option value="single">เตียงเดี่ยว</option>
+                                <option value="double">เตียงคู่</option>
+                              </select>
+                            </span>
+                            <span className="flex items-center gap-1">
                               <DollarSign className="h-4 w-4" />
                               {formatPrice(room.price_per_night)}/คืน
                             </span>
@@ -1526,7 +1487,7 @@ export default function RoomsManagement() {
                               {room.sub_rooms && (
                                 <>
                                   <Hotel className="h-4 w-4" />
-                                  {room.sub_rooms.filter(sr => sr.available).length}/{room.sub_rooms.length} ห้องพร้อมใช้
+                                  {room.sub_rooms.filter(sr => sr.status === 'available').length}/{room.sub_rooms.length} ห้องพร้อมใช้
                                 </>
                               )}
                             </span>
@@ -1534,17 +1495,45 @@ export default function RoomsManagement() {
                         </div>
                       </div>
                       
+                      {/* Room Statistics */}
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className="flex items-center gap-2 text-sm text-neutral-600">
+                          <Hotel className="h-4 w-4" />
+                          <span>ทั้งหมด: {room.total_rooms || 0} ห้อง</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-green-600">
+                          <CheckCircle className="h-4 w-4" />
+                          <span>ว่าง: {room.available_rooms || 0} ห้อง</span>
+                        </div>
+                        {room.occupied_rooms > 0 && (
+                          <div className="flex items-center gap-2 text-sm text-red-600">
+                            <XCircle className="h-4 w-4" />
+                            <span>จอง: {room.occupied_rooms} ห้อง</span>
+                          </div>
+                        )}
+                      </div>
+
                       {/* Action Buttons */}
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => toggleSubRooms(room.id)}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-medium ${
                             showSubRooms[room.id] 
-                              ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' 
-                              : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                              ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md' 
+                              : 'bg-green-100 text-green-700 hover:bg-green-200 border border-green-300'
                           }`}
                         >
-                          {showSubRooms[room.id] ? 'ซ่อนห้อง' : 'แสดงห้อง'}
+                          {showSubRooms[room.id] ? (
+                            <>
+                              <Eye className="h-4 w-4" />
+                              ซ่อนห้อง
+                            </>
+                          ) : (
+                            <>
+                              <Hotel className="h-4 w-4" />
+                              แสดงห้อง ({room.total_rooms || 0})
+                            </>
+                          )}
                         </button>
                         <button
                           onClick={() => openModal('edit', room)}
@@ -1558,72 +1547,129 @@ export default function RoomsManagement() {
                   </div>
 
                   {/* Sub Rooms List */}
-                  {showSubRooms[room.id] && room.sub_rooms && (
+                  {showSubRooms[room.id] && room.sub_rooms && room.sub_rooms.length > 0 && (
                     <div className="p-6 pt-0">
                       <div className="mt-4">
-                        <h4 className="text-lg font-semibold text-neutral-800 dark:text-neutral-200 mb-4">
-                          ห้องพักย่อย ({room.sub_rooms.length} ห้อง)
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-lg font-semibold text-neutral-800 dark:text-neutral-200">
+                            ห้องพักย่อย ({room.sub_rooms.length} ห้อง)
+                          </h4>
+                          <div className="flex items-center gap-4 text-sm">
+                            <span className="text-green-600 font-medium">
+                              ว่าง: {room.sub_rooms.filter(r => r.status === 'available').length}
+                            </span>
+                            <span className="text-red-600 font-medium">
+                              จอง: {room.sub_rooms.filter(r => r.active_bookings > 0).length}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                           {room.sub_rooms.map((subRoom) => (
                             <div
                               key={subRoom.id}
-                              className={`p-4 rounded-lg border-2 transition-all ${
-                                subRoom.available 
-                                  ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20' 
-                                  : 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20'
+                              className={`p-4 rounded-lg border-2 transition-all hover:shadow-md ${
+                                subRoom.status === 'available' && subRoom.active_bookings === 0
+                                  ? 'border-green-200 bg-green-50 hover:bg-green-100 dark:border-green-800 dark:bg-green-900/20' 
+                                  : subRoom.active_bookings > 0
+                                  ? 'border-orange-200 bg-orange-50 hover:bg-orange-100 dark:border-orange-800 dark:bg-orange-900/20'
+                                  : 'border-red-200 bg-red-50 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/20'
                               }`}
                             >
                               <div className="flex items-center justify-between mb-3">
-                                <h5 className="font-semibold text-neutral-800 dark:text-neutral-200">
+                                <h5 className="font-semibold text-neutral-800 dark:text-neutral-200 text-lg">
                                   ห้อง {subRoom.room_number}
                                 </h5>
-                                {subRoom.has_booking && (
-                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300">
-                                    📅 มีการจอง
-                                  </span>
+                                <div className="flex items-center gap-2">
+                                  {subRoom.active_bookings > 0 ? (
+                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300">
+                                      <Calendar className="h-3 w-3 mr-1" />
+                                      จอง
+                                    </span>
+                                  ) : subRoom.status === 'available' ? (
+                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      ว่าง
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">
+                                      <XCircle className="h-3 w-3 mr-1" />
+                                      ไม่ว่าง
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-2 text-sm">
+                                
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Bed className="h-4 w-4 text-neutral-500" />
+                                    <span className="text-neutral-600 dark:text-neutral-400 text-xs">
+                                      ประเภทเตียง:
+                                    </span>
+                                  </div>
+                                  {/* Dropdown เปลี่ยนประเภทเตียง */}
+                                  <select
+                                    value={(subRoom.individual_bed_type || subRoom.bed_type) || 'double'}
+                                    onChange={(e) => handleChangeBedType(subRoom.id, e.target.value)}
+                                    className="text-xs border border-neutral-300 dark:border-neutral-600 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white min-w-[90px]"
+                                    disabled={subRoom.active_bookings > 0}
+                                    title={subRoom.active_bookings > 0 ? 'ไม่สามารถเปลี่ยนได้เนื่องจากมีการจอง' : 'เลือกประเภทเตียง'}
+                                  >
+                                    <option value="single">เตียงเดี่ยว</option>
+                                    <option value="double">เตียงคู่</option>
+                                  </select>
+                                </div>
+                                
+                                {subRoom.active_bookings > 0 && (
+                                  <div className="flex items-center gap-2 text-orange-600">
+                                    <Users className="h-4 w-4" />
+                                    <span className="font-medium">
+                                      การจอง: {subRoom.active_bookings} รายการ
+                                    </span>
+                                  </div>
                                 )}
                               </div>
                               
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <span className={`text-sm font-medium ${
-                                    subRoom.available ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'
-                                  }`}>
-                                    {subRoom.available ? '✓ พร้อมใช้' : '✗ ปิดใช้งาน'}
-                                  </span>
-                                  
-                                  <button
-                                    onClick={() => updateSubRoomStatus(room.id, subRoom.id, 'available', !subRoom.available)}
-                                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                                      subRoom.available
-                                        ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                                        : 'bg-green-100 text-green-700 hover:bg-green-200'
-                                    }`}
+                              {/* Management Actions */}
+                              <div className="mt-4 pt-3 border-t border-neutral-200 dark:border-neutral-600">
+                                <div className="flex items-center justify-between gap-2">
+                                  <select
+                                    value={subRoom.status}
+                                    onChange={(e) => handleIndividualRoomStatusChange(subRoom.id, e.target.value)}
+                                    className="flex-1 text-xs border border-neutral-300 dark:border-neutral-600 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white"
+                                    disabled={subRoom.status === 'occupied' && subRoom.active_bookings > 0}
                                   >
-                                    {subRoom.available ? 'ปิดใช้' : 'เปิดใช้'}
-                                  </button>
-                                </div>
-                                
-                                <div className="flex items-center gap-2">
+                                    <option value="available">ว่าง</option>
+                                    <option value="maintenance">ซ่อมบำรุง</option>
+                                    <option value="reserved">จองแล้ว</option>
+                                    {subRoom.active_bookings > 0 && <option value="occupied">มีผู้เข้าพัก</option>}
+                                  </select>
                                   <button
-                                    onClick={() => openSubRoomModal(subRoom, room.id)}
-                                    className="flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded text-xs font-medium transition-colors"
+                                    onClick={() => openIndividualRoomModal(subRoom)}
+                                    className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded text-xs font-medium transition-colors"
+                                    title="แก้ไขข้อมูลห้อง"
                                   >
                                     <Edit className="h-3 w-3" />
                                     แก้ไข
                                   </button>
-                                  
-                                  {subRoom.guest_name && (
-                                    <span className="text-xs text-neutral-600 dark:text-neutral-400">
-                                      ผู้เข้าพัก: {subRoom.guest_name}
-                                    </span>
-                                  )}
                                 </div>
                               </div>
                             </div>
                           ))}
                         </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* No Sub Rooms Message */}
+                  {showSubRooms[room.id] && (!room.sub_rooms || room.sub_rooms.length === 0) && (
+                    <div className="p-6 pt-0">
+                      <div className="text-center py-8 text-neutral-500 dark:text-neutral-400">
+                        <Hotel className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                        <p className="text-lg font-medium mb-1">ไม่มีห้องย่อย</p>
+                        <p className="text-sm">ยังไม่มีห้องพักย่อยสำหรับประเภทห้องนี้</p>
                       </div>
                     </div>
                   )}
@@ -1811,19 +1857,6 @@ export default function RoomsManagement() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                        ชั้น
-                      </label>
-                      <input
-                        type="number"
-                        name="floor"
-                        value={formData.floor}
-                        onChange={handleInputChange}
-                        className="input-field"
-                        placeholder="1"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                         ความจุ (คน)
                       </label>
                       <input
@@ -1899,17 +1932,103 @@ export default function RoomsManagement() {
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                       สิ่งอำนวยความสะดวก
                     </label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    
+                    {/* Add New Amenity */}
+                    <div className="mb-4 p-3 bg-neutral-50 dark:bg-neutral-700 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={newAmenity}
+                          onChange={(e) => setNewAmenity(e.target.value)}
+                          placeholder="เพิ่มสิ่งอำนวยความสะดวกใหม่..."
+                          className="flex-1 input-field text-sm"
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddAmenity();
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddAmenity}
+                          className="px-3 py-1 bg-primary-600 text-white rounded-md hover:bg-primary-700 text-sm flex items-center gap-1"
+                        >
+                          <Plus className="h-3 w-3" />
+                          เพิ่ม
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Amenities List with Edit/Delete */}
+                    <div className="grid grid-cols-1 gap-3 max-h-60 overflow-y-auto">
                       {amenitiesOptions.map((amenity) => (
-                        <label key={amenity} className="flex items-center space-x-2 cursor-pointer">
+                        <div key={amenity} className="flex items-center gap-2 p-2 border border-neutral-200 dark:border-neutral-600 rounded-lg">
                           <input
                             type="checkbox"
                             checked={formData.amenities.includes(amenity)}
                             onChange={() => handleAmenityToggle(amenity)}
                             className="rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
                           />
-                          <span className="text-sm text-neutral-700 dark:text-neutral-300">{amenity}</span>
-                        </label>
+                          
+                          {editingAmenity === amenity ? (
+                            <div className="flex-1 flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={editAmenityValue}
+                                onChange={(e) => setEditAmenityValue(e.target.value)}
+                                className="flex-1 input-field text-sm"
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleSaveEditAmenity();
+                                  } else if (e.key === 'Escape') {
+                                    handleCancelEditAmenity();
+                                  }
+                                }}
+                                autoFocus
+                              />
+                              <button
+                                type="button"
+                                onClick={handleSaveEditAmenity}
+                                className="p-1 text-green-600 hover:text-green-800"
+                                title="บันทึก"
+                              >
+                                <Save className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCancelEditAmenity}
+                                className="p-1 text-gray-600 hover:text-gray-800"
+                                title="ยกเลิก"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex-1 flex items-center justify-between">
+                              <span className="text-sm text-neutral-700 dark:text-neutral-300">{amenity}</span>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditAmenity(amenity)}
+                                  className="p-1 text-blue-600 hover:text-blue-800"
+                                  title="แก้ไข"
+                                >
+                                  <Edit className="h-3 w-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteAmenity(amenity)}
+                                  className="p-1 text-red-600 hover:text-red-800"
+                                  title="ลบ"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -2208,20 +2327,6 @@ export default function RoomsManagement() {
                   
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      ชั้น
-                    </label>
-                    <input
-                      type="number"
-                      name="floor"
-                      value={subRoomFormData.floor}
-                      onChange={handleSubRoomInputChange}
-                      className="input-field"
-                      placeholder="1"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                       สถานะ
                     </label>
                     <select
@@ -2365,20 +2470,6 @@ export default function RoomsManagement() {
                     />
                   </div>
                   
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      ชั้น
-                    </label>
-                    <input
-                      type="number"
-                      name="floor"
-                      value={individualRoomFormData.floor}
-                      onChange={handleIndividualRoomInputChange}
-                      className="input-field"
-                      placeholder="5"
-                    />
-                  </div>
-
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                       สถานะห้อง

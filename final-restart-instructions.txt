@@ -1,0 +1,22 @@
+🔄 รีสตาร์ทเซิร์ฟเวอร์เพื่อใช้การแก้ไขใหม่
+========================================
+
+1. 🛑 หยุดเซิร์ฟเวอร์ปัจจุบัน (Ctrl+C)
+
+2. 🚀 เริ่มเซิร์ฟเวอร์ใหม่:
+   node backend/mysql-server.cjs
+
+3. 🔍 ดู debug logs ที่ควรจะเห็น:
+   ✅ Found X bookings from database
+   🔍 Raw data before processing: { check_in_date: Date object, ... }
+   🔄 Processed data: { check_in_date: "2025-10-05", ... }
+
+4. 🌐 ทดสอบในเบราว์เซอร์:
+   - รีเฟรชหน้า "การจองของฉัน"
+   - ควรเห็น "วันอาทิตย์ที่ 5 ตุลาคม 2568" แทน "Invalid Date"
+
+5. 🧪 ทดสอบด้วยสคริปต์:
+   node check-server-status.cjs
+   (ควรเห็น check_in_date: "2025-10-05")
+
+========================================

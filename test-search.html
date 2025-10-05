@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ทดสอบ API ค้นหาห้องว่าง</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, select, button { padding: 10px; width: 100%; font-size: 16px; }
+        button { background: #059669; color: white; border: none; cursor: pointer; }
+        button:hover { background: #047857; }
+        .results { margin-top: 20px; padding: 20px; background: #f9f9f9; }
+        .room-card { border: 1px solid #ddd; padding: 15px; margin: 10px 0; background: white; }
+        .loading { color: #666; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ทดสอบ API ค้นหาห้องว่าง</h1>
+        
+        <form id="searchForm">
+            <div class="form-group">
+                <label for="checkin">วันที่เข้าพัก:</label>
+                <input type="date" id="checkin" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="checkout">วันที่ออก:</label>
+                <input type="date" id="checkout" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="guests">จำนวนผู้เข้าพัก:</label>
+                <select id="guests">
+                    <option value="1">1 คน</option>
+                    <option value="2" selected>2 คน</option>
+                    <option value="3">3 คน</option>
+                    <option value="4">4 คน</option>
+                </select>
+            </div>
+            
+            <button type="submit">ค้นหาห้องว่าง</button>
+        </form>
+        
+        <div id="results" class="results" style="display: none;"></div>
+    </div>
+
+    <script>
+        document.getElementById('searchForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const checkin = document.getElementById('checkin').value;
+            const checkout = document.getElementById('checkout').value;
+            const guests = document.getElementById('guests').value;
+            const resultsDiv = document.getElementById('results');
+            
+            if (!checkin || !checkout) {
+                alert('กรุณาเลือกวันที่เข้าพักและออก');
+                return;
+            }
+            
+            if (new Date(checkin) >= new Date(checkout)) {
+                alert('วันที่ออกต้องหลังจากวันที่เข้าพัก');
+                return;
+            }
+            
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = '<div class="loading">กำลังค้นหา...</div>';
+            
+            try {
+                const url = `http://localhost:3001/api/rooms/search?checkin=${checkin}&checkout=${checkout}&guests=${guests}`;
+                console.log('🔍 Calling API:', url);
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                console.log('📊 API Response:', data);
+                
+                if (data.success && data.data && data.data.length > 0) {
+                    let html = `
+                        <div class="success">
+                            <h3>พบห้องพักว่าง ${data.data.length} ประเภท</h3>
+                            <p>สำหรับวันที่ ${new Date(checkin).toLocaleDateString('th-TH')} - ${new Date(checkout).toLocaleDateString('th-TH')}</p>
+                        </div>
+                    `;
+                    
+                    data.data.forEach(room => {
+                        html += `
+                            <div class="room-card">
+                                <h4>${room.room_type_name}</h4>
+                                <p><strong>ราคา:</strong> ฿${parseFloat(room.price_per_night).toLocaleString()} ต่อคืน</p>
+                                <p><strong>จำนวนผู้เข้าพัก:</strong> สูงสุด ${room.max_guests} คน</p>
+                                <p><strong>ขนาดห้อง:</strong> ${room.size_sqm} ตร.ม.</p>
+                                <p><strong>จำนวนห้องว่าง:</strong> ${room.available_count} ห้อง</p>
+                                <p><strong>ประเภทเตียง:</strong> ${room.bed_type}</p>
+                                <p><strong>คำอธิบาย:</strong> ${room.description}</p>
+                                ${room.room_numbers && room.room_numbers.length > 0 ? 
+                                    `<p><strong>ห้องที่ว่าง:</strong> ${room.room_numbers.slice(0, 5).join(', ')}${room.room_numbers.length > 5 ? ` และอีก ${room.room_numbers.length - 5} ห้อง` : ''}</p>` 
+                                    : ''}
+                            </div>
+                        `;
+                    });
+                    
+                    resultsDiv.innerHTML = html;
+                } else {
+                    resultsDiv.innerHTML = `
+                        <div class="error">
+                            <h3>ไม่พบห้องพักว่าง</h3>
+                            <p>ขออภัย ไม่มีห้องพักว่างในช่วงวันที่ที่คุณเลือก</p>
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+                resultsDiv.innerHTML = `
+                    <div class="error">
+                        <h3>เกิดข้อผิดพลาด</h3>
+                        <p>ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้: ${error.message}</p>
+                    </div>
+                `;
+            }
+        });
+        
+        // Set default dates (tomorrow to day after tomorrow)
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const dayAfter = new Date(today);
+        dayAfter.setDate(dayAfter.getDate() + 2);
+        
+        document.getElementById('checkin').value = tomorrow.toISOString().split('T')[0];
+        document.getElementById('checkout').value = dayAfter.toISOString().split('T')[0];
+    </script>
+</body>
+</html>

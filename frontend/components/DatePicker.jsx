@@ -1,11 +1,9 @@
 'use client';
 
-import { useState, forwardRef } from 'react';
-import DatePicker from 'react-datepicker';
+import { useState, forwardRef, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
-import "react-datepicker/dist/react-datepicker.css";
 
-const DatePicker = ({ 
+const CustomDatePicker = ({
   selectedDate, 
   onDateSelect, 
   minDate = new Date(),
@@ -13,10 +11,9 @@ const DatePicker = ({
   placeholder = "เลือกวันที่",
   label = "วันที่",
   disabled = false,
-  className = ""
+  className = "",
+  language = "th"
 }) => {
-  const { language } = useLanguage();
-  const { t } = useTranslation(language);
   
   const [isOpen, setIsOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -164,12 +161,12 @@ const DatePicker = ({
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
         className={`
-          w-full px-4 py-3 text-left border rounded-lg transition-all duration-200
+          w-full px-6 py-4 text-left border-2 rounded-xl transition-all duration-200 font-semibold shadow-lg
           ${disabled 
             ? 'bg-gray-100 border-gray-300 text-gray-500 cursor-not-allowed' 
-            : 'bg-white border-gray-300 hover:border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+            : 'bg-gradient-to-r from-white to-emerald-50 border-emerald-400 hover:border-emerald-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-300 hover:shadow-xl'
           }
-          ${isOpen ? 'border-blue-500 ring-2 ring-blue-200' : ''}
+          ${isOpen ? 'border-emerald-600 ring-2 ring-emerald-300 shadow-xl' : ''}
         `}
       >
         <div className="flex items-center justify-between">
@@ -189,38 +186,40 @@ const DatePicker = ({
 
       {/* Calendar Dropdown */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
+        <div className="absolute top-full left-0 right-0 mt-2 bg-gradient-to-b from-emerald-50 to-white border-2 border-emerald-300 rounded-xl shadow-2xl z-50 overflow-hidden">
           {/* Calendar Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+          <div className="flex items-center justify-between px-6 py-5 bg-gradient-to-r from-emerald-700 via-emerald-800 to-emerald-900 text-white shadow-xl border-b-2 border-emerald-600">
             <button
               type="button"
               onClick={() => navigateMonth(-1)}
-              className="p-1 hover:bg-white/20 rounded-full transition-colors"
+              className="p-2 hover:bg-white/20 rounded-full transition-all duration-200 hover:scale-110 hover:shadow-md"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
             
-            <h3 className="text-lg font-semibold">
-              {monthNames[language][currentMonth.getMonth()]} {currentMonth.getFullYear()}
-            </h3>
+            <div className="bg-emerald-800/90 backdrop-blur-sm px-6 py-3 rounded-full border-2 border-emerald-600 shadow-lg">
+              <h3 className="text-xl font-bold text-center text-white drop-shadow-lg">
+                {monthNames[language][currentMonth.getMonth()]} {currentMonth.getFullYear()}
+              </h3>
+            </div>
             
             <button
               type="button"
               onClick={() => navigateMonth(1)}
-              className="p-1 hover:bg-white/20 rounded-full transition-colors"
+              className="p-2 hover:bg-white/20 rounded-full transition-all duration-200 hover:scale-110 hover:shadow-md"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
               </svg>
             </button>
           </div>
 
           {/* Day Names Header */}
-          <div className="grid grid-cols-7 gap-0 bg-gray-50">
+          <div className="grid grid-cols-7 gap-0 bg-gradient-to-r from-emerald-50 to-emerald-100 border-b border-emerald-200">
             {dayNames[language].map((day, index) => (
-              <div key={index} className="p-3 text-center text-sm font-medium text-gray-600">
+              <div key={index} className="p-4 text-center text-sm font-bold text-emerald-800 bg-white/50">
                 {day}
               </div>
             ))}
@@ -238,19 +237,19 @@ const DatePicker = ({
                 onMouseLeave={() => setHighlightedDate(null)}
                 disabled={dayObj.isDisabled}
                 className={`
-                  relative p-3 text-sm transition-all duration-150 focus:outline-none focus:z-10
+                  relative p-4 text-sm font-medium transition-all duration-200 focus:outline-none focus:z-10 border-r border-b border-gray-100
                   ${!dayObj.isCurrentMonth 
-                    ? 'text-gray-300 cursor-not-allowed' 
+                    ? 'text-gray-300 cursor-not-allowed bg-gray-50/50' 
                     : dayObj.isDisabled
-                      ? 'text-gray-300 cursor-not-allowed'
-                      : 'text-gray-700 hover:bg-blue-50'
+                      ? 'text-gray-300 cursor-not-allowed bg-gray-50/50'
+                      : 'text-gray-800 hover:bg-emerald-50 hover:text-emerald-800 hover:scale-105 hover:shadow-sm'
                   }
                   ${dayObj.isSelected 
-                    ? 'bg-blue-500 text-white font-semibold shadow-md' 
+                    ? 'bg-gradient-to-br from-emerald-600 to-emerald-700 text-white font-bold shadow-lg ring-2 ring-emerald-300 ring-offset-1' 
                     : ''
                   }
                   ${dayObj.isToday && !dayObj.isSelected 
-                    ? 'bg-blue-100 text-blue-700 font-semibold' 
+                    ? 'bg-gradient-to-br from-emerald-100 to-emerald-200 text-emerald-900 font-bold border-2 border-emerald-400' 
                     : ''
                   }
                   ${highlightedDate && 
@@ -258,7 +257,7 @@ const DatePicker = ({
                     !dayObj.isSelected && 
                     !dayObj.isDisabled && 
                     dayObj.isCurrentMonth
-                    ? 'bg-blue-100 text-blue-700' 
+                    ? 'bg-emerald-100 text-emerald-800 scale-105' 
                     : ''
                   }
                 `}
@@ -267,19 +266,19 @@ const DatePicker = ({
                 
                 {/* Today indicator */}
                 {dayObj.isToday && !dayObj.isSelected && (
-                  <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-blue-500 rounded-full"></div>
+                  <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-emerald-600 rounded-full animate-pulse"></div>
                 )}
                 
                 {/* Selected indicator */}
                 {dayObj.isSelected && (
-                  <div className="absolute inset-0 border-2 border-blue-300 rounded pointer-events-none"></div>
+                  <div className="absolute inset-0 border-2 border-white rounded-lg pointer-events-none shadow-inner"></div>
                 )}
               </button>
             ))}
           </div>
 
           {/* Footer */}
-          <div className="px-4 py-3 bg-gray-50 border-t">
+          <div className="px-6 py-4 bg-gradient-to-r from-emerald-50 to-emerald-100 border-t border-emerald-200">
             <div className="flex items-center justify-between text-sm">
               <button
                 type="button"
@@ -287,14 +286,14 @@ const DatePicker = ({
                   onDateSelect(new Date());
                   setIsOpen(false);
                 }}
-                className="text-blue-600 hover:text-blue-800 font-medium"
+                className="px-4 py-2 bg-emerald-600 text-white rounded-full hover:bg-emerald-700 font-medium transition-all duration-200 hover:scale-105 hover:shadow-md"
               >
                 {language === 'en' ? 'Today' : 'วันนี้'}
               </button>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="text-gray-600 hover:text-gray-800"
+                className="px-4 py-2 text-gray-600 hover:text-emerald-800 hover:bg-white/80 rounded-full transition-all duration-200"
               >
                 {language === 'en' ? 'Close' : 'ปิด'}
               </button>
@@ -306,4 +305,4 @@ const DatePicker = ({
   );
 };
 
-export default DatePicker;
+export default CustomDatePicker;

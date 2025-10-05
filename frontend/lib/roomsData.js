@@ -1,7 +1,41 @@
 // ข้อมูลประเภทห้องพัก - 2 ประเภทหลัก พร้อมห้องย่อยที่แอดมินจัดการ
 export const roomsData = [
   {
-    id: 1,
+    id: 8, // Single Room - matches database room_type_id
+    name: "ห้องเตียงเดี่ยว (Single Room)",
+    description: "ห้องพักสะดวกสบายสำหรับผู้เดินทางคนเดียว เตียงเดี่ยวขนาดมาตรฐาน ห้องสะอาดสมัยใหม่ พื้นที่เหมาะสมไม่คับแคบ",
+    image_url: "/images/rooms/single-room-main.jpg",
+    images: [
+      "/images/rooms/single-room-main.jpg",
+      "/images/rooms/single-room-modern.jpg",
+      "/images/rooms/bathroom-modern.jpg"
+    ],
+    price_per_night: 600, // Updated to match database price
+    max_occupancy: 2, // Updated to match database max_guests
+    bed_type: "single",
+    room_type: "single",
+    category: "room-type", // ประเภทห้อง
+    amenities: [
+      "WiFi ฟรี",
+      "ตู้เย็น",
+      "ระเบียง",
+      "เครื่องปรับอากาศ",
+      "โทรทัศน์",
+      "เครื่องทำน้ำอุ่น"
+    ],
+    available: true,
+    // ห้องย่อยที่แอดมินจัดการ
+    sub_rooms: [
+      { id: 201, room_number: "507", available: true, has_booking: false },
+      { id: 202, room_number: "508", available: true, has_booking: false },
+      { id: 203, room_number: "509", available: true, has_booking: false },
+      { id: 204, room_number: "510", available: true, has_booking: false },
+      { id: 205, room_number: "511", available: true, has_booking: false },
+      { id: 206, room_number: "512", available: true, has_booking: false }
+    ]
+  },
+  {
+    id: 10, // Double Room - matches database room_type_id
     name: "ห้องเตียงคู่ (Double Room)",
     description: "ห้องพักหรูหราพร้อมเตียงคู่ขนาดใหญ่ ตกแต่งด้วยโทนสีอบอุ่น มีผ้าปูที่นอนลายไทยแบบดั้งเดิม ห้องกว้างขวางพร้อมสิ่งอำนวยความสะดวกครบครัน",
     image_url: "/images/rooms/double-room-main.jpg",
@@ -11,69 +45,28 @@ export const roomsData = [
       "/images/rooms/double-room-golden.jpg",
       "/images/rooms/bathroom-modern.jpg"
     ],
-    price_per_night: 1800,
-    max_occupancy: 2,
+    price_per_night: 600, // Updated to match database price
+    max_occupancy: 2, // Updated to match database max_guests
     bed_type: "double",
     room_type: "double",
     category: "room-type", // ประเภทห้อง
     amenities: [
+      "WiFi ฟรี",
+      "ตู้เย็น",
       "เครื่องปรับอากาศ",
-      "ทีวีจอแบน",
-      "Wi-Fi ฟรี",
-      "โต๊ะทำงาน",
-      "ตู้เซฟ",
-      "มินิบาร์",
-      "ห้องน้ำส่วนตัว",
-      "เครื่องทำน้ำร้อน",
-      "ผ้าปูที่นอนลายไทยพิเศษ",
-      "ผ้าเช็ดตัวเรียงรูปหงส์"
+      "โทรทัศน์",
+      "เครื่องทำน้ำอุ่น",
+      "ระเบียง"
     ],
     available: true,
     featured: true,
-    // ห้องย่อยที่แอดมินจัดการ
+    // ห้องย่อยที่แอดมินจัดการ (ตัวอย่างบางส่วน)
     sub_rooms: [
-      { id: 101, room_number: "201", available: true, has_booking: false },
-      { id: 102, room_number: "202", available: true, has_booking: true },
-      { id: 103, room_number: "203", available: false, has_booking: false },
-      { id: 104, room_number: "204", available: true, has_booking: false },
-      { id: 105, room_number: "205", available: true, has_booking: true }
-    ]
-  },
-  {
-    id: 2,
-    name: "ห้องเตียงเดี่ยว (Single Room)",
-    description: "ห้องพักสะดวกสบายสำหรับผู้เดินทางคนเดียว เตียงเดี่ยวขนาดมาตรฐาน ห้องสะอาดสมัยใหม่ พื้นที่เหมาะสมไม่คับแคบ",
-    image_url: "/images/rooms/single-room-main.jpg",
-    images: [
-      "/images/rooms/single-room-main.jpg",
-      "/images/rooms/single-room-modern.jpg",
-      "/images/rooms/bathroom-modern.jpg"
-    ],
-    price_per_night: 1200,
-    max_occupancy: 1,
-    bed_type: "single",
-    room_type: "single",
-    category: "room-type", // ประเภทห้อง
-    amenities: [
-      "เครื่องปรับอากาศ",
-      "ทีวีจอแบน",
-      "Wi-Fi ฟรี",
-      "โต๊ะทำงาน",
-      "ตู้เซฟ",
-      "มินิบาร์",
-      "ห้องน้ำส่วนตัว",
-      "เครื่องทำน้ำร้อน",
-      "ตู้เสื้อผ้า",
-      "ผ้าปูที่นอนคุณภาพดี"
-    ],
-    available: true,
-    // ห้องย่อยที่แอดมินจัดการ
-    sub_rooms: [
-      { id: 201, room_number: "101", available: true, has_booking: false },
-      { id: 202, room_number: "102", available: true, has_booking: false },
-      { id: 203, room_number: "103", available: false, has_booking: false },
-      { id: 204, room_number: "104", available: true, has_booking: true },
-      { id: 205, room_number: "105", available: true, has_booking: false }
+      { id: 101, room_number: "501", available: true, has_booking: false },
+      { id: 102, room_number: "502", available: true, has_booking: false },
+      { id: 103, room_number: "503", available: true, has_booking: false },
+      { id: 104, room_number: "504", available: true, has_booking: false },
+      { id: 105, room_number: "505", available: true, has_booking: false }
     ]
   }
 ];

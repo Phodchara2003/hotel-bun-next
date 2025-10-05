@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { usersAPI } from '../../../lib/api';
-import { isStaffOrAdmin, canEdit, canDelete, canCreate } from '../../../lib/roles';
+import { isStaffOrAdmin } from '../../../lib/roles';
 import Cookies from 'js-cookie';
 import Link from 'next/link';
 import { 
@@ -17,14 +17,13 @@ import {
   Filter,
   RefreshCw,
   ArrowLeft,
-  UserCheck,
   Settings,
   Activity
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function UsersManagementPage() {
-  const { user, isAuthenticated } = useAuth();
+  const { user: currentUser, isAuthenticated } = useAuth();
   const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -38,6 +37,7 @@ export default function UsersManagementPage() {
     activeUsers: 0,
     adminUsers: 0,
     staffUsers: 0,
+    guestUsers: 0,
     regularUsers: 0
   });
 
@@ -71,6 +71,7 @@ export default function UsersManagementPage() {
         const totalUsers = processedUsers.length;
         const adminUsers = processedUsers.filter(u => u.role === 'admin' || u.role === 'super_admin').length;
         const staffUsers = processedUsers.filter(u => u.role === 'staff').length;
+        const guestUsers = processedUsers.filter(u => u.role === 'guest').length;
         const regularUsers = processedUsers.filter(u => u.role === 'user' || !u.role).length;
         const newUsersThisMonth = processedUsers.filter(u => {
           const createdDate = new Date(u.created_at);
@@ -85,6 +86,7 @@ export default function UsersManagementPage() {
           activeUsers: totalUsers,
           adminUsers,
           staffUsers,
+          guestUsers,
           regularUsers
         });
 
@@ -99,10 +101,10 @@ export default function UsersManagementPage() {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated && isStaffOrAdmin(user)) {
+    if (isAuthenticated && isStaffOrAdmin(currentUser)) {
       fetchUsers();
     }
-  }, [isAuthenticated, user, fetchUsers]);
+  }, [isAuthenticated, currentUser, fetchUsers]);
 
   // CRUD Functions
   const handleCreateUser = async (userData) => {
@@ -165,6 +167,8 @@ export default function UsersManagementPage() {
     }
   };
 
+
+
   const handleSendEmail = (userData) => {
     const subject = encodeURIComponent('ข้อความจากระบบจองโรงแรม');
     const body = encodeURIComponent(`สวัสดี ${userData.name},\n\nข้อความจากระบบจองโรงแรม...\n\nขอบคุณ`);
@@ -189,13 +193,15 @@ export default function UsersManagementPage() {
         return { text: 'ผู้ดูแลระบบ', color: 'bg-red-100 text-red-800' };
       case 'staff':
         return { text: 'พนักงาน', color: 'bg-blue-100 text-blue-800' };
+      case 'guest':
+        return { text: 'ลูกค้า', color: 'bg-green-100 text-green-800' };
       case 'user':
       default:
         return { text: 'ผู้ใช้ทั่วไป', color: 'bg-gray-100 text-gray-800' };
     }
   };
 
-  if (!isAuthenticated || !isStaffOrAdmin(user)) {
+  if (!isAuthenticated || !isStaffOrAdmin(currentUser)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -231,7 +237,7 @@ export default function UsersManagementPage() {
               </div>
             </div>
             <div className="text-sm text-gray-500">
-              ผู้ใช้: {user?.first_name} {user?.last_name} ({user?.role})
+              ผู้ใช้: {currentUser?.first_name} {currentUser?.last_name} ({currentUser?.role})
             </div>
           </div>
         </div>
@@ -251,10 +257,10 @@ export default function UsersManagementPage() {
           </div>
           <div className="bg-white p-6 rounded-lg shadow">
             <div className="flex items-center">
-              <UserCheck className="h-8 w-8 text-green-600" />
+              <Users className="h-8 w-8 text-green-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">ใหม่เดือนนี้</p>
-                <p className="text-2xl font-bold text-gray-900">{userStats.newUsersThisMonth}</p>
+                <p className="text-sm font-medium text-gray-600">ลูกค้า</p>
+                <p className="text-2xl font-bold text-gray-900">{userStats.guestUsers}</p>
               </div>
             </div>
           </div>
@@ -302,10 +308,11 @@ export default function UsersManagementPage() {
                   className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="all">บทบาททั้งหมด</option>
+                  <option value="guest">ลูกค้า</option>
+                  <option value="user">ผู้ใช้ทั่วไป</option>
+                  <option value="staff">พนักงาน</option>
                   <option value="admin">ผู้ดูแลระบบ</option>
                   <option value="super_admin">ผู้ดูแลระบบสูงสุด</option>
-                  <option value="staff">พนักงาน</option>
-                  <option value="user">ผู้ใช้ทั่วไป</option>
                 </select>
               </div>
             </div>
@@ -318,7 +325,7 @@ export default function UsersManagementPage() {
                 <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                 รีเฟรช
               </button>
-              {canCreate(user) && (
+              {isStaffOrAdmin(currentUser) && (
                 <button 
                   onClick={() => setShowCreateModal(true)}
                   className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center"
@@ -420,7 +427,7 @@ export default function UsersManagementPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex gap-2">
-                            {canEdit(user) && (
+                            {isStaffOrAdmin(currentUser) && (
                               <button
                                 onClick={() => handleEditUser(user)}
                                 className="text-blue-600 hover:text-blue-900 p-1 hover:bg-blue-50 rounded"
@@ -429,7 +436,7 @@ export default function UsersManagementPage() {
                                 <Edit className="h-4 w-4" />
                               </button>
                             )}
-                            {canDelete(user) && (
+                            {isStaffOrAdmin(currentUser) && (
                               <button
                                 onClick={() => handleDeleteUser(user.id, user.name)}
                                 className="text-red-600 hover:text-red-900 p-1 hover:bg-red-50 rounded"
@@ -484,7 +491,7 @@ function UserModal({ isOpen, onClose, user = null, onSave, title }) {
   const [formData, setFormData] = useState({
     username: '',
     email: '',
-    role: 'user',
+    role: 'guest',
     first_name: '',
     last_name: '',
     phone: '',
@@ -494,9 +501,9 @@ function UserModal({ isOpen, onClose, user = null, onSave, title }) {
   useEffect(() => {
     if (user) {
       setFormData({
-        username: user.username || '',
+        username: user.username || user.email || '',
         email: user.email || '',
-        role: user.role || 'user',
+        role: user.role || 'guest',
         first_name: user.first_name || '',
         last_name: user.last_name || '',
         phone: user.phone || '',
@@ -506,7 +513,7 @@ function UserModal({ isOpen, onClose, user = null, onSave, title }) {
       setFormData({
         username: '',
         email: '',
-        role: 'user',
+        role: 'guest',
         first_name: '',
         last_name: '',
         phone: '',
@@ -623,6 +630,7 @@ function UserModal({ isOpen, onClose, user = null, onSave, title }) {
               onChange={handleChange}
               className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
+              <option value="guest">ลูกค้า</option>
               <option value="user">ผู้ใช้ทั่วไป</option>
               <option value="staff">พนักงาน</option>
               <option value="admin">ผู้ดูแลระบบ</option>

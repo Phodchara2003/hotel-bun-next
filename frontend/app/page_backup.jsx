@@ -249,43 +249,6 @@ function HomePageContent() {
         </div>
       </section>
 
-      {/* Philosophy Section - แบบ Gregori */}
-      <section className="py-20 bg-emerald-900 text-white">
-        <div className="container mx-auto px-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            <div>
-              <div className="text-amber-400 text-sm font-medium tracking-widest mb-4">
-                — ปรัชญาของเรา
-              </div>
-              <h2 className="text-4xl lg:text-5xl font-light mb-8">
-                ความมุ่งมั่นของเรา<br />
-                <span className="font-bold">สู่ความเป็นเลิศ</span>
-              </h2>
-              <p className="text-lg text-emerald-100 mb-8 leading-relaxed">
-                เราเชื่อว่าการเดินทางแต่ละครั้งควรเป็นประสบการณ์ที่ไม่ลืม 
-                ด้วยการบริการที่เป็นเลิศและความใส่ใจในทุกรายละเอียด 
-                เราสร้างความทรงจำอันมีค่าให้กับแขกทุกท่าน
-              </p>
-              <p className="text-lg text-emerald-100 mb-12 leading-relaxed">
-                จากห้องพักที่ออกแบบอย่างพิถีพิถัน ไปจนถึงบริการที่อบอุ่น 
-                ทุกสิ่งที่เราทำคือเพื่อความสุขและความพึงพอใจของคุณ
-              </p>
-              <button className="bg-amber-600 hover:bg-amber-700 text-white px-8 py-4 rounded-lg font-medium transition-colors duration-300">
-                เรียนรู้เพิ่มเติม
-              </button>
-            </div>
-            
-            <div className="relative">
-              <img
-                src="https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-                alt="Hotel Interior"
-                className="rounded-2xl w-full h-[600px] object-cover"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* About Section */}
       <section className="py-20 bg-gradient-to-r from-gray-50 to-emerald-50">
         <div className="container mx-auto px-6">

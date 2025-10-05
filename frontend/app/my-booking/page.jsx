@@ -65,18 +65,35 @@ export default function MyBookingDetailsPage() {
   // Calculate nights
   const calculateNights = () => {
     if (!guestData?.bookingDetails) return 0;
-    const checkIn = new Date(guestData.bookingDetails.checkInDate);
-    const checkOut = new Date(guestData.bookingDetails.checkOutDate);
+    
+    // รองรับทั้ง camelCase และ snake_case
+    const checkInDate = guestData.bookingDetails.checkInDate || guestData.bookingDetails.check_in_date;
+    const checkOutDate = guestData.bookingDetails.checkOutDate || guestData.bookingDetails.check_out_date;
+    
+    if (!checkInDate || !checkOutDate) return 0;
+    
+    const checkIn = new Date(checkInDate);
+    const checkOut = new Date(checkOutDate);
+    
+    if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) return 0;
+    
     return Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
   };
 
   // Format date
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('th-TH', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    if (!dateString) return 'ไม่ระบุวันที่';
+    
+    try {
+      return new Date(dateString).toLocaleDateString('th-TH', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch (error) {
+      console.error('Error formatting date:', dateString, error);
+      return 'วันที่ไม่ถูกต้อง';
+    }
   };
 
   // Get status color and icon
@@ -308,7 +325,7 @@ export default function MyBookingDetailsPage() {
                   <label className="text-sm font-medium text-gray-600">วันที่เข้าพัก</label>
                   <div className="font-semibold text-gray-900 flex items-center">
                     <Calendar className="h-4 w-4 mr-1 text-gray-400" />
-                    {formatDate(guestData.bookingDetails.checkInDate)}
+                    {formatDate(guestData.bookingDetails.checkInDate || guestData.bookingDetails.check_in_date)}
                   </div>
                 </div>
                 
@@ -316,7 +333,7 @@ export default function MyBookingDetailsPage() {
                   <label className="text-sm font-medium text-gray-600">วันที่ออก</label>
                   <div className="font-semibold text-gray-900 flex items-center">
                     <Calendar className="h-4 w-4 mr-1 text-gray-400" />
-                    {formatDate(guestData.bookingDetails.checkOutDate)}
+                    {formatDate(guestData.bookingDetails.checkOutDate || guestData.bookingDetails.check_out_date)}
                   </div>
                 </div>
               </div>

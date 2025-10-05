@@ -157,13 +157,6 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }) {
       color: 'text-emerald-400'
     },
     {
-      key: 'hotels',
-      label: 'จัดการโรงแรม',
-      icon: Hotel,
-      href: '/admin/hotels',
-      color: 'text-red-400'
-    },
-    {
       key: 'rooms',
       label: 'จัดการห้องพัก',
       icon: Bed,

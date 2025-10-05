@@ -89,22 +89,45 @@ export default function RootLayout({ children }) {
                     <SessionManager />
                   </LayoutWrapper>
                   <Toaster 
-                    position="top-right"
+                    position="top-center"
                     toastOptions={{
                       duration: 4000,
                       style: {
-                        background: '#fff',
-                        color: '#333',
-                        fontSize: '14px',
+                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                        color: 'white',
+                        fontSize: '16px',
+                        fontWeight: '600',
+                        padding: '16px 24px',
+                        borderRadius: '12px',
+                        boxShadow: '0 10px 30px rgba(16, 185, 129, 0.4)',
+                        border: '2px solid rgba(255, 255, 255, 0.2)',
+                        backdropFilter: 'blur(10px)',
                       },
                       success: {
                         style: {
-                          border: '1px solid #10B981',
+                          background: 'linear-gradient(135deg, #10b981, #059669)',
+                          color: 'white',
+                        },
+                        iconTheme: {
+                          primary: 'white',
+                          secondary: '#10b981',
                         },
                       },
                       error: {
                         style: {
-                          border: '1px solid #EF4444',
+                          background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
+                          color: 'white',
+                          border: '2px solid rgba(255, 255, 255, 0.2)',
+                        },
+                        iconTheme: {
+                          primary: 'white',
+                          secondary: '#dc2626',
+                        },
+                      },
+                      loading: {
+                        style: {
+                          background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                          color: 'white',
                         },
                       },
                     }}

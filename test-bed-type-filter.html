@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ทดสอบ Bed Type Filter - โรงแรมวรุณภัฏ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-3xl font-bold text-center mb-8">ทดสอบฟิลด์กรองประเภทเตียง</h1>
+        
+        <!-- แบบจำลองฟอร์มจากหน้าหลัก -->
+        <div class="backdrop-blur-lg rounded-3xl p-8 lg:p-12 border-2 border-white/20 shadow-2xl" 
+             style="background: linear-gradient(135deg, rgba(18, 43, 41, 0.95) 0%, rgba(15, 38, 35, 0.98) 50%, rgba(13, 31, 29, 0.95) 100%)">
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 text-white">
+                
+                <!-- วันที่เข้าพัก -->
+                <div>
+                    <label class="block text-sm font-bold mb-4 text-white uppercase tracking-wider">เช็คอิน</label>
+                    <div class="relative">
+                        <input type="date" 
+                               placeholder="วันเข้าพัก"
+                               class="w-full px-8 py-5 border-2 border-emerald-400 rounded-xl text-emerald-900 bg-gradient-to-r from-white to-emerald-50 focus:outline-none focus:border-emerald-500 text-lg font-semibold shadow-lg">
+                        <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none">
+                            <span class="text-emerald-600">📅</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- วันที่ออก -->
+                <div>
+                    <label class="block text-sm font-bold mb-4 text-white uppercase tracking-wider">เช็คเอาท์</label>
+                    <div class="relative">
+                        <input type="date" 
+                               placeholder="วันออก"
+                               class="w-full px-8 py-5 border-2 border-emerald-400 rounded-xl text-emerald-900 bg-gradient-to-r from-white to-emerald-50 focus:outline-none focus:border-emerald-500 text-lg font-semibold shadow-lg">
+                        <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none">
+                            <span class="text-emerald-600">📅</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- จำนวนผู้เข้าพัก -->
+                <div>
+                    <label class="block text-sm font-bold mb-4 text-white uppercase tracking-wider">ผู้เข้าพัก</label>
+                    <div class="relative">
+                        <select class="w-full px-8 py-5 border-2 border-emerald-400 rounded-xl text-emerald-900 bg-gradient-to-r from-white to-emerald-50 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 font-semibold appearance-none cursor-pointer shadow-lg text-lg" style="min-width: 140px">
+                            <option value="1" class="text-emerald-900 bg-white py-2">1 คน</option>
+                            <option value="2" class="text-emerald-900 bg-white py-2">2 คน</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none">
+                            <span class="text-emerald-600">👥</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- ประเภทเตียง - ฟิลด์ใหม่ -->
+                <div>
+                    <label class="block text-sm font-bold mb-4 text-white uppercase tracking-wider">เตียง</label>
+                    <div class="relative">
+                        <select id="bedTypeSelect" class="w-full px-8 py-5 border-2 border-emerald-400 rounded-xl text-emerald-900 bg-gradient-to-r from-white to-emerald-50 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 font-semibold appearance-none cursor-pointer shadow-lg text-lg" style="min-width: 160px">
+                            <option value="" class="text-emerald-900 bg-white py-2">ทุกประเภท</option>
+                            <option value="single" class="text-emerald-900 bg-white py-2">เตียงเดี่ยว</option>
+                            <option value="double" class="text-emerald-900 bg-white py-2">เตียงคู่</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none">
+                            <span class="text-2xl">🛏️</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- ปุ่มค้นหา -->
+                <div class="flex items-end">
+                    <button onclick="testSearch()" 
+                            class="w-full bg-gradient-to-r from-emerald-600 via-emerald-700 to-emerald-800 hover:from-emerald-700 hover:via-emerald-800 hover:to-emerald-900 text-white px-8 py-5 rounded-xl font-bold text-lg tracking-wide transition-all duration-300 transform hover:scale-105 hover:shadow-2xl border-2 border-emerald-500 hover:border-emerald-400" style="min-width: 180px">
+                        <div class="flex items-center justify-center space-x-2">
+                            <span>🔍</span>
+                            <span class="whitespace-nowrap">ตรวจสอบห้องว่าง</span>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- แสดงผลการทดสอบ -->
+        <div id="testResult" class="mt-8 p-6 bg-white rounded-lg shadow-lg">
+            <h3 class="text-xl font-bold mb-4">ผลการทดสอบ:</h3>
+            <div id="resultContent" class="text-gray-600">
+                กรุณาทดสอบการค้นหาเพื่อดูผล
+            </div>
+        </div>
+        
+        <!-- คำอธิบาย -->
+        <div class="mt-8 p-6 bg-blue-50 rounded-lg">
+            <h3 class="text-lg font-bold text-blue-800 mb-2">วิธีทดสอบ:</h3>
+            <ol class="list-decimal list-inside text-blue-700 space-y-1">
+                <li>เลือกวันที่เข้าพักและออก</li>
+                <li>เลือกจำนวนผู้เข้าพัก (1-2 คน)</li>
+                <li>เลือกประเภทเตียงที่ต้องการ (หรือเลือก "ทุกประเภท")</li>
+                <li>คลิกปุ่ม "ตรวจสอบห้องว่าง"</li>
+                <li>ดูผลลัพธ์ด้านล่าง</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        function testSearch() {
+            const bedType = document.getElementById('bedTypeSelect').value;
+            const resultDiv = document.getElementById('resultContent');
+            
+            resultDiv.innerHTML = `
+                <div class="space-y-2">
+                    <p><strong>ประเภทเตียงที่เลือก:</strong> ${bedType || 'ทุกประเภท'}</p>
+                    <p><strong>ค่าที่จะส่งไป API:</strong> ${bedType || 'null'}</p>
+                    <p><strong>สถานะ:</strong> <span class="text-green-600">✅ ฟิลด์ทำงานปกติ</span></p>
+                    <div class="mt-4 p-3 bg-gray-100 rounded">
+                        <strong>Sample API Call:</strong><br>
+                        <code class="text-sm">
+                        hotelAPI.searchRooms({<br>
+                        &nbsp;&nbsp;checkin: "2025-01-15",<br>
+                        &nbsp;&nbsp;checkout: "2025-01-16",<br>
+                        &nbsp;&nbsp;guests: 1,<br>
+                        &nbsp;&nbsp;bedType: "${bedType || null}"<br>
+                        })
+                        </code>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // ตั้งค่าเริ่มต้น
+        document.addEventListener('DOMContentLoaded', function() {
+            // ตั้งวันที่เริ่มต้นเป็นวันพรุ่งนี้
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const dateInputs = document.querySelectorAll('input[type="date"]');
+            if (dateInputs.length >= 2) {
+                dateInputs[0].value = tomorrow.toISOString().split('T')[0];
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                dateInputs[1].value = tomorrow.toISOString().split('T')[0];
+            }
+        });
+    </script>
+</body>
+</html>

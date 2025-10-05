@@ -16,11 +16,31 @@ export default function BookingPage() {
   const [bookingCriteria, setBookingCriteria] = useState({
     checkIn: '',
     checkOut: '',
-    guests: 1
+    guests: 1,
+    bedType: ''
   });
 
   useEffect(() => {
-    fetchRoomTypes();
+    // รับข้อมูลจาก URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const checkin = urlParams.get('checkin');
+    const checkout = urlParams.get('checkout');
+    const guests = urlParams.get('guests');
+    const bedType = urlParams.get('bedType');
+    
+    if (checkin && checkout) {
+      setBookingCriteria({
+        checkIn: checkin,
+        checkOut: checkout,
+        guests: guests ? parseInt(guests) : 1,
+        bedType: bedType || ''
+      });
+      
+      // ค้นหาห้องว่างทันทีถ้ามีข้อมูลจาก URL
+      searchAvailableRooms(checkin, checkout, guests ? parseInt(guests) : 1, bedType);
+    } else {
+      fetchRoomTypes();
+    }
   }, []);
 
   const fetchRoomTypes = async () => {
@@ -41,6 +61,51 @@ export default function BookingPage() {
     } catch (error) {
       console.error('❌ Error fetching room types:', error);
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const searchAvailableRooms = async (checkin, checkout, guests, bedType = null) => {
+    try {
+      setLoading(true);
+      console.log('🔍 Searching available rooms...', { checkin, checkout, guests, bedType });
+      
+      const params = new URLSearchParams({
+        checkin,
+        checkout,
+        guests: guests.toString()
+      });
+      
+      if (bedType && bedType.trim() !== '') {
+        params.set('bedType', bedType);
+      }
+      
+      const response = await fetch(`http://localhost:3001/api/rooms/search?${params.toString()}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('✅ Available rooms found:', data.data);
+        setRoomTypes(data.data);
+        setAvailabilityResults({
+          checkIn: checkin,
+          checkOut: checkout,
+          guests: guests,
+          count: data.count
+        });
+        
+        if (data.count === 0) {
+          toast.error('ไม่พบห้องว่างสำหรับวันที่ที่เลือก');
+        } else {
+          toast.success(`พบห้องว่าง ${data.count} ประเภท`);
+        }
+      } else {
+        console.error('❌ Failed to search rooms:', data.message);
+        toast.error('ไม่สามารถค้นหาห้องว่างได้');
+      }
+    } catch (error) {
+      console.error('❌ Error searching rooms:', error);
+      toast.error('เกิดข้อผิดพลาดในการค้นหา');
     } finally {
       setLoading(false);
     }
@@ -256,10 +321,28 @@ export default function BookingPage() {
             </div>
             
             <div className="flex items-end">
-              <div className="text-sm text-gray-600">
+              <button
+                onClick={() => searchAvailableRooms(bookingCriteria.checkIn, bookingCriteria.checkOut, bookingCriteria.guests)}
+                disabled={!bookingCriteria.checkIn || !bookingCriteria.checkOut || loading}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md font-medium transition-colors duration-200 flex items-center justify-center"
+              >
+                {loading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                ) : null}
+                ค้นหาห้องว่าง
+              </button>
+            </div>
+            
+            <div className="md:col-span-4">
+              <div className="text-sm text-gray-600 mt-2">
                 {calculateNights() > 0 && (
                   <div>
                     <span className="font-medium">{calculateNights()} คืน</span>
+                    {availabilityResults && (
+                      <span className="ml-4 text-green-600 font-medium">
+                        พบห้องว่าง {availabilityResults.count} ประเภท
+                      </span>
+                    )}
                   </div>
                 )}
               </div>

@@ -2,13 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Calendar, MapPin, Users, Wifi, Car, Coffee, Tv, Wind, Phone, Mail, Star, ArrowRight, CheckCircle, Search } from 'lucide-react';
+import { Calendar, MapPin, Users, Wifi, Car, Coffee, Tv, Wind, Phone, Mail, Star, ArrowRight, CheckCircle, Search, AlertCircle, XCircle, CheckCircle2 } from 'lucide-react';
 import { hotelAPI } from '../lib/api';
 import { getRoomImageUrl, getFallbackRoomImages, getPlaceholderImageUrl, getRoomPlaceholder } from '../lib/roomImageUtils';
 import { getRoomsData, getFeaturedRooms } from '../lib/roomsData';
+import { dateToString } from '../lib/dateUtils';
 import { useAuth } from '../contexts/AuthContext';
 import ClientOnly from '../components/ClientOnly';
+import ModernDatePicker from '../components/ModernDatePicker';
 import { FadeInUp, FadeInLeft, FadeInRight, ScaleIn, StaggerContainer } from '../components/AnimatedComponents';
+import toast from 'react-hot-toast';
 
 export default function HomePage() {
   return (
@@ -30,9 +33,10 @@ function HomePageContent() {
   const [hotel, setHotel] = useState(null);
   const [roomTypes, setRoomTypes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [checkInDate, setCheckInDate] = useState('');
-  const [checkOutDate, setCheckOutDate] = useState('');
+  const [checkInDate, setCheckInDate] = useState(null);
+  const [checkOutDate, setCheckOutDate] = useState(null);
   const [guests, setGuests] = useState(1);
+  const [bedType, setBedType] = useState('');
   const [contactSettings, setContactSettings] = useState({});
 
   useEffect(() => {
@@ -70,45 +74,257 @@ function HomePageContent() {
 
   const handleSearch = async () => {
     if (!checkInDate || !checkOutDate) {
-      alert('กรุณาเลือกวันที่เข้าพักและออก');
+      toast.error('กรุณาเลือกวันที่เข้าพักและออก', {
+        duration: 4000,
+        position: 'top-center',
+        style: {
+          background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
+          color: 'white',
+          padding: '16px 24px',
+          borderRadius: '12px',
+          fontSize: '16px',
+          fontWeight: '600',
+          boxShadow: '0 10px 30px rgba(220, 38, 38, 0.3)',
+          border: '2px solid rgba(255, 255, 255, 0.2)',
+        },
+        icon: '📅',
+      });
       return;
     }
     
     // ตรวจสอบวันที่
-    const checkin = new Date(checkInDate);
-    const checkout = new Date(checkOutDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    if (checkin < today) {
-      alert('วันที่เข้าพักต้องไม่เป็นวันที่ผ่านมาแล้ว');
+    if (checkInDate < today) {
+      toast.error('วันที่เข้าพักต้องไม่เป็นวันที่ผ่านมาแล้ว', {
+        duration: 4000,
+        position: 'top-center',
+        style: {
+          background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
+          color: 'white',
+          padding: '16px 24px',
+          borderRadius: '12px',
+          fontSize: '16px',
+          fontWeight: '600',
+          boxShadow: '0 10px 30px rgba(220, 38, 38, 0.3)',
+          border: '2px solid rgba(255, 255, 255, 0.2)',
+        },
+        icon: '⏰',
+      });
       return;
     }
     
-    if (checkout <= checkin) {
-      alert('วันที่ออกต้องมาหลังวันที่เข้าพัก');
+    if (checkOutDate <= checkInDate) {
+      toast.error('วันที่ออกต้องมาหลังวันที่เข้าพัก', {
+        duration: 4000,
+        position: 'top-center',
+        style: {
+          background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
+          color: 'white',
+          padding: '16px 24px',
+          borderRadius: '12px',
+          fontSize: '16px',
+          fontWeight: '600',
+          boxShadow: '0 10px 30px rgba(220, 38, 38, 0.3)',
+          border: '2px solid rgba(255, 255, 255, 0.2)',
+        },
+        icon: '📅',
+      });
       return;
     }
     
-    const searchParams = new URLSearchParams({
-      checkin: checkInDate,
-      checkout: checkOutDate,
-      guests: guests.toString()
+    if (guests > 2) {
+      toast.error('ขออภัย ห้องพักของเรารองรับผู้เข้าพักสูงสุด 2 คนเท่านั้น\nกรุณาเลือกจำนวนผู้เข้าพัก 1-2 คน', {
+        duration: 5000,
+        position: 'top-center',
+        style: {
+          background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
+          color: 'white',
+          padding: '16px 24px',
+          borderRadius: '12px',
+          fontSize: '16px',
+          fontWeight: '600',
+          boxShadow: '0 10px 30px rgba(220, 38, 38, 0.3)',
+          border: '2px solid rgba(255, 255, 255, 0.2)',
+          whiteSpace: 'pre-line',
+        },
+        icon: '👥',
+      });
+      return;
+    }
+    
+    // แปลงวันที่เป็น string format (แก้ไข timezone issue)
+    const checkinStr = dateToString(checkInDate);
+    const checkoutStr = dateToString(checkOutDate);
+    
+    console.log('📅 Date conversion check:', {
+      checkInDate: checkInDate,
+      checkinStr: checkinStr,
+      checkOutDate: checkOutDate,
+      checkoutStr: checkoutStr
     });
     
-    // ลองค้นหาห้องว่างก่อนไปหน้าผลการค้นหา
-    try {
-      const response = await hotelAPI.searchRooms({
-        checkin: checkInDate,
-        checkout: checkOutDate,
-        guests: guests
-      });
-      console.log('Available rooms:', response);
-    } catch (error) {
-      console.log('Room search API not available, redirecting to rooms page');
+    const searchParams = new URLSearchParams({
+      checkin: checkinStr,
+      checkout: checkoutStr,
+      guests: guests.toString()
+    });
+
+    // เพิ่ม bedType ถ้ามีการเลือก
+    if (bedType) {
+      searchParams.set('bedType', bedType);
     }
     
-    window.location.href = `/booking?${searchParams.toString()}`;
+    // ค้นหาห้องว่างด้วย API ใหม่
+    try {
+      console.log('🔍 Searching rooms with params:', {
+        checkin: checkinStr,
+        checkout: checkoutStr,
+        guests: guests,
+        bedType: bedType || 'ทุกประเภท'
+      });
+      
+      const response = await hotelAPI.searchRooms({
+        checkin: checkinStr,
+        checkout: checkoutStr,
+        guests: guests,
+        bedType: bedType || null
+      });
+      
+      console.log('📥 Search response:', response);
+      
+      if (response.success) {
+        if (response.data && response.data.length > 0) {
+          console.log(`✅ Found ${response.data.length} available rooms`);
+          console.log('🏨 Sample room:', response.data[0]);
+          
+          // แสดง success toast
+          toast.success(`พบห้องพักที่เหมาะสม!\nกำลังนำคุณไปยังหน้าจอง...`, {
+            duration: 2000,
+            position: 'top-center',
+            style: {
+              background: 'linear-gradient(135deg, #10b981, #059669)',
+              color: 'white',
+              padding: '16px 24px',
+              borderRadius: '12px',
+              fontSize: '16px',
+              fontWeight: '600',
+              boxShadow: '0 10px 30px rgba(16, 185, 129, 0.4)',
+              border: '2px solid rgba(255, 255, 255, 0.2)',
+              whiteSpace: 'pre-line',
+            },
+            icon: '🎉',
+          });
+          
+          // เลือกห้องแรกที่พบและไปยังหน้ารายละเอียดห้อง
+          const firstRoom = response.data[0];
+          const roomId = firstRoom.room_type_id;
+          
+          console.log(`🏨 Redirecting to room details: /rooms/${roomId}`);
+          
+          // รอ toast แสดงเสร็จแล้วค่อย redirect
+          setTimeout(() => {
+            window.location.href = `/rooms/${roomId}?${searchParams.toString()}`;
+          }, 1500);
+        } else {
+          console.log('❌ No rooms available');
+          if (guests > 2) {
+            toast.error('ขออภัย ห้องพักของเรารองรับผู้เข้าพักสูงสุด 2 คนเท่านั้น\nกรุณาเลือกจำนวนผู้เข้าพัก 1-2 คน', {
+              duration: 5000,
+              position: 'top-center',
+              style: {
+                background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
+                color: 'white',
+                padding: '16px 24px',
+                borderRadius: '12px',
+                fontSize: '16px',
+                fontWeight: '600',
+                boxShadow: '0 10px 30px rgba(220, 38, 38, 0.3)',
+                border: '2px solid rgba(255, 255, 255, 0.2)',
+                whiteSpace: 'pre-line',
+              },
+              icon: '👥',
+            });
+          } else {
+            toast.error(`ไม่มีห้องว่างในช่วงวันที่ที่เลือก\n(${checkinStr} ถึง ${checkoutStr}) สำหรับ ${guests} คน\nกรุณาเลือกวันที่อื่น`, {
+              duration: 5000,
+              position: 'top-center',
+              style: {
+                background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
+                color: 'white',
+                padding: '16px 24px',
+                borderRadius: '12px',
+                fontSize: '16px',
+                fontWeight: '600',
+                boxShadow: '0 10px 30px rgba(220, 38, 38, 0.3)',
+                border: '2px solid rgba(255, 255, 255, 0.2)',
+                whiteSpace: 'pre-line',
+              },
+              icon: '🏨',
+            });
+          }
+          return;
+        }
+      } else {
+        console.log('❌ Search failed:', response.error);
+        toast.error('เกิดข้อผิดพลาดในการค้นหาห้องพัก กรุณาลองใหม่อีกครั้ง', {
+          duration: 4000,
+          position: 'top-center',
+          style: {
+            background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
+            color: 'white',
+            padding: '16px 24px',
+            borderRadius: '12px',
+            fontSize: '16px',
+            fontWeight: '600',
+            boxShadow: '0 10px 30px rgba(220, 38, 38, 0.3)',
+            border: '2px solid rgba(255, 255, 255, 0.2)',
+          },
+          icon: '⚠️',
+        });
+        return;
+      }
+    } catch (error) {
+      console.error('❌ Room search error:', error);
+      if (error.message.includes('fetch')) {
+        toast.error('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้\n\nกรุณาตรวจสอบ:\n• Backend Server ทำงานที่ http://localhost:3001\n• การเชื่อมต่ออินเทอร์เน็ต\n• การตั้งค่า CORS', {
+          duration: 6000,
+          position: 'top-center',
+          style: {
+            background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
+            color: 'white',
+            padding: '20px 24px',
+            borderRadius: '12px',
+            fontSize: '15px',
+            fontWeight: '600',
+            boxShadow: '0 10px 30px rgba(220, 38, 38, 0.3)',
+            border: '2px solid rgba(255, 255, 255, 0.2)',
+            whiteSpace: 'pre-line',
+            maxWidth: '400px',
+          },
+          icon: '🔌',
+        });
+      } else {
+        toast.error('เกิดข้อผิดพลาดในการค้นหาห้องพัก กรุณาลองใหม่อีกครั้ง', {
+          duration: 4000,
+          position: 'top-center',
+          style: {
+            background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
+            color: 'white',
+            padding: '16px 24px',
+            borderRadius: '12px',
+            fontSize: '16px',
+            fontWeight: '600',
+            boxShadow: '0 10px 30px rgba(220, 38, 38, 0.3)',
+            border: '2px solid rgba(255, 255, 255, 0.2)',
+          },
+          icon: '❌',
+        });
+      }
+      // ไม่ redirect ถ้า error เพื่อให้ user ลองใหม่ได้
+      return;
+    }
   };
 
   const fetchContactSettings = async () => {
@@ -142,80 +358,120 @@ function HomePageContent() {
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{
-            backgroundImage: `url('https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2340&q=80')`
+            backgroundImage: `url('/images/rooms/493674840_1159118906242394_3883760380452361632_n.jpg')`
           }}
         />
         {/* Dark Overlay */}
-        <div className="absolute inset-0 bg-black/30"></div>
+        <div className="absolute inset-0 bg-black/50 z-0"></div>
         
 
 
-        {/* Hero Content */}
-        <div className="relative z-10 flex flex-col items-center justify-center h-full text-center text-white px-6 pt-16">
+        {/* Hero Content with Booking Form */}
+        <div className="relative z-10 flex flex-col items-center justify-center h-full text-center text-white px-6 pt-8">
           <FadeInUp delay={300}>
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-light mb-16 leading-tight font-thai-header">
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-light mb-8 leading-tight font-thai-header">
               ยินดีต้อนรับสู่<br />
               <span className="font-medium text-amber-300">โรงแรมวรุณภัฏ</span>
             </h1>
           </FadeInUp>
-        </div>
-
-        {/* Booking Form - Centered at Bottom */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 w-full max-w-6xl px-4 lg:px-8">
+          
+          {/* Booking Form - Moved up and integrated with hero content */}
+          <div className="w-full max-w-7xl px-4 lg:px-8 mt-6">
           <FadeInUp delay={800}>
-            <div className="backdrop-blur-md rounded-2xl p-6 lg:p-8 border border-amber-300/20" style={{ backgroundColor: 'rgba(8, 34, 32, 0.9)' }}>
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 text-white">
-              <div>
-                <label className="block text-sm font-semibold mb-3 text-white uppercase tracking-wider font-thai">เช็คอิน</label>
-                <input
-                  type="date"
-                  value={checkInDate}
-                  onChange={(e) => setCheckInDate(e.target.value)}
-                  className="w-full px-4 py-4 border border-amber-300/30 rounded-lg text-white placeholder-amber-200/70 focus:outline-none focus:border-amber-400 transition-all duration-300 font-thai"
-                  style={{ backgroundColor: 'rgba(10, 43, 40, 0.5)' }}
-                  onFocus={(e) => e.target.style.backgroundColor = 'rgba(10, 43, 40, 0.7)'}
-                  onBlur={(e) => e.target.style.backgroundColor = 'rgba(10, 43, 40, 0.5)'}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-3 text-white uppercase tracking-wider font-thai">เช็คเอาท์</label>
-                <input
-                  type="date"
-                  value={checkOutDate}
-                  onChange={(e) => setCheckOutDate(e.target.value)}
-                  className="w-full px-4 py-4 border border-amber-300/30 rounded-lg text-white placeholder-amber-200/70 focus:outline-none focus:border-amber-400 transition-all duration-300 font-thai"
-                  style={{ backgroundColor: 'rgba(10, 43, 40, 0.5)' }}
-                  onFocus={(e) => e.target.style.backgroundColor = 'rgba(10, 43, 40, 0.7)'}
-                  onBlur={(e) => e.target.style.backgroundColor = 'rgba(10, 43, 40, 0.5)'}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-3 text-white uppercase tracking-wider font-thai">จำนวนผู้เข้าพัก</label>
-                <select
-                  value={guests}
-                  onChange={(e) => setGuests(parseInt(e.target.value))}
-                  className="w-full px-4 py-4 border border-amber-300/30 rounded-lg text-white focus:outline-none focus:border-amber-400 transition-all duration-300 font-thai"
-                  style={{ backgroundColor: 'rgba(10, 43, 40, 0.5)' }}
-                  onFocus={(e) => e.target.style.backgroundColor = 'rgba(10, 43, 40, 0.7)'}
-                  onBlur={(e) => e.target.style.backgroundColor = 'rgba(10, 43, 40, 0.5)'}
-                >
-                  <option value="" className="text-gray-800">เลือกจำนวนคน</option>
-                  {[1,2,3,4,5,6].map(num => (
-                    <option key={num} value={num} className="text-gray-800">{num} คน</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex items-end">
-                <button
-                  onClick={handleSearch}
-                  className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 px-8 py-4 rounded-lg font-semibold tracking-wide transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-thai"
-                >
-                  ตรวจสอบห้องว่าง
-                </button>
-              </div>
+            <div className="backdrop-blur-lg rounded-3xl p-8 lg:p-12 border-2 border-white/20 relative z-30 shadow-2xl" style={{ background: 'linear-gradient(135deg, rgba(18, 43, 41, 0.95) 0%, rgba(15, 38, 35, 0.98) 50%, rgba(13, 31, 29, 0.95) 100%)' }}>
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 text-white" style={{ position: 'relative', zIndex: 100 }}>
+                <div style={{ position: 'relative', zIndex: 101 }}>
+                  <ModernDatePicker
+                    selectedDate={checkInDate}
+                    onDateSelect={(date) => setCheckInDate(date)}
+                    minDate={new Date()}
+                    maxDate={checkOutDate ? new Date(checkOutDate.getTime() - 24*60*60*1000) : null}
+                    placeholder="วันเข้าพัก"
+                    label="เช็คอิน"
+                    language="th"
+                    className="room-search-datepicker"
+                  />
+                </div>
+                <div style={{ position: 'relative', zIndex: 101 }}>
+                  <ModernDatePicker
+                    selectedDate={checkOutDate}
+                    onDateSelect={(date) => setCheckOutDate(date)}
+                    minDate={checkInDate ? new Date(checkInDate.getTime() + 24*60*60*1000) : new Date(Date.now() + 24*60*60*1000)}
+                    placeholder="วันออก"
+                    label="เช็คเอาท์"
+                    language="th"
+                    className="room-search-datepicker"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold mb-4 text-white uppercase tracking-wider font-thai">ผู้เข้าพัก</label>
+                  <div className="relative">
+                    <select
+                      value={guests}
+                      onChange={(e) => setGuests(parseInt(e.target.value))}
+                      className="w-full px-8 py-5 border-2 border-emerald-400 rounded-xl text-emerald-900 bg-gradient-to-r from-white to-emerald-50 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 font-thai font-semibold appearance-none cursor-pointer shadow-lg text-lg"
+                      style={{ 
+                        position: 'relative',
+                        zIndex: 101,
+                        pointerEvents: 'auto',
+                        minWidth: '140px'
+                      }}
+                    >
+                      {[1,2].map(num => (
+                        <option key={num} value={num} className="text-emerald-900 bg-white py-2">{num} คน</option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none">
+                      <Users className="w-5 h-5 text-emerald-600" />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold mb-4 text-white uppercase tracking-wider font-thai">เตียง</label>
+                  <div className="relative">
+                    <select
+                      value={bedType}
+                      onChange={(e) => setBedType(e.target.value)}
+                      className="w-full px-8 py-5 border-2 border-emerald-400 rounded-xl text-emerald-900 bg-gradient-to-r from-white to-emerald-50 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 font-thai font-semibold appearance-none cursor-pointer shadow-lg text-lg"
+                      style={{ 
+                        position: 'relative',
+                        zIndex: 101,
+                        pointerEvents: 'auto',
+                        minWidth: '160px'
+                      }}
+                    >
+                      <option value="" className="text-emerald-900 bg-white py-2">ทุกประเภท</option>
+                      <option value="single" className="text-emerald-900 bg-white py-2">เตียงเดี่ยว</option>
+                      <option value="double" className="text-emerald-900 bg-white py-2">เตียงคู่</option>
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none">
+                      <span className="text-2xl">🛏️</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={handleSearch}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    className="w-full bg-gradient-to-r from-emerald-600 via-emerald-700 to-emerald-800 hover:from-emerald-700 hover:via-emerald-800 hover:to-emerald-900 text-white px-8 py-5 rounded-xl font-bold text-lg tracking-wide transition-all duration-300 transform hover:scale-105 hover:shadow-2xl font-thai border-2 border-emerald-500 hover:border-emerald-400"
+                    style={{ 
+                      position: 'relative',
+                      zIndex: 101,
+                      pointerEvents: 'auto',
+                      minWidth: '180px'
+                    }}
+                  >
+                    <div className="flex items-center justify-center space-x-2">
+                      <Search className="w-5 h-5" />
+                      <span className="whitespace-nowrap">ตรวจสอบห้องว่าง</span>
+                    </div>
+                  </button>
+                </div>
             </div>
             </div>
           </FadeInUp>
+          </div>
         </div>
       </section>
 
@@ -223,7 +479,7 @@ function HomePageContent() {
       <section 
         className="relative py-32 bg-cover bg-center"
         style={{
-          backgroundImage: `url('https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&auto=format&fit=crop&w=2340&q=80')`
+          backgroundImage: `url('/images/rooms/493674840_1159118906242394_3883760380452361632_n.jpg')`
         }}
       >
         <div className="absolute inset-0" style={{ backgroundColor: 'rgba(8, 34, 32, 0.7)' }}></div>
@@ -369,43 +625,6 @@ function HomePageContent() {
         </div>
       </section>
 
-      {/* Philosophy Section - แบบ Gregori */}
-      <section className="py-20 text-white" style={{ backgroundColor: '#082220' }}>
-        <div className="container mx-auto px-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            <FadeInLeft>
-              <div className="text-amber-400 text-sm font-medium tracking-widest mb-4 font-thai">
-                — ปรัชญาของเรา
-              </div>
-              <h2 className="text-4xl lg:text-5xl font-light mb-8 font-thai-header">
-                ความมุ่งมั่นของเรา<br />
-                <span className="font-bold text-amber-300">สู่ความเป็นเลิศ</span>
-              </h2>
-              <p className="text-lg text-amber-100 mb-8 leading-relaxed font-thai">
-                เราเชื่อว่าการเดินทางแต่ละครั้งควรเป็นประสบการณ์ที่ไม่ลืม 
-                ด้วยการบริการที่เป็นเลิศและความใส่ใจในทุกรายละเอียด 
-                เราสร้างความทรงจำอันมีค่าให้กับแขกทุกท่าน
-              </p>
-              <p className="text-lg text-amber-100 mb-12 leading-relaxed font-thai">
-                จากห้องพักที่ออกแบบอย่างพิถีพิถัน ไปจนถึงบริการที่อบอุ่น 
-                ทุกสิ่งที่เราทำคือเพื่อความสุขและความพึงพอใจของคุณ
-              </p>
-              <button className="bg-amber-500 hover:bg-amber-600 text-slate-900 px-8 py-4 rounded-lg font-medium transition-colors duration-300 font-thai">
-                เรียนรู้เพิ่มเติม
-              </button>
-            </FadeInLeft>
-            
-            <FadeInRight delay={300}>
-              <img
-                src="https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-                alt="Hotel Interior"
-                className="rounded-2xl w-full h-[600px] object-cover"
-              />
-            </FadeInRight>
-          </div>
-        </div>
-      </section>
-
       {/* About Section */}
       <section 
         className="py-20" 
@@ -415,8 +634,8 @@ function HomePageContent() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <FadeInLeft delay={200}>
               <img
-                src="https://images.unsplash.com/photo-1571896349842-33c89424de2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-                alt="Hotel Lounge"
+                src="/images/rooms/493674840_1159118906242394_3883760380452361632_n.jpg"
+                alt="Hotel Building"
                 className="rounded-2xl w-full h-[600px] object-cover"
               />
             </FadeInLeft>

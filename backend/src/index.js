@@ -231,8 +231,16 @@ const app = new Elysia()
     port: 3001
   });
 
+// เริ่มต้นระบบ Notification Scheduler
+import { notificationScheduler } from './utils/notificationScheduler.js';
+notificationScheduler.startAll();
+
 console.log(`🚀 Hotel Booking API is running at 0.0.0.0:3001`);
 console.log(`📚 API Documentation available at http://localhost:3001/swagger`);
 console.log(`Started development server: http://localhost:3001`);
+console.log(`🕐 Notification scheduler is running for:
+  ✅ Check-in reminders (daily at 09:00 Bangkok time)
+  ✅ Expired booking checks (hourly)
+  ✅ Daily admin summaries (daily at 18:00 Bangkok time)`);
 
 export default app;

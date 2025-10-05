@@ -6,6 +6,7 @@ import { generateBookingReference } from '../utils/auth.js';
 import { createNotification, NotificationTemplates } from './notifications.js';
 import { automaticEmailNotifications } from '../utils/automaticEmailService.js';
 import { notificationService } from '../utils/notificationService.js';
+import { sendBookingUpdateEmail } from '../utils/mockEmailService.js';
 
 export const bookingRoutes = new Elysia({ prefix: '/bookings' })
   // GET endpoints with specific paths first (to avoid conflicts)
@@ -639,6 +640,18 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
             user: userData
           });
           console.log('✅ Real-time notification sent for booking creation');
+          
+          // แจ้งเตือนแอดมินเกี่ยวกับการจองใหม่
+          await notificationService.notifyAdmins('new_booking', {
+            bookingId: newBooking[0].id,
+            customerName: `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'ลูกค้า',
+            hotelName: bookingEmailData.hotelName,
+            amount: bookingEmailData.totalPrice,
+            booking: bookingEmailData,
+            user: userData
+          });
+          console.log('✅ Admin notification sent for new booking');
+          
         } catch (notifError) {
           console.error('❌ Real-time notification failed:', notifError);
         }
@@ -1440,5 +1453,192 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
       console.error('Get reports error:', error);
       set.status = 500;
       return { error: 'Internal server error', details: error.message };
+    }
+  })
+  
+  // PUT endpoint for updating booking dates
+  .put('/:id', async ({ params, body, headers, set }) => {
+    try {
+      console.log('🔄 Updating booking ID:', params.id);
+      console.log('📋 Request body:', body);
+      
+      // Authenticate user
+      const user = await authMiddleware({ headers, set });
+      if (user.error) {
+        console.log('❌ Authentication failed:', user.error);
+        return user;
+      }
+      
+      const { action, check_in_date, check_out_date } = body;
+      
+      if (action === 'update_dates') {
+        // Validate input
+        if (!check_in_date || !check_out_date) {
+          set.status = 400;
+          return { 
+            success: false, 
+            message: 'กรุณาระบุวันที่เข้าพักและออกให้ครบถ้วน' 
+          };
+        }
+        
+        // Validate dates
+        const checkInDate = new Date(check_in_date);
+        const checkOutDate = new Date(check_out_date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        if (checkInDate < today) {
+          set.status = 400;
+          return { 
+            success: false, 
+            message: 'วันที่เข้าพักต้องเป็นวันนี้หรือหลังจากนี้' 
+          };
+        }
+        
+        if (checkOutDate <= checkInDate) {
+          set.status = 400;
+          return { 
+            success: false, 
+            message: 'วันที่ออกต้องหลังจากวันที่เข้าพัก' 
+          };
+        }
+        
+        // Get current booking
+        const currentBooking = await sql`
+          SELECT * FROM bookings 
+          WHERE id = ${params.id} AND user_id = ${user.id}
+        `;
+        
+        if (currentBooking.length === 0) {
+          set.status = 404;
+          return { 
+            success: false, 
+            message: 'ไม่พบการจองที่ต้องการแก้ไข' 
+          };
+        }
+        
+        const booking = currentBooking[0];
+        
+        // Check if booking can be modified (only pending bookings)
+        if (booking.status !== 'pending') {
+          set.status = 403;
+          return { 
+            success: false, 
+            message: 'ไม่สามารถแก้ไขการจองที่ได้รับการยืนยันแล้ว' 
+          };
+        }
+        
+        // Check room availability for new dates
+        const conflictingBookings = await sql`
+          SELECT COUNT(*) as count
+          FROM bookings b
+          WHERE b.room_type_id = ${booking.room_type_id}
+            AND b.id != ${params.id}
+            AND b.status IN ('pending', 'confirmed', 'approved')
+            AND (
+              (DATE(${check_in_date}) BETWEEN DATE(b.check_in_date) AND DATE(b.check_out_date))
+              OR (DATE(${check_out_date}) BETWEEN DATE(b.check_in_date) AND DATE(b.check_out_date))
+              OR (DATE(b.check_in_date) BETWEEN DATE(${check_in_date}) AND DATE(${check_out_date}))
+            )
+        `;
+        
+        if (conflictingBookings[0].count > 0) {
+          set.status = 409;
+          return { 
+            success: false, 
+            message: 'ไม่มีห้องว่างในวันที่ที่เลือก กรุณาเลือกวันที่อื่น' 
+          };
+        }
+        
+        // Calculate nights and total price
+        const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
+        const totalPrice = nights * parseFloat(booking.room_price);
+        
+        // Update booking
+        await sql`
+          UPDATE bookings 
+          SET check_in_date = ${check_in_date},
+              check_out_date = ${check_out_date},
+              nights = ${nights},
+              total_price = ${totalPrice},
+              updated_at = NOW()
+          WHERE id = ${params.id} AND user_id = ${user.id}
+        `;
+        
+        console.log('✅ Booking dates updated successfully');
+        
+        // ส่งอีเมลแจ้งเตือนการแก้ไข
+        try {
+          // ดึงข้อมูลผู้ใช้
+          const userData = await sql`
+            SELECT email, CONCAT(first_name, ' ', last_name) as full_name 
+            FROM users 
+            WHERE id = ${user.id}
+          `;
+          
+          if (userData.length > 0) {
+            const userInfo = userData[0];
+            
+            // ดึงข้อมูลโรงแรมและประเภทห้อง
+            const bookingDetails = await sql`
+              SELECT b.*, h.name as hotel_name, rt.name as room_type_name
+              FROM bookings b
+              LEFT JOIN hotels h ON b.hotel_id = h.id
+              LEFT JOIN room_types rt ON b.room_type_id = rt.id
+              WHERE b.id = ${params.id}
+            `;
+            
+            if (bookingDetails.length > 0) {
+              const bookingData = {
+                bookingReference: bookingDetails[0].booking_reference,
+                hotelName: bookingDetails[0].hotel_name,
+                roomTypeName: bookingDetails[0].room_type_name,
+                checkInDate: new Date(check_in_date).toLocaleDateString('th-TH'),
+                checkOutDate: new Date(check_out_date).toLocaleDateString('th-TH'),
+                totalPrice: totalPrice,
+                guests: bookingDetails[0].guests
+              };
+              
+              const emailResult = await sendBookingUpdateEmail(
+                userInfo.email,
+                userInfo.full_name,
+                bookingData
+              );
+              
+              console.log('📧 Email notification result:', emailResult);
+            }
+          }
+        } catch (emailError) {
+          console.error('⚠️ Failed to send email notification:', emailError);
+          // ไม่ให้ email error ทำให้การอัพเดทล้มเหลว
+        }
+        
+        return { 
+          success: true, 
+          message: 'อัพเดทวันที่เข้าพักสำเร็จ',
+          data: {
+            check_in_date,
+            check_out_date,
+            nights,
+            total_price: totalPrice
+          }
+        };
+      }
+      
+      // Handle other actions (existing code)
+      set.status = 400;
+      return { 
+        success: false, 
+        message: 'ไม่รองรับการดำเนินการนี้' 
+      };
+      
+    } catch (error) {
+      console.error('❌ Error updating booking:', error);
+      set.status = 500;
+      return { 
+        success: false, 
+        message: 'เกิดข้อผิดพลาดภายในระบบ',
+        error: error.message 
+      };
     }
   });

@@ -54,12 +54,10 @@ export default function TopNavigation() {
   // Admin Navigation Items
   const adminNavigation = [
     { name: 'แดชบอร์ด', href: '/admin/dashboard', icon: BarChart3 },
-    { name: 'โรงแรม', href: '/admin/hotels', icon: Home },
     { name: 'ห้องพัก', href: '/admin/rooms', icon: Bed },
     { name: 'การจอง', href: '/admin/bookings', icon: Calendar },
     { name: 'ผู้ใช้งาน', href: '/admin/users', icon: Users },
     { name: 'รายงาน', href: '/admin/reports', icon: FileText },
-    { name: 'การเงิน', href: '/admin/finance', icon: DollarSign },
     { name: 'รีวิว', href: '/admin/reviews', icon: MessageSquare },
     { name: 'จัดการข้อมูลการติดต่อ', href: '/admin/contact-settings', icon: Phone },
     { name: 'ตั้งค่า', href: '/admin/settings', icon: Settings },

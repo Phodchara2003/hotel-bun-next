@@ -233,11 +233,11 @@ function AdminPageContent() {
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{
-            backgroundImage: `url('https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2340&q=80')`
+            backgroundImage: `url('/hotel-building.jpg')`
           }}
         />
         {/* Dark Overlay */}
-        <div className="absolute inset-0 bg-black/30"></div>
+        <div className="absolute inset-0 bg-black/50"></div>
         
         {/* Hero Content */}
         <div className="relative z-10 flex flex-col items-center justify-center h-full text-center text-white px-6 pt-16">
@@ -440,43 +440,6 @@ function AdminPageContent() {
               ดูห้องพักทั้งหมด
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Philosophy Section - แบบ Gregori */}
-      <section className="py-20 text-white" style={{ backgroundColor: '#082220' }}>
-        <div className="container mx-auto px-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            <FadeInLeft>
-              <div className="text-amber-400 text-sm font-medium tracking-widest mb-4 font-thai">
-                — ปรัชญาของเรา
-              </div>
-              <h2 className="text-4xl lg:text-5xl font-light mb-8 font-thai-header">
-                ความมุ่งมั่นของเรา<br />
-                <span className="font-bold text-amber-300">สู่ความเป็นเลิศ</span>
-              </h2>
-              <p className="text-lg text-amber-100 mb-8 leading-relaxed font-thai">
-                เราเชื่อว่าการเดินทางแต่ละครั้งควรเป็นประสบการณ์ที่ไม่ลืม 
-                ด้วยการบริการที่เป็นเลิศและความใส่ใจในทุกรายละเอียด 
-                เราสร้างความทรงจำอันมีค่าให้กับแขกทุกท่าน
-              </p>
-              <p className="text-lg text-amber-100 mb-12 leading-relaxed font-thai">
-                จากห้องพักที่ออกแบบอย่างพิถีพิถัน ไปจนถึงบริการที่อบอุ่น 
-                ทุกสิ่งที่เราทำคือเพื่อความสุขและความพึงพอใจของคุณ
-              </p>
-              <button className="bg-amber-500 hover:bg-amber-600 text-slate-900 px-8 py-4 rounded-lg font-medium transition-colors duration-300 font-thai">
-                เรียนรู้เพิ่มเติม
-              </button>
-            </FadeInLeft>
-            
-            <FadeInRight delay={300}>
-              <img
-                src="https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-                alt="Hotel Interior"
-                className="rounded-2xl w-full h-[600px] object-cover"
-              />
-            </FadeInRight>
           </div>
         </div>
       </section>

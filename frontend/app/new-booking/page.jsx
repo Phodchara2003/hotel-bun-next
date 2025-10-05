@@ -206,11 +206,35 @@ export default function NewBookingPage() {
       });
 
       const data = await response.json();
+      console.log('Booking response data:', data); // Debug log
 
       if (data.success) {
         toast.success('จองห้องพักสำเร็จ!');
-        // ไปหน้าชำระเงิน
-        router.push(`/booking-success?id=${data.booking.id}&room=${data.booking.room_number}&floor=${data.booking.floor}`);
+        
+        // Debug log booking data
+        console.log('Booking data from backend:', data.booking);
+        console.log('Frontend booking data:', bookingData);
+        
+        // สร้าง URL พร้อมข้อมูลครบถ้วน
+        const successUrl = new URLSearchParams({
+          bookingId: data.booking.id,
+          reference: data.booking.bookingReference || '',
+          roomName: data.booking.roomTypeName || '',
+          roomNumber: data.booking.room_number || '',
+          floor: data.booking.floor || '',
+          hotelName: data.booking.hotelName || 'โรงแรมวรุณภัฏ',
+          checkIn: data.booking.checkInDate || bookingData.checkIn,
+          checkOut: data.booking.checkOutDate || bookingData.checkOut,
+          guests: data.booking.guests || bookingData.guests,
+          guestName: `${bookingData.firstName} ${bookingData.lastName}`,
+          guestEmail: bookingData.email,
+          guestPhone: bookingData.phone,
+          total: data.booking.totalPrice || calculateTotal()
+        }).toString();
+        
+        console.log('Success URL params:', successUrl); // Debug log
+        
+        router.push(`/booking-success?${successUrl}`);
       } else {
         toast.error(data.message || 'เกิดข้อผิดพลาดในการจอง');
       }

@@ -17,6 +17,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { formatDateThai, calculateNights as calculateNightsUtil } from '../../lib/dateUtils';
 
 export default function BookingSuccessPage() {
   const searchParams = useSearchParams();
@@ -87,6 +88,9 @@ export default function BookingSuccessPage() {
 
   const loadFallbackData = () => {
     // ใช้ข้อมูลจาก URL parameters หากไม่สามารถดึงจาก API ได้
+    console.log('Loading fallback data from URL params');
+    console.log('All URL params:', Object.fromEntries(searchParams.entries()));
+    
     const fallbackData = {
       id: searchParams.get('bookingId') || 'N/A',
       booking_reference: searchParams.get('reference') || 'HTL' + Date.now().toString().slice(-6),
@@ -104,18 +108,14 @@ export default function BookingSuccessPage() {
       status: 'pending',
       payment_status: 'pending'
     };
+    
+    console.log('Fallback booking details:', fallbackData);
     setBookingDetails(fallbackData);
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('th-TH', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      weekday: 'long'
-    });
+    if (!dateString) return 'ไม่ระบุ';
+    return formatDateThai(dateString);
   };
 
   const formatPrice = (price) => {
@@ -124,10 +124,7 @@ export default function BookingSuccessPage() {
 
   const calculateNights = () => {
     if (!bookingDetails?.check_in_date || !bookingDetails?.check_out_date) return 1;
-    const checkIn = new Date(bookingDetails.check_in_date);
-    const checkOut = new Date(bookingDetails.check_out_date);
-    const timeDiff = checkOut.getTime() - checkIn.getTime();
-    return Math.ceil(timeDiff / (1000 * 3600 * 24));
+    return calculateNightsUtil(bookingDetails.check_in_date, bookingDetails.check_out_date);
   };
 
   const getBedTypeDisplay = (bedType) => {

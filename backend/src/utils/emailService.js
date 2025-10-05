@@ -977,5 +977,86 @@ export {
   sendBookingCancellationEmail,
   sendBookingUpdateEmail,
   sendCheckInReminderEmail,
+  sendBookingApprovalEmail,
+  sendBookingRejectionEmail,
+  sendRequestAdditionalInfoEmail,
   sendAutomaticNotifications
+};
+
+// ส่งอีเมลแจ้งการอนุมัติการจอง
+const sendBookingApprovalEmail = async (email, bookingData, userName = 'ผู้ใช้') => {
+  try {
+    const transporter = createTransporter();
+    const { BookingApprovalTemplates } = await import('./bookingApprovalTemplates.js');
+    const template = BookingApprovalTemplates.BOOKING_APPROVED(bookingData);
+    
+    const mailOptions = {
+      from: {
+        name: 'Hotel Booking System',
+        address: process.env.GMAIL_USER
+      },
+      to: email,
+      subject: template.subject,
+      html: template.html
+    };
+
+    const result = await transporter.sendMail(mailOptions);
+    console.log('Booking approval email sent successfully:', result.messageId);
+    return { success: true, messageId: result.messageId };
+  } catch (error) {
+    console.error('Error sending booking approval email:', error);
+    throw error;
+  }
+};
+
+// ส่งอีเมลแจ้งการปฏิเสธการจอง
+const sendBookingRejectionEmail = async (email, bookingData, reason, userName = 'ผู้ใช้') => {
+  try {
+    const transporter = createTransporter();
+    const { BookingApprovalTemplates } = await import('./bookingApprovalTemplates.js');
+    const template = BookingApprovalTemplates.BOOKING_REJECTED(bookingData, reason);
+    
+    const mailOptions = {
+      from: {
+        name: 'Hotel Booking System',
+        address: process.env.GMAIL_USER
+      },
+      to: email,
+      subject: template.subject,
+      html: template.html
+    };
+
+    const result = await transporter.sendMail(mailOptions);
+    console.log('Booking rejection email sent successfully:', result.messageId);
+    return { success: true, messageId: result.messageId };
+  } catch (error) {
+    console.error('Error sending booking rejection email:', error);
+    throw error;
+  }
+};
+
+// ส่งอีเมลขอข้อมูลเพิ่มเติม
+const sendRequestAdditionalInfoEmail = async (email, bookingData, requestedInfo, userName = 'ผู้ใช้') => {
+  try {
+    const transporter = createTransporter();
+    const { BookingApprovalTemplates } = await import('./bookingApprovalTemplates.js');
+    const template = BookingApprovalTemplates.REQUEST_ADDITIONAL_INFO(bookingData, requestedInfo);
+    
+    const mailOptions = {
+      from: {
+        name: 'Hotel Booking System',
+        address: process.env.GMAIL_USER
+      },
+      to: email,
+      subject: template.subject,
+      html: template.html
+    };
+
+    const result = await transporter.sendMail(mailOptions);
+    console.log('Request additional info email sent successfully:', result.messageId);
+    return { success: true, messageId: result.messageId };
+  } catch (error) {
+    console.error('Error sending request additional info email:', error);
+    throw error;
+  }
 };

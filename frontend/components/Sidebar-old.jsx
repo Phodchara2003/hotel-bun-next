@@ -143,20 +143,8 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }) {
       label: 'จัดการโรงแรม',
       color: 'text-red-600',
       subItems: [
-        { label: 'ข้อมูลโรงแรม', href: '/admin/hotels' },
         { label: 'สิ่งอำนวยความสะดวก', href: '/admin/amenities' },
         { label: 'รูปภาพ', href: '/admin/images' }
-      ]
-    },
-    {
-      key: 'financial',
-      icon: DollarSign,
-      label: 'การเงิน',
-      color: 'text-yellow-600',
-      subItems: [
-        { label: 'รายได้', href: '/admin/revenue' },
-        { label: 'การชำระเงิน', href: '/admin/payments' },
-        { label: 'รายงานการเงิน', href: '/admin/financial-reports' }
       ]
     },
     {

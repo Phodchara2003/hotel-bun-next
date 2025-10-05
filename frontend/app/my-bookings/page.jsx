@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { Calendar, MapPin, Users, Clock, User, Mail, Phone, Edit, X } from 'lucide-react';
+import { formatDateThai, formatDateForInput as formatDateForInputUtil, calculateNights as calculateNightsUtil, getCurrentDateString } from '../../lib/dateUtils';
 
 export default function MyBookings() {
   const { user } = useAuth();
@@ -34,16 +35,44 @@ export default function MyBookings() {
   const fetchMyBookings = async () => {
     try {
       console.log('🔍 Fetching bookings for user:', user.id);
-      const response = await fetch(`http://localhost:3001/api/bookings?user_id=${user.id}`);
+      
+      // ใช้ API endpoint ที่ถูกต้องพร้อม headers สำหรับ authentication
+      const response = await fetch('http://localhost:3001/api/bookings', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
       const result = await response.json();
       
       console.log('📊 Bookings API response:', result);
       
       if (result.success && result.data) {
         console.log('✅ Successfully loaded bookings:', result.data.length);
+        
+        // Debug: แสดงโครงสร้างข้อมูลแต่ละการจอง
+        result.data.forEach((booking, index) => {
+          console.log(`📋 Booking ${index + 1}:`, {
+            id: booking.id,
+            check_in_date: booking.check_in_date,
+            check_out_date: booking.check_out_date,
+            hotel_name: booking.hotel_name,
+            room_type_name: booking.room_type_name,
+            allFields: Object.keys(booking)
+          });
+        });
+        
+        // ข้อมูลจาก mysql-server.cjs มาเป็น snake_case อยู่แล้ว
+        console.log('🔄 Using bookings data as-is (mysql-server format)');
         setBookings(result.data);
+      } else if (result.bookings && result.bookings.length >= 0) {
+        // Fallback สำหรับ response format ใหม่ (จาก bookings.js)
+        console.log('✅ Successfully loaded bookings (new format):', result.bookings.length);
+        setBookings(result.bookings);
       } else {
-        console.log('❌ No bookings found or error:', result.message);
+        console.log('❌ No bookings found or error:', result.message || 'Unknown error');
         setBookings([]);
       }
     } catch (error) {
@@ -87,9 +116,7 @@ export default function MyBookings() {
   };
 
   const calculateNights = (checkIn, checkOut) => {
-    const start = new Date(checkIn);
-    const end = new Date(checkOut);
-    return Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    return calculateNightsUtil(checkIn, checkOut);
   };
 
   const canCancelBooking = (booking) => {
@@ -97,9 +124,8 @@ export default function MyBookings() {
       return false;
     }
     
-    // Check if check-in date has passed
-    const currentDate = new Date();
-    currentDate.setHours(0, 0, 0, 0);
+    // Check if check-in date has passed using timezone-safe comparison
+    const currentDateStr = getCurrentDateString();
     
     const checkInDateValue = booking.check_in_date || booking.checkInDate || booking.checkin_date;
     if (!checkInDateValue) {
@@ -107,14 +133,16 @@ export default function MyBookings() {
       return false;
     }
     
-    const checkInDate = new Date(checkInDateValue);
-    checkInDate.setHours(0, 0, 0, 0);
+    // Extract date part from string for comparison (YYYY-MM-DD format)
+    const checkInDateStr = typeof checkInDateValue === 'string' 
+      ? checkInDateValue.split('T')[0] 
+      : checkInDateValue;
     
     // Debug log
-    console.log('Booking ID:', booking.id, 'Check-in date:', checkInDate, 'Current date:', currentDate, 'Can cancel:', checkInDate >= currentDate);
+    console.log('Booking ID:', booking.id, 'Check-in date:', checkInDateStr, 'Current date:', currentDateStr, 'Can cancel:', checkInDateStr >= currentDateStr);
     
     // Only allow cancellation if check-in date hasn't passed
-    return checkInDate >= currentDate;
+    return checkInDateStr >= currentDateStr;
   };
 
   const canModifyBooking = (booking) => {
@@ -122,20 +150,21 @@ export default function MyBookings() {
       return false;
     }
     
-    // Check if check-in date has passed
-    const currentDate = new Date();
-    currentDate.setHours(0, 0, 0, 0);
+    // Check if check-in date has passed using timezone-safe comparison
+    const currentDateStr = getCurrentDateString();
     
     const checkInDateValue = booking.check_in_date || booking.checkInDate || booking.checkin_date;
     if (!checkInDateValue) {
       return false;
     }
     
-    const checkInDate = new Date(checkInDateValue);
-    checkInDate.setHours(0, 0, 0, 0);
+    // Extract date part from string for comparison (YYYY-MM-DD format)
+    const checkInDateStr = typeof checkInDateValue === 'string' 
+      ? checkInDateValue.split('T')[0] 
+      : checkInDateValue;
     
     // Only allow modification if check-in date hasn't passed
-    return checkInDate >= currentDate;
+    return checkInDateStr >= currentDateStr;
   };
 
   const handleCancelBooking = async (bookingId) => {
@@ -238,27 +267,19 @@ export default function MyBookings() {
   const openEditModal = (booking) => {
     setEditingBookingId(booking.id);
     
-    // Set current dates as defaults using Thailand timezone
-    const checkInDate = new Date(booking.check_in_date);
-    const checkOutDate = new Date(booking.check_out_date);
+    // Set current dates as defaults using safe date formatting
+    const checkInDate = booking.check_in_date;
+    const checkOutDate = booking.check_out_date;
     
-    // Add Thailand timezone offset (+7 hours) to get correct local date
-    const formatDateForInput = (date) => {
-      const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-      return localDate.toISOString().split('T')[0];
-    };
-    
-    setNewCheckIn(formatDateForInput(checkInDate));
-    setNewCheckOut(formatDateForInput(checkOutDate));
+    // Use utility function for safe date formatting
+    setNewCheckIn(formatDateForInputUtil(checkInDate));
+    setNewCheckOut(formatDateForInputUtil(checkOutDate));
     setShowEditModal(true);
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('th-TH', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    if (!dateString) return 'ไม่ระบุวันที่';
+    return formatDateThai(dateString);
   };
 
   if (!user) {

@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ทดสอบระบบจองห้องพัก</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        .search-form {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            border: 2px solid #e9ecef;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #495057;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ced4da;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #80bdff;
+            box-shadow: 0 0 5px rgba(128, 189, 255, 0.5);
+        }
+        button {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            transition: all 0.3s;
+            width: 100%;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,123,255,0.3);
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        .results {
+            margin-top: 30px;
+        }
+        .room-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+        .room-card:hover {
+            border-color: #007bff;
+            box-shadow: 0 5px 15px rgba(0,123,255,0.2);
+        }
+        .room-name {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .room-price {
+            font-size: 1.3em;
+            color: #28a745;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .room-details {
+            color: #666;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+        .available-count {
+            background: #28a745;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 14px;
+            display: inline-block;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 18px;
+            color: #666;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏨 ทดสอบระบบจองโรงแรมวรุณภัฏ</h1>
+        
+        <div class="search-form">
+            <h2>🔍 ค้นหาห้องพัก</h2>
+            <form id="searchForm">
+                <div class="grid">
+                    <div class="form-group">
+                        <label for="checkin">วันเข้าพัก:</label>
+                        <input type="date" id="checkin" name="checkin" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="checkout">วันออก:</label>
+                        <input type="date" id="checkout" name="checkout" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="guests">จำนวนผู้เข้าพัก:</label>
+                        <select id="guests" name="guests" required>
+                            <option value="1">1 คน</option>
+                            <option value="2">2 คน</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="bedType">ประเภทเตียง:</label>
+                        <select id="bedType" name="bedType">
+                            <option value="">ทุกประเภท</option>
+                            <option value="single">เตียงเดี่ยว</option>
+                            <option value="double">เตียงคู่</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" id="searchButton">🔍 ค้นหาห้องว่าง</button>
+            </form>
+        </div>
+
+        <div id="status"></div>
+        <div id="results" class="results"></div>
+    </div>
+
+    <script>
+        // ตั้งค่าวันที่เริ่มต้น
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            
+            document.getElementById('checkin').value = today.toISOString().split('T')[0];
+            document.getElementById('checkout').value = tomorrow.toISOString().split('T')[0];
+        });
+
+        document.getElementById('searchForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const checkin = formData.get('checkin');
+            const checkout = formData.get('checkout');
+            const guests = formData.get('guests');
+            const bedType = formData.get('bedType');
+            
+            const searchButton = document.getElementById('searchButton');
+            const statusDiv = document.getElementById('status');
+            const resultsDiv = document.getElementById('results');
+            
+            // ตรวจสอบข้อมูล
+            if (!checkin || !checkout) {
+                showStatus('error', '❌ กรุณาเลือกวันที่เข้าพักและออก');
+                return;
+            }
+            
+            if (new Date(checkin) >= new Date(checkout)) {
+                showStatus('error', '❌ วันที่ออกต้องมาหลังวันที่เข้าพัก');
+                return;
+            }
+            
+            // เริ่มค้นหา
+            searchButton.disabled = true;
+            searchButton.textContent = '🔄 กำลังค้นหา...';
+            resultsDiv.innerHTML = '<div class="loading">🔄 กำลังค้นหาห้องว่าง...</div>';
+            
+            try {
+                // สร้าง URL parameters
+                const params = new URLSearchParams({
+                    checkin,
+                    checkout,
+                    guests
+                });
+                
+                if (bedType && bedType.trim() !== '') {
+                    params.set('bedType', bedType);
+                }
+                
+                console.log('🔍 ค้นหาด้วยพารามิเตอร์:', {
+                    checkin,
+                    checkout,
+                    guests,
+                    bedType: bedType || 'ทุกประเภท'
+                });
+                
+                const response = await fetch(`http://localhost:3001/api/rooms/search?${params.toString()}`);
+                const data = await response.json();
+                
+                console.log('📥 ผลการค้นหา:', data);
+                
+                if (data.success) {
+                    if (data.data && data.data.length > 0) {
+                        showStatus('success', `✅ พบห้องว่าง ${data.count} ประเภท`);
+                        displayRooms(data.data, { checkin, checkout, guests, bedType });
+                    } else {
+                        showStatus('info', '📭 ไม่มีห้องว่างในช่วงวันที่ที่เลือก');
+                        resultsDiv.innerHTML = '';
+                    }
+                } else {
+                    showStatus('error', `❌ เกิดข้อผิดพลาด: ${data.error || 'ไม่สามารถค้นหาได้'}`);
+                    resultsDiv.innerHTML = '';
+                }
+            } catch (error) {
+                console.error('❌ ข้อผิดพลาดในการค้นหา:', error);
+                showStatus('error', '❌ เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาตรวจสอบว่า Backend Server ทำงานอยู่ที่ http://localhost:3001');
+                resultsDiv.innerHTML = '';
+            } finally {
+                searchButton.disabled = false;
+                searchButton.textContent = '🔍 ค้นหาห้องว่าง';
+            }
+        });
+        
+        function showStatus(type, message) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+        }
+        
+        function displayRooms(rooms, searchParams) {
+            const resultsDiv = document.getElementById('results');
+            const { checkin, checkout, guests, bedType } = searchParams;
+            
+            const nights = Math.ceil((new Date(checkout) - new Date(checkin)) / (1000 * 60 * 60 * 24));
+            
+            let html = `
+                <h2>🏨 ห้องพักที่ว่าง (${rooms.length} ประเภท)</h2>
+                <div class="status info">
+                    📅 วันที่: ${formatDate(checkin)} ถึง ${formatDate(checkout)} (${nights} คืน)<br>
+                    👥 ผู้เข้าพัก: ${guests} คน<br>
+                    🛏️ ประเภทเตียง: ${bedType || 'ทุกประเภท'}
+                </div>
+                <div class="grid">
+            `;
+            
+            rooms.forEach(room => {
+                const totalPrice = room.price_per_night * nights;
+                const amenities = Array.isArray(room.amenities) ? room.amenities : [];
+                const images = Array.isArray(room.images) ? room.images : [];
+                
+                html += `
+                    <div class="room-card">
+                        <div class="room-name">${room.room_type_name}</div>
+                        <div class="room-price">฿${room.price_per_night.toLocaleString()} ต่อคืน</div>
+                        <div class="room-price" style="color: #007bff;">รวม ${nights} คืน: ฿${totalPrice.toLocaleString()}</div>
+                        <div class="room-details">
+                            📏 ขนาด: ${room.size_sqm || 'ไม่ระบุ'} ตร.ม.<br>
+                            👥 ผู้เข้าพักสูงสุด: ${room.max_guests} คน<br>
+                            🛏️ ประเภทเตียง: ${room.bed_type || 'ไม่ระบุ'}<br>
+                            🏨 โรงแรม: ${room.hotel_name || 'โรงแรมวรุณภัฏ'}<br>
+                            🏠 ห้องที่ว่าง: ${room.room_numbers ? room.room_numbers.join(', ') : 'ไม่ระบุ'}
+                        </div>
+                        ${room.description ? `<div class="room-details">${room.description}</div>` : ''}
+                        ${amenities.length > 0 ? `<div class="room-details">🏅 สิ่งอำนวยความสะดวก: ${amenities.join(', ')}</div>` : ''}
+                        <div class="available-count">✅ มีห้องว่าง ${room.available_count} ห้อง</div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+        }
+        
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('th-TH', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+        }
+    </script>
+</body>
+</html>

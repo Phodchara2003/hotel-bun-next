@@ -11,6 +11,7 @@ import { hotelAPI, bookingAPI, authAPI } from '../../../lib/api';
 import { getRoomById } from '../../../lib/roomsData';
 import { getRoomImageUrl, getRoomPlaceholder } from '../../../lib/roomImageUtils';
 import { useAuth } from '../../../contexts/AuthContext';
+import { formatDateThai, formatDateForInput, calculateNights, dateToString } from '../../../lib/dateUtils';
 import CustomDatePicker from '../../../components/CustomDatePicker';
 import toast from 'react-hot-toast';
 
@@ -54,28 +55,46 @@ export default function RoomDetailPage() {
     return `${cleaned.slice(0, 1)}-${cleaned.slice(1, 5)}-${cleaned.slice(5, 10)}-${cleaned.slice(10, 12)}-${cleaned.slice(12, 13)}`;
   };
   
-  const searchCriteria = {
-    checkin: searchParams.get('checkin') || '',
-    checkout: searchParams.get('checkout') || '',
-    guests: parseInt(searchParams.get('guests')) || 1
-  };
-
   useEffect(() => {
     fetchRoomDetails();
     
-    // Load dates from URL parameters (แก้ไข timezone issue)
-    if (searchCriteria.checkin) {
-      // สร้างวันที่โดยไม่ให้ timezone มีผล
-      const [year, month, day] = searchCriteria.checkin.split('-').map(Number);
-      setCheckInDate(new Date(year, month - 1, day));
+    // Load dates from URL parameters
+    const checkinParam = searchParams.get('checkin');
+    const checkoutParam = searchParams.get('checkout');
+    const guestsParam = searchParams.get('guests');
+    
+    console.log('📅 Loading search params:', { checkinParam, checkoutParam, guestsParam });
+    
+    if (checkinParam) {
+      try {
+        // สร้างวันที่โดยไม่ให้ timezone มีผล
+        const [year, month, day] = checkinParam.split('-').map(Number);
+        const checkinDate = new Date(year, month - 1, day);
+        setCheckInDate(checkinDate);
+        console.log('✅ Set check-in date:', checkinDate);
+      } catch (error) {
+        console.error('❌ Error parsing check-in date:', error);
+      }
     }
-    if (searchCriteria.checkout) {
-      // สร้างวันที่โดยไม่ให้ timezone มีผล
-      const [year, month, day] = searchCriteria.checkout.split('-').map(Number);
-      setCheckOutDate(new Date(year, month - 1, day));
+    
+    if (checkoutParam) {
+      try {
+        // สร้างวันที่โดยไม่ให้ timezone มีผล
+        const [year, month, day] = checkoutParam.split('-').map(Number);
+        const checkoutDate = new Date(year, month - 1, day);
+        setCheckOutDate(checkoutDate);
+        console.log('✅ Set check-out date:', checkoutDate);
+      } catch (error) {
+        console.error('❌ Error parsing check-out date:', error);
+      }
     }
-    if (searchCriteria.guests) {
-      setGuests(searchCriteria.guests);
+    
+    if (guestsParam) {
+      const guestCount = parseInt(guestsParam);
+      if (guestCount > 0) {
+        setGuests(guestCount);
+        console.log('✅ Set guests count:', guestCount);
+      }
     }
   }, [params.id, searchParams]);
 
@@ -156,10 +175,17 @@ export default function RoomDetailPage() {
   };
 
   const calculateNights = () => {
-    // ใช้ state แทน searchCriteria เพื่อหลีกเลี่ยงปัญหา timezone
+    // ใช้ utility function แทนเพื่อหลีกเลี่ยงปัญหา timezone
     if (!checkInDate || !checkOutDate) return 1;
+    
+    const checkInString = dateToString(checkInDate);
+    const checkOutString = dateToString(checkOutDate);
+    
+    // Import calculateNights as calculateNightsUtil เพื่อหลีกเลี่ยงชื่อซ้ำ
     const timeDiff = checkOutDate.getTime() - checkInDate.getTime();
-    return Math.ceil(timeDiff / (1000 * 3600 * 24));
+    const nights = Math.ceil(timeDiff / (1000 * 3600 * 24));
+    
+    return nights > 0 ? nights : 1;
   };
 
   const calculateTotal = () => {
@@ -279,13 +305,9 @@ export default function RoomDetailPage() {
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('th-TH', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      weekday: 'long'
-    });
+    
+    // ใช้ utility function แทนเพื่อหลีกเลี่ยงปัญหา timezone
+    return formatDateThai(dateString);
   };
 
   // Function to convert bed_type to Thai display text

@@ -9,6 +9,58 @@ import { Calendar, Users, CreditCard, X, Check, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ConfirmModal from '../../components/ConfirmModal';
 
+
+// Helper function สำหรับแก้ไข timezone issue และรองรับทั้ง ISO string และ YYYY-MM-DD
+const formatDateSafe = (dateString) => {
+  if (!dateString) return '';
+  let date;
+  // ถ้าเป็น ISO string (มี T)
+  if (typeof dateString === 'string' && dateString.includes('T')) {
+    date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'วันที่ไม่ถูกต้อง';
+  } else if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    // ถ้าเป็น YYYY-MM-DD
+    const [year, month, day] = dateString.split('-').map(Number);
+    date = new Date(year, month - 1, day);
+    if (isNaN(date.getTime())) return 'วันที่ไม่ถูกต้อง';
+  } else {
+    // fallback
+    date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'วันที่ไม่ถูกต้อง';
+  }
+  return date.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+};
+
+const formatDateInputSafe = (dateString) => {
+  if (!dateString) return '';
+  
+  try {
+    let date;
+    // ถ้าเป็น ISO string (มี T)
+    if (typeof dateString === 'string' && dateString.includes('T')) {
+      date = new Date(dateString);
+    } else if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      // ถ้าเป็น YYYY-MM-DD แล้ว return เลย
+      return dateString;
+    } else {
+      // fallback
+      date = new Date(dateString);
+    }
+    
+    if (isNaN(date.getTime())) return '';
+    
+    // แปลงเป็น YYYY-MM-DD format
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+  } catch (error) {
+    console.error('Error formatting date for input:', error);
+    return '';
+  }
+};
+
 export default function BookingsPage() {
   const { isAuthenticated, loading: authLoading, user } = useAuth();
   const { language } = useLanguage();
@@ -127,10 +179,10 @@ export default function BookingsPage() {
     setEditDateModal({
       isOpen: true,
       bookingId: booking.id,
-      currentCheckIn: checkIn ? new Date(checkIn).toISOString().split('T')[0] : '',
-      currentCheckOut: checkOut ? new Date(checkOut).toISOString().split('T')[0] : '',
-      newCheckIn: checkIn ? new Date(checkIn).toISOString().split('T')[0] : '',
-      newCheckOut: checkOut ? new Date(checkOut).toISOString().split('T')[0] : ''
+      currentCheckIn: checkIn ? formatDateInputSafe(checkIn) : '',
+      currentCheckOut: checkOut ? formatDateInputSafe(checkOut) : '',
+      newCheckIn: checkIn ? formatDateInputSafe(checkIn) : '',
+      newCheckOut: checkOut ? formatDateInputSafe(checkOut) : ''
     });
   };
 
@@ -146,23 +198,88 @@ export default function BookingsPage() {
   };
 
   const handleUpdateDates = async () => {
+    // ตรวจสอบข้อมูลเบื้องต้น
+    if (!editDateModal.newCheckIn || !editDateModal.newCheckOut) {
+      toast.error('กรุณาเลือกวันที่เข้าพักและออกให้ครบถ้วน');
+      return;
+    }
+
+    const checkInDate = new Date(editDateModal.newCheckIn);
+    const checkOutDate = new Date(editDateModal.newCheckOut);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // ตรวจสอบความถูกต้องของวันที่
+    if (checkInDate < today) {
+      toast.error('วันที่เข้าพักต้องเป็นวันนี้หรือหลังจากนี้');
+      return;
+    }
+
+    if (checkOutDate <= checkInDate) {
+      toast.error('วันที่ออกต้องหลังจากวันที่เข้าพัก');
+      return;
+    }
+
+    // ตรวจสอบว่ามีการเปลี่ยนแปลงหรือไม่
+    if (editDateModal.newCheckIn === editDateModal.currentCheckIn && 
+        editDateModal.newCheckOut === editDateModal.currentCheckOut) {
+      toast.error('ไม่มีการเปลี่ยนแปลงวันที่');
+      return;
+    }
+
     try {
-      const response = await api.put(`/bookings/${editDateModal.bookingId}`, {
-        check_in_date: editDateModal.newCheckIn,
-        check_out_date: editDateModal.newCheckOut
+      // แสดง loading state
+      const loadingToast = toast.loading('กำลังตรวจสอบและอัพเดทวันที่...');
+      
+      console.log('🔄 Updating booking dates:', {
+        bookingId: editDateModal.bookingId,
+        newCheckIn: editDateModal.newCheckIn,
+        newCheckOut: editDateModal.newCheckOut
       });
 
+      const response = await api.put(`/bookings/${editDateModal.bookingId}`, {
+        check_in_date: editDateModal.newCheckIn,
+        check_out_date: editDateModal.newCheckOut,
+        action: 'update_dates' // เพิ่ม action เพื่อระบุประเภทการอัพเดท
+      });
+
+      toast.dismiss(loadingToast);
+
+      console.log('📊 Update dates response:', response.data);
+
       if (response.data.success) {
-        toast.success('แก้ไขวันที่เข้าพักสำเร็จ');
-        fetchBookings(); // Refresh list
+        toast.success('✅ แก้ไขวันที่เข้าพักสำเร็จ!', {
+          duration: 3000,
+          icon: '🎉'
+        });
+        
+        // Refresh bookings data
+        await fetchBookings();
+        
+        // Close modal
         closeEditDateModal();
       } else {
         throw new Error(response.data.message || 'ไม่สามารถแก้ไขวันที่ได้');
       }
     } catch (error) {
-      console.error('Error updating dates:', error);
-      const message = error.response?.data?.message || error.message || 'ไม่สามารถแก้ไขวันที่ได้';
-      toast.error(message);
+      console.error('❌ Error updating dates:', error);
+      
+      let errorMessage = 'เกิดข้อผิดพลาดในการแก้ไขวันที่';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.status === 409) {
+        errorMessage = 'ไม่มีห้องว่างในวันที่ที่เลือก กรุณาเลือกวันที่อื่น';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'ไม่สามารถแก้ไขการจองนี้ได้ (อาจได้รับการยืนยันแล้ว)';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage, {
+        duration: 4000,
+        icon: '❌'
+      });
     }
   };
 
@@ -354,23 +471,13 @@ export default function BookingsPage() {
 
                   {/* Booking Details */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
-                        <div className="flex items-center">
-                          <Calendar className="h-4 w-4 mr-1" />
-                          วันที่เข้าพัก
-                        </div>
-                        {canCancelBooking(booking) && booking.status === 'pending' && (
-                          <button
-                            onClick={() => openEditDateModal(booking)}
-                            className="text-blue-600 hover:text-blue-800 text-xs underline"
-                          >
-                            แก้ไข
-                          </button>
-                        )}
+                    <div className="bg-gray-50 rounded-lg p-4 relative group">
+                      <div className="flex items-center text-sm text-gray-600 mb-1">
+                        <Calendar className="h-4 w-4 mr-1" />
+                        วันที่เข้าพัก
                       </div>
                       <div className="font-semibold text-gray-900">
-                        {new Date(booking.check_in_date || booking.checkInDate || booking.checkin_date).toLocaleDateString('th-TH')}
+                        {formatDateSafe(booking.check_in_date || booking.checkInDate || booking.checkin_date)}
                       </div>
                     </div>
                     <div className="bg-gray-50 rounded-lg p-4">
@@ -379,7 +486,7 @@ export default function BookingsPage() {
                         วันที่ออก
                       </div>
                       <div className="font-semibold text-gray-900">
-                        {new Date(booking.check_out_date || booking.checkOutDate || booking.checkout_date).toLocaleDateString('th-TH')}
+                        {formatDateSafe(booking.check_out_date || booking.checkOutDate || booking.checkout_date)}
                       </div>
                     </div>
                     <div className="bg-gray-50 rounded-lg p-4">
@@ -491,7 +598,22 @@ export default function BookingsPage() {
                         console.log(`Booking ${booking.id}: canCancel = ${canCancel}, status = ${booking.status}`);
                         return canCancel;
                       })() ? (
-                        <div className="flex justify-end">
+                        <div className="flex justify-end gap-3">
+                          {/* Edit Date Button */}
+                          {booking.status === 'pending' && (
+                            <button
+                              onClick={() => openEditDateModal(booking)}
+                              className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 hover:border-blue-300 transition-all duration-200"
+                              title="แก้ไขวันที่เข้าพัก"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                              แก้ไขวันที่
+                            </button>
+                          )}
+                          
+                          {/* Cancel Booking Button */}
                           <button
                             onClick={() => openCancelModal(
                               booking.id, 
@@ -499,8 +621,11 @@ export default function BookingsPage() {
                               booking.roomTypeName, 
                               booking.hotelName
                             )}
-                            className="px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition-colors"
+                            className="flex items-center gap-2 px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 hover:border-red-400 transition-all duration-200"
                           >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
                             ยกเลิกการจอง
                           </button>
                         </div>
@@ -549,63 +674,120 @@ export default function BookingsPage() {
 
         {/* Edit Date Modal */}
         {editDateModal.isOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">แก้ไขวันที่เข้าพัก</h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    วันที่เข้าพัก
-                  </label>
-                  <input
-                    type="date"
-                    value={editDateModal.newCheckIn}
-                    onChange={(e) => setEditDateModal(prev => ({ ...prev, newCheckIn: e.target.value }))}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    วันที่ออก
-                  </label>
-                  <input
-                    type="date"
-                    value={editDateModal.newCheckOut}
-                    onChange={(e) => setEditDateModal(prev => ({ ...prev, newCheckOut: e.target.value }))}
-                    min={editDateModal.newCheckIn || new Date().toISOString().split('T')[0]}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div className="bg-gray-50 p-3 rounded-lg text-sm">
-                  <div className="font-medium text-gray-700 mb-1">วันที่เดิม:</div>
-                  <div>เข้าพัก: {new Date(editDateModal.currentCheckIn).toLocaleDateString('th-TH')}</div>
-                  <div>ออก: {new Date(editDateModal.currentCheckOut).toLocaleDateString('th-TH')}</div>
-                </div>
-
-                <div className="bg-yellow-50 p-3 rounded-lg text-sm">
-                  <p className="text-yellow-800 font-medium">⚠️ หมายเหตุ:</p>
-                  <p className="text-yellow-700">สามารถแก้ไขวันที่ได้เฉพาะการจองที่ยังไม่ได้รับการยืนยันเท่านั้น</p>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-auto">
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-blue-600" />
+                    แก้ไขวันที่เข้าพัก
+                  </h3>
+                  <button
+                    onClick={closeEditDateModal}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
                 </div>
               </div>
 
-              <div className="flex space-x-3 mt-6">
-                <button
-                  onClick={closeEditDateModal}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  ยกเลิก
-                </button>
-                <button
-                  onClick={handleUpdateDates}
-                  disabled={!editDateModal.newCheckIn || !editDateModal.newCheckOut}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                >
-                  บันทึก
-                </button>
+              {/* Body */}
+              <div className="p-6">
+                <div className="space-y-6">
+                  {/* Current Dates Display */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="text-sm font-medium text-blue-800 mb-2">📅 วันที่ปัจจุบัน</div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-blue-600">เข้าพัก:</span>
+                        <div className="font-semibold text-blue-900">{formatDateSafe(editDateModal.currentCheckIn)}</div>
+                      </div>
+                      <div>
+                        <span className="text-blue-600">ออก:</span>
+                        <div className="font-semibold text-blue-900">{formatDateSafe(editDateModal.currentCheckOut)}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* New Dates Input */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        🗓️ วันที่เข้าพักใหม่
+                      </label>
+                      <input
+                        type="date"
+                        value={editDateModal.newCheckIn}
+                        onChange={(e) => setEditDateModal(prev => ({ ...prev, newCheckIn: e.target.value }))}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-base"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        🏨 วันที่ออกใหม่
+                      </label>
+                      <input
+                        type="date"
+                        value={editDateModal.newCheckOut}
+                        onChange={(e) => setEditDateModal(prev => ({ ...prev, newCheckOut: e.target.value }))}
+                        min={editDateModal.newCheckIn || new Date().toISOString().split('T')[0]}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-base"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Info Alert */}
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="text-amber-600 mt-0.5">
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium text-amber-800 mb-1">ข้อมูลสำคัญ</h4>
+                        <ul className="text-sm text-amber-700 space-y-1">
+                          <li>• สามารถแก้ไขได้เฉพาะการจองที่ยังไม่ได้รับการยืนยัน</li>
+                          <li>• การเปลี่ยนแปลงจะมีผลทันทีหลังจากบันทึก</li>
+                          <li>• ระบบจะตรวจสอบความพร้อมของห้องในวันที่ใหม่</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+                <div className="flex gap-3">
+                  <button
+                    onClick={closeEditDateModal}
+                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 font-medium"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    onClick={handleUpdateDates}
+                    disabled={!editDateModal.newCheckIn || !editDateModal.newCheckOut || 
+                             (editDateModal.newCheckIn === editDateModal.currentCheckIn && 
+                              editDateModal.newCheckOut === editDateModal.currentCheckOut)}
+                    className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 font-medium flex items-center justify-center gap-2"
+                  >
+                    {editDateModal.newCheckIn === editDateModal.currentCheckIn && 
+                     editDateModal.newCheckOut === editDateModal.currentCheckOut ? 
+                     'ไม่มีการเปลี่ยนแปลง' : 
+                     <>
+                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                       </svg>
+                       บันทึกการเปลี่ยนแปลง
+                     </>
+                    }
+                  </button>
+                </div>
               </div>
             </div>
           </div>

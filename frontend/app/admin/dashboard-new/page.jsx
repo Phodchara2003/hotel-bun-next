@@ -366,12 +366,6 @@ function OverviewTab({ data, user }) {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-medium text-gray-900">โรงแรมยอดนิยม</h3>
-            <Link 
-              href="/admin/hotels"
-              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-            >
-              ดูทั้งหมด →
-            </Link>
           </div>
           <div className="space-y-3">
             {data.topHotels.map((hotel, index) => (
@@ -523,12 +517,6 @@ function HotelsTab({ hotels, stats, user }) {
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold text-gray-900">จัดการโรงแรม</h2>
-        <Link 
-          href="/admin/hotels"
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-        >
-          ไปยังหน้าโรงแรม
-        </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -544,17 +532,6 @@ function HotelsTab({ hotels, stats, user }) {
           <h3 className="text-sm font-medium text-purple-600">อัตราเข้าพัก</h3>
           <p className="text-2xl font-bold text-purple-900">{stats.occupancyRate}%</p>
         </div>
-      </div>
-
-      <div className="text-center py-8">
-        <Hotel className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-        <p className="text-gray-600">การจัดการโรงแรมโดยละเอียดอยู่ในหน้าแยก</p>
-        <Link 
-          href="/admin/hotels"
-          className="text-blue-600 hover:text-blue-800 font-medium"
-        >
-          คลิกที่นี่เพื่อจัดการโรงแรม →
-        </Link>
       </div>
     </div>
   );
