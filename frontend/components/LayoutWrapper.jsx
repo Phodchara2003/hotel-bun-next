@@ -6,9 +6,14 @@ import TopNavigation from './TopNavigation';
 import Footer from './Footer';
 
 export default function LayoutWrapper({ children }) {
+  const pathname = usePathname();
+  
+  // Don't show top navigation for auth pages
+  const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password';
+  
   return (
     <div className="layout-wrapper min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
-      <TopNavigation />
+      {!isAuthPage && <TopNavigation />}
       
       {/* Main content wrapper */}
       <TopNavigationAwareContent>
@@ -24,7 +29,7 @@ function TopNavigationAwareContent({ children }) {
   const pathname = usePathname();
   
   // Don't show top navigation for auth pages only
-  if (pathname === '/login' || pathname === '/register') {
+  if (pathname === '/login' || pathname === '/register' || pathname === '/forgot-password') {
     return (
       <div className="min-h-screen flex flex-col">
         <main className="main-content flex-1">

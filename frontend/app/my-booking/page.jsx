@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
@@ -24,7 +24,7 @@ import {
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
-export default function MyBookingDetailsPage() {
+function MyBookingDetailsContent() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   
@@ -503,5 +503,24 @@ export default function MyBookingDetailsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function LoadingMyBooking() {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="mt-4 text-slate-600">Loading booking details...</p>
+      </div>
+    </div>
+  );
+}
+
+export default function MyBookingDetailsPage() {
+  return (
+    <Suspense fallback={<LoadingMyBooking />}>
+      <MyBookingDetailsContent />
+    </Suspense>
   );
 }

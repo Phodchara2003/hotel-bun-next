@@ -214,7 +214,6 @@ function HomePageContent() {
             <Link href="/rooms" className="hover:text-amber-400 transition-colors duration-300">ห้องพัก</Link>
             <Link href="/about" className="hover:text-amber-400 transition-colors duration-300">เกี่ยวกับเรา</Link>
             <Link href="/blog" className="hover:text-amber-400 transition-colors duration-300">บล็อก</Link>
-            <Link href="/contact" className="hover:text-amber-400 transition-colors duration-300">ติดต่อเรา</Link>
             {user ? (
               <Link href="/dashboard" className="bg-amber-600 px-4 py-2 rounded-lg hover:bg-amber-700 transition-colors duration-300">
                 แดชบอร์ด

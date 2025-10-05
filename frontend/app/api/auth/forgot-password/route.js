@@ -1,29 +1,33 @@
 import { NextResponse } from 'next/server';
-import crypto from 'crypto';
-
-// ฟังก์ชันส่งอีเมล (จำลอง)
-async function sendResetEmail(email, resetToken) {
-  // ในการใช้งานจริง ควรใช้ email service เช่น SendGrid, Nodemailer, etc.
-  console.log(`Sending reset email to: ${email}`);
-  console.log(`Reset URL: ${process.env.NEXT_PUBLIC_BASE_URL}/reset-password?token=${resetToken}`);
-  
-  // จำลองการส่งอีเมล - ในการใช้งานจริงให้แทนที่ด้วย email service
-  return true;
-}
 
 export async function POST(request) {
   try {
     const { email } = await request.json();
+    
+    console.log('🔍 Forgot password request for:', email);
 
     if (!email) {
+      console.log('❌ No email provided');
       return NextResponse.json(
         { message: 'กรุณากรอกอีเมล' },
         { status: 400 }
       );
     }
 
-    // ตรวจสอบว่าอีเมลมีอยู่ในระบบหรือไม่
-    const userCheckResponse = await fetch(`${process.env.BACKEND_URL}/api/users/check-email`, {
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      console.log('❌ Invalid email format:', email);
+      return NextResponse.json(
+        { message: 'รูปแบบอีเมลไม่ถูกต้อง' },
+        { status: 400 }
+      );
+    }
+
+    console.log('✅ Calling backend forgot-password API...');
+
+    // เรียก backend API โดยตรง
+    const backendResponse = await fetch('http://localhost:3001/api/auth/forgot-password', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -31,59 +35,42 @@ export async function POST(request) {
       body: JSON.stringify({ email }),
     });
 
-    if (!userCheckResponse.ok) {
+    console.log('Backend response status:', backendResponse.status);
+    
+    const backendData = await backendResponse.json();
+    console.log('Backend response data:', backendData);
+
+    if (!backendResponse.ok) {
       return NextResponse.json(
-        { message: 'ไม่พบอีเมลนี้ในระบบ' },
-        { status: 404 }
+        { message: backendData.message || 'เกิดข้อผิดพลาดในการส่งคำขอ' },
+        { status: backendResponse.status }
       );
     }
 
-    // สร้าง reset token
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpires = new Date(Date.now() + 15 * 60 * 1000); // หมดอายุใน 15 นาที
-
-    // บันทึก reset token ในฐานข้อมูล
-    const saveTokenResponse = await fetch(`${process.env.BACKEND_URL}/api/auth/save-reset-token`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email,
-        resetToken,
-        resetTokenExpires: resetTokenExpires.toISOString()
-      }),
-    });
-
-    if (!saveTokenResponse.ok) {
-      return NextResponse.json(
-        { message: 'เกิดข้อผิดพลาดในการสร้าง token' },
-        { status: 500 }
-      );
+    // หากมี resetUrl จาก backend ให้แสดงใน development
+    if (backendData.resetUrl) {
+      console.log('🔗 Reset URL:', backendData.resetUrl);
     }
 
-    // ส่งอีเมลรีเซ็ตรหัสผ่าน
-    const emailSent = await sendResetEmail(email, resetToken);
-
-    if (!emailSent) {
-      return NextResponse.json(
-        { message: 'เกิดข้อผิดพลาดในการส่งอีเมล' },
-        { status: 500 }
-      );
-    }
+    console.log('✅ Forgot password request completed successfully');
 
     return NextResponse.json(
       { 
-        message: 'ส่งอีเมลรีเซ็ตรหัสผ่านเรียบร้อย',
-        success: true 
+        message: backendData.message || 'ส่งอีเมลรีเซ็ตรหัสผ่านเรียบร้อย',
+        success: true,
+        resetUrl: backendData.resetUrl // ส่งกลับ URL สำหรับ development
       },
       { status: 200 }
     );
 
   } catch (error) {
-    console.error('Forgot password error:', error);
+    console.error('❌ Forgot password error:', error);
+    console.error('Error stack:', error.stack);
     return NextResponse.json(
-      { message: 'เกิดข้อผิดพลาดในเซิร์ฟเวอร์' },
+      { 
+        message: 'เกิดข้อผิดพลาดในเซิร์ฟเวอร์',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     );
   }

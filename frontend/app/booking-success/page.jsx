@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
@@ -19,7 +19,7 @@ import {
 import toast from 'react-hot-toast';
 import { formatDateThai, calculateNights as calculateNightsUtil } from '../../lib/dateUtils';
 
-export default function BookingSuccessPage() {
+function BookingSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user } = useAuth();
@@ -345,5 +345,24 @@ export default function BookingSuccessPage() {
 
       </div>
     </div>
+  );
+}
+
+function LoadingBooking() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-600 mx-auto"></div>
+        <p className="mt-4 text-slate-600">Loading booking details...</p>
+      </div>
+    </div>
+  );
+}
+
+export default function BookingSuccessPage() {
+  return (
+    <Suspense fallback={<LoadingBooking />}>
+      <BookingSuccessContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-export default function GuestInformationPage() {
+function GuestInformationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -979,5 +979,24 @@ export default function GuestInformationPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function LoadingGuest() {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-amber-600 mx-auto"></div>
+        <p className="mt-4 text-slate-600">Loading guest information...</p>
+      </div>
+    </div>
+  );
+}
+
+export default function GuestInformationPage() {
+  return (
+    <Suspense fallback={<LoadingGuest />}>
+      <GuestInformationContent />
+    </Suspense>
   );
 }

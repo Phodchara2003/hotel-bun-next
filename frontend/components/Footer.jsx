@@ -11,15 +11,11 @@ export default function Footer() {
           <p className="text-lg font-semibold">
             ระบบจองโรงแรมวรุณภัฏมหาวิทยาลัยราชภัฏมหาสารคาม
           </p>
-          
-          {/* Developer */}
-          <p className="text-gray-300">
-            พัฒนาโดย นาย พชร มีหา
-          </p>
+       
           
           {/* Copyright */}
           <p className="text-gray-400 text-sm">
-            © {currentYear} สงวนลิขสิทธิ์ทุกประการ
+            © {currentYear} พัฒนาโดย นาย พชร มีหา
           </p>
         </div>
       </div>

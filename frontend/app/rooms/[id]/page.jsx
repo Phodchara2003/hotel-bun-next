@@ -439,7 +439,7 @@ export default function RoomDetailPage() {
           {/* Room Details */}
           <div className="space-y-6">
             <div>
-              <h1 className="text-3xl font-bold text-slate-800 mb-2 font-thai-header">{room.name}</h1>
+              <h1 className="text-3xl font-bold text-slate-800 mb-2 font-english-header">{room.name}</h1>
               <div className="flex items-center space-x-4 text-slate-600 mb-4 font-thai">
                 <span className="flex items-center">
                   <Users className="h-5 w-5 mr-1" />

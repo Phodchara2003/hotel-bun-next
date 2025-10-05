@@ -32,7 +32,6 @@ export default function TopNavigation() {
     { name: 'หน้าหลัก', href: '/', icon: Home },
     { name: 'ห้องพัก', href: '/rooms', icon: Bed },
     { name: 'การจองของฉัน', href: '/bookings', icon: Calendar },
-    { name: 'ติดต่อเรา', href: '/contact', icon: Phone },
   ];
 
   // Staff Navigation Items

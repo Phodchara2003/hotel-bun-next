@@ -705,9 +705,155 @@ const initializeEmailNotificationSystem = (dbConnection) => {
   // console.log(`🕐 Scheduled jobs: ...`);
 };
 
+// ฟังก์ชันส่งอีเมลรีเซ็ตรหัสผ่าน
+const sendPasswordResetEmail = async (email, resetUrl) => {
+  try {
+    console.log(`📧 Preparing password reset email for: ${email}`);
+    
+    const transporter = createTransporter();
+    
+    // ทดสอบการเชื่อมต่อ
+    await transporter.verify();
+    console.log('✅ Email transporter verified');
+    
+    const mailOptions = {
+      from: {
+        name: 'โรงแรมวรุณภัฏ - ระบบจองห้องพัก',
+        address: process.env.GMAIL_USER
+      },
+      to: email,
+      subject: '🔐 รีเซ็ตรหัสผ่าน - โรงแรมวรุณภัฏ',
+      html: `
+        <!DOCTYPE html>
+        <html lang="th">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>รีเซ็ตรหัสผ่าน</title>
+          <style>
+            body {
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              line-height: 1.6;
+              color: #333;
+              max-width: 600px;
+              margin: 0 auto;
+              padding: 20px;
+              background-color: #f8f9fa;
+            }
+            .container {
+              background: white;
+              border-radius: 12px;
+              box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+              overflow: hidden;
+            }
+            .header {
+              background: linear-gradient(135deg, #059669, #0891b2);
+              color: white;
+              padding: 30px;
+              text-align: center;
+            }
+            .content {
+              padding: 30px;
+            }
+            .button {
+              display: inline-block;
+              padding: 15px 30px;
+              background: linear-gradient(135deg, #059669, #0891b2);
+              color: white;
+              text-decoration: none;
+              border-radius: 8px;
+              font-weight: bold;
+              margin: 20px 0;
+              text-align: center;
+            }
+            .footer {
+              background: #f8f9fa;
+              padding: 20px;
+              text-align: center;
+              font-size: 12px;
+              color: #666;
+            }
+            .warning {
+              background: #fef3cd;
+              border: 1px solid #ffeaa7;
+              padding: 15px;
+              border-radius: 6px;
+              margin: 20px 0;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🏨 โรงแรมวรุณภัฏ</h1>
+              <p>ระบบจองห้องพัก มหาวิทยาลัยราชภัฏมหาสารคาม</p>
+            </div>
+            
+            <div class="content">
+              <h2>🔐 รีเซ็ตรหัสผ่าน</h2>
+              
+              <p>สวัสดีค่ะ,</p>
+              
+              <p>เราได้รับคำขอรีเซ็ตรหัสผ่านสำหรับบัญชี <strong>${email}</strong></p>
+              
+              <p>กรุณาคลิกปุ่มด้านล่างเพื่อตั้งรหัสผ่านใหม่:</p>
+              
+              <div style="text-align: center;">
+                <a href="${resetUrl}" class="button">🔑 รีเซ็ตรหัสผ่าน</a>
+              </div>
+              
+              <div class="warning">
+                ⚠️ <strong>ข้อมูลสำคัญ:</strong><br>
+                • ลิงก์นี้จะหมดอายุใน <strong>15 นาที</strong><br>
+                • หากคุณไม่ได้ขอรีเซ็ตรหัสผ่าน กรุณาเพิกเฉยต่ออีเมลนี้<br>
+                • ไม่แชร์ลิงก์นี้กับผู้อื่น
+              </div>
+              
+              <p>หากปุ่มไม่ทำงาน กรุณาคัดลอกและวางลิงก์นี้ในเบราว์เซอร์:</p>
+              <p style="word-break: break-all; background: #f8f9fa; padding: 10px; border-radius: 4px; font-size: 14px;">
+                ${resetUrl}
+              </p>
+              
+              <p>หากมีคำถาม กรุณาติดต่อทีมสนับสนุน</p>
+              
+              <p>ขอแสดงความนับถือ,<br>
+              ทีมงานโรงแรมวรุณภัฏ</p>
+            </div>
+            
+            <div class="footer">
+              <p>📧 ${process.env.GMAIL_USER} | 📞 ติดต่อสนับสนุน</p>
+              <p>© 2025 โรงแรมวรุณภัฏ มหาวิทยาลัยราชภัฏมหาสารคาม</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    };
+
+    console.log('📤 Sending password reset email...');
+    const info = await transporter.sendMail(mailOptions);
+    
+    console.log('✅ Password reset email sent successfully');
+    console.log('📧 Message ID:', info.messageId);
+    
+    return {
+      success: true,
+      messageId: info.messageId
+    };
+
+  } catch (error) {
+    console.error('❌ Failed to send password reset email:', error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+};
+
 module.exports = {
   sendBookingConfirmationEmail,
   sendAdminNotificationEmail,
   sendCheckInReminderEmail,
+  sendPasswordResetEmail,
   initializeEmailNotificationSystem
 };

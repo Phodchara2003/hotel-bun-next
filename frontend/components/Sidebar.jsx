@@ -73,13 +73,6 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }) {
       icon: User,
       href: '/profile',
       color: 'text-purple-400'
-    },
-    {
-      key: 'contact',
-      label: 'ติดต่อเรา',
-      icon: Phone,
-      href: '/contact',
-      color: 'text-green-400'
     }
   ];
 

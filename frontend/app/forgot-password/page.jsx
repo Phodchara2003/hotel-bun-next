@@ -16,6 +16,16 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setLoading(true);
 
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error('รูปแบบอีเมลไม่ถูกต้อง');
+      setLoading(false);
+      return;
+    }
+
+    console.log('🔍 Submitting forgot password request for:', email);
+
     try {
       const response = await fetch('/api/auth/forgot-password', {
         method: 'POST',
@@ -26,28 +36,56 @@ export default function ForgotPasswordPage() {
       });
 
       const data = await response.json();
+      console.log('📡 API Response:', data);
 
       if (response.ok) {
         setEmailSent(true);
-        toast.success('อีเมลรีเซ็ตรหัสผ่านได้ถูกส่งแล้ว!');
+        
+        // แสดงลิงก์รีเซ็ตในกรณีที่เป็น development mode
+        if (data.resetUrl && process.env.NODE_ENV === 'development') {
+          console.log('🔗 Development Reset URL:', data.resetUrl);
+          toast.success(`ส่งอีเมลรีเซ็ตแล้ว! (Development: คลิกที่นี่เพื่อไปลิงก์โดยตรง)`, {
+            duration: 8000,
+            onClick: () => window.open(data.resetUrl, '_blank')
+          });
+        } else {
+          toast.success('ส่งอีเมลรีเซ็ตรหัสผ่านแล้ว! กรุณาตรวจสอบกล่องขาเข้าของคุณ', {
+            duration: 6000
+          });
+        }
+        
       } else {
-        toast.error(data.message || 'เกิดข้อผิดพลาด');
+        console.error('❌ API Error:', data);
+        if (response.status === 404) {
+          toast.error('ไม่พบอีเมลนี้ในระบบ กรุณาตรวจสอบอีเมลหรือสมัครสมาชิกใหม่');
+        } else {
+          toast.error(data.message || 'เกิดข้อผิดพลาดในการส่งอีเมล');
+        }
       }
     } catch (error) {
-      console.error('Forgot password error:', error);
-      toast.error('เกิดข้อผิดพลาดในการส่งอีเมล');
+      console.error('❌ Fetch error:', error);
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        toast.error('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+      } else {
+        toast.error('เกิดข้อผิดพลาดในการส่งอีเมล กรุณาลองใหม่อีกครั้ง');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden" style={{
+      backgroundImage: 'url(/images/university-building.jpg), linear-gradient(135deg, #059669, #0891b2)',
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat'
+    }}>
       {/* Animated Background Elements */}
       <div className="absolute inset-0">
-        <div className="absolute top-10 left-10 w-72 h-72 bg-blue-400/20 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
-        <div className="absolute top-0 right-4 w-72 h-72 bg-purple-400/20 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-400/20 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
+        <div className="absolute top-10 left-10 w-72 h-72 bg-white/5 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
+        <div className="absolute top-0 right-4 w-72 h-72 bg-white/5 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
+        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-white/5 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
       </div>
 
       {/* Main Content */}
@@ -150,9 +188,11 @@ export default function ForgotPasswordPage() {
                       เราได้ส่งลิงก์รีเซ็ตรหัสผ่านไปยัง:
                     </p>
                     <p className="text-blue-600 font-semibold text-lg">{email}</p>
-                    <p className="text-sm text-gray-500">
-                      กรุณาตรวจสอบกล่องขาเข้าและสแปมของคุณ
-                    </p>
+                    <div className="text-sm text-gray-500 space-y-1">
+                      <p>📧 กรุณาตรวจสอบกล่องขาเข้าและโฟลเดอร์สแปม</p>
+                      <p>⏰ ลิงก์จะหมดอายุใน 15 นาที</p>
+                      <p>🔒 คลิกลิงก์เพื่อตั้งรหัสผ่านใหม่</p>
+                    </div>
                   </div>
 
                   {/* Resend Email */}

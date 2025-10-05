@@ -66,13 +66,6 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }) {
       label: 'การจอง',
       href: '/bookings',
       color: 'text-green-600',
-    },
-    {
-      key: 'contact',
-      icon: Phone,
-      label: 'ติดต่อเรา',
-      href: '/contact',
-      color: 'text-purple-600',
     }
   ];
 

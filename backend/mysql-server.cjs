@@ -26,6 +26,7 @@ const {
   sendBookingConfirmationEmail, 
   sendAdminNotificationEmail, 
   sendCheckInReminderEmail,
+  sendPasswordResetEmail,
   initializeEmailNotificationSystem 
 } = require('./emailNotificationSystem.cjs');
 
@@ -2697,7 +2698,380 @@ const server = createServer(async (req, res) => {
               sendJSON(res, result.success ? 201 : 400, result);
               
             } catch (error) {
-              console.error('❌ Register endpoint error:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในระบบ'
+              });
+            }
+          });
+        } else {
+          sendJSON(res, 405, { success: false, message: 'Method not allowed' });
+        }
+        break;
+
+      case '/api/auth/verify-reset-token':
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => {
+            body += chunk.toString();
+          });
+          
+          req.on('end', async () => {
+            try {
+              const { token } = JSON.parse(body);
+              
+              if (!token) {
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'Token is required'
+                });
+                return;
+              }
+              
+              // ตรวจสอบ token ในฐานข้อมูล
+              const [results] = await db.execute(
+                'SELECT email, expires_at FROM password_reset_tokens WHERE token = ? AND expires_at > NOW()',
+                [token]
+              );
+              
+              if (results.length === 0) {
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'Token ไม่ถูกต้องหรือหมดอายุแล้ว'
+                });
+                return;
+              }
+              
+              sendJSON(res, 200, {
+                success: true,
+                email: results[0].email,
+                message: 'Token ถูกต้อง'
+              });
+              
+            } catch (error) {
+              console.error('❌ Verify reset token error:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในระบบ'
+              });
+            }
+          });
+        } else {
+          sendJSON(res, 405, { success: false, message: 'Method not allowed' });
+        }
+        break;
+
+      case '/api/auth/update-password':
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => {
+            body += chunk.toString();
+          });
+          
+          req.on('end', async () => {
+            try {
+              const { email, password, token } = JSON.parse(body);
+              
+              if (!email || !password || !token) {
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'ข้อมูลไม่ครบถ้วน'
+                });
+                return;
+              }
+              
+              // อัพเดทรหัสผ่านในฐานข้อมูล
+              await db.execute(
+                'UPDATE users SET password = ? WHERE email = ?',
+                [password, email]
+              );
+              
+              // ลบ token ออกจากฐานข้อมูลหลังใช้แล้ว
+              await db.execute(
+                'DELETE FROM password_reset_tokens WHERE token = ?',
+                [token]
+              );
+              
+              console.log(`✅ Password updated successfully for: ${email}`);
+              
+              sendJSON(res, 200, {
+                success: true,
+                message: 'อัพเดทรหัสผ่านเรียบร้อย'
+              });
+              
+            } catch (error) {
+              console.error('❌ Update password error:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในระบบ'
+              });
+            }
+          });
+        } else {
+          sendJSON(res, 405, { success: false, message: 'Method not allowed' });
+        }
+        break;
+
+      case '/api/auth/forgot-password':
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => {
+            body += chunk.toString();
+          });
+          
+          req.on('end', async () => {
+            try {
+              const { email } = JSON.parse(body);
+              
+              if (!email) {
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'กรุณาระบุอีเมล'
+                });
+                return;
+              }
+              
+              // ตรวจสอบว่าอีเมลมีอยู่ในระบบหรือไม่
+              const [users] = await connection.execute(
+                'SELECT id, email FROM users WHERE email = ?',
+                [email]
+              );
+              
+              if (users.length === 0) {
+                // ไม่แสดงว่าอีเมลไม่มีเพื่อความปลอดภัย
+                sendJSON(res, 200, {
+                  success: true,
+                  message: 'หากอีเมลนี้มีอยู่ในระบบ คุณจะได้รับลิงก์รีเซ็ตรหัสผ่านทางอีเมล'
+                });
+                return;
+              }
+              
+              // สร้าง reset token
+              const crypto = require('crypto');
+              const token = crypto.randomBytes(32).toString('hex');
+              const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // หมดอายุใน 1 ชั่วโมง
+              
+              // ลบ token เก่าถ้ามี
+              await connection.execute(
+                'DELETE FROM password_reset_tokens WHERE email = ?',
+                [email]
+              );
+              
+              // บันทึก token ใหม่
+              await connection.execute(
+                'INSERT INTO password_reset_tokens (email, token, expires_at) VALUES (?, ?, ?)',
+                [email, token, expiresAt]
+              );
+              
+              console.log(`✅ Generated reset token for: ${email}`);
+              console.log(`🔑 Token: ${token}`);
+              console.log(`⏰ Expires: ${expiresAt.toISOString()}`);
+              
+              // ส่งอีเมลรีเซ็ตรหัสผ่าน
+              const resetUrl = `http://localhost:3002/reset-password?token=${token}`;
+              console.log(`📧 Attempting to send reset email to: ${email}`);
+              console.log(`🔗 Reset URL: ${resetUrl}`);
+              
+              try {
+                // ใช้ระบบอีเมลที่มีอยู่แล้ว
+                const emailResult = await sendPasswordResetEmail(email, resetUrl);
+                
+                if (emailResult.success) {
+                  console.log(`✅ Reset email sent successfully to: ${email}`);
+                } else {
+                  console.log(`❌ Failed to send reset email: ${emailResult.error}`);
+                }
+              } catch (emailError) {
+                console.error(`❌ Email sending error:`, emailError.message);
+              }
+              
+              // ส่ง response (ไม่ส่ง token จริงไปให้ frontend)
+              sendJSON(res, 200, {
+                success: true,
+                message: 'ส่งลิงก์รีเซ็ตรหัสผ่านไปยังอีเมลแล้ว',
+                resetUrl: `http://localhost:3002/reset-password?token=${token}` // สำหรับ development
+              });
+              
+            } catch (error) {
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในระบบ'
+              });
+            }
+          });
+        } else {
+          sendJSON(res, 405, { success: false, message: 'Method not allowed' });
+        }
+        break;
+
+      case '/api/auth/check-user':
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => {
+            body += chunk.toString();
+          });
+          
+          req.on('end', async () => {
+            try {
+              const { email } = JSON.parse(body);
+              
+              if (!email) {
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'กรุณาระบุอีเมล'
+                });
+                return;
+              }
+              
+              // ตรวจสอบว่าอีเมลมีอยู่ในระบบหรือไม่
+              const [users] = await db.execute(
+                'SELECT id, email FROM users WHERE email = ?',
+                [email]
+              );
+              
+              if (users.length === 0) {
+                sendJSON(res, 404, {
+                  success: false,
+                  message: 'ไม่พบอีเมลนี้ในระบบ'
+                });
+                return;
+              }
+              
+              sendJSON(res, 200, {
+                success: true,
+                exists: true,
+                message: 'พบอีเมลในระบบ'
+              });
+              
+            } catch (error) {
+              console.error('❌ Check user error:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในระบบ'
+              });
+            }
+          });
+        } else {
+          sendJSON(res, 405, { success: false, message: 'Method not allowed' });
+        }
+        break;
+
+      case '/api/auth/save-reset-token':
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => {
+            body += chunk.toString();
+          });
+          
+          req.on('end', async () => {
+            try {
+              const { email, token, expiresAt } = JSON.parse(body);
+              
+              if (!email || !token || !expiresAt) {
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'ข้อมูลไม่ครบถ้วน'
+                });
+                return;
+              }
+              
+              // ลบ token เก่าถ้ามี
+              await db.execute(
+                'DELETE FROM password_reset_tokens WHERE email = ?',
+                [email]
+              );
+              
+              // บันทึก token ใหม่
+              await db.execute(
+                'INSERT INTO password_reset_tokens (email, token, expires_at) VALUES (?, ?, ?)',
+                [email, token, expiresAt]
+              );
+              
+              console.log(`✅ Reset token saved for: ${email}`);
+              
+              sendJSON(res, 200, {
+                success: true,
+                message: 'บันทึก token เรียบร้อย'
+              });
+              
+            } catch (error) {
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในระบบ'
+              });
+            }
+          });
+        } else {
+          sendJSON(res, 405, { success: false, message: 'Method not allowed' });
+        }
+        break;
+
+      case '/api/auth/reset-password':
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => {
+            body += chunk.toString();
+          });
+          
+          req.on('end', async () => {
+            try {
+              const { token, newPassword } = JSON.parse(body);
+              
+              console.log('🔍 Reset password request received in backend');
+              console.log('Token provided:', token ? 'Yes' : 'No');
+              
+              if (!token || !newPassword) {
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'ข้อมูลไม่ครบถ้วน'
+                });
+                return;
+              }
+              
+              // ตรวจสอบ token ในฐานข้อมูล
+              const [tokenResults] = await connection.execute(
+                'SELECT email, expires_at FROM password_reset_tokens WHERE token = ? AND expires_at > NOW()',
+                [token]
+              );
+              
+              if (tokenResults.length === 0) {
+                console.log('❌ Invalid or expired token');
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'Token ไม่ถูกต้องหรือหมดอายุแล้ว'
+                });
+                return;
+              }
+              
+              const email = tokenResults[0].email;
+              console.log(`✅ Valid token for: ${email}`);
+              
+              // เข้ารหัสรหัสผ่านใหม่
+              const saltRounds = 12;
+              const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+              console.log('✅ Password hashed');
+              
+              // อัพเดทรหัสผ่านในฐานข้อมูล
+              await connection.execute(
+                'UPDATE users SET password = ? WHERE email = ?',
+                [hashedPassword, email]
+              );
+              console.log(`✅ Password updated in database for: ${email}`);
+              
+              // ลบ token ออกจากฐานข้อมูลหลังใช้แล้ว
+              await connection.execute(
+                'DELETE FROM password_reset_tokens WHERE token = ?',
+                [token]
+              );
+              console.log('✅ Reset token deleted from database');
+              
+              sendJSON(res, 200, {
+                success: true,
+                message: 'เปลี่ยนรหัสผ่านเรียบร้อยแล้ว'
+              });
+              
+            } catch (error) {
+              console.error('❌ Reset password backend error:', error);
               sendJSON(res, 500, {
                 success: false,
                 message: 'เกิดข้อผิดพลาดในระบบ'

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { Bed, Users2, Calendar, MapPin, Phone, Mail, IdCard, MessageSquare, CreditCard, Clock, CheckCircle } from 'lucide-react';
+import { Bed, Users2, Calendar, MapPin, Phone, Mail, MessageSquare, CreditCard, Clock, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function NewBookingPage() {

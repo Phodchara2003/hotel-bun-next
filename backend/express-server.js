@@ -85,6 +85,104 @@ app.get('/api/rooms', (req, res) => {
   });
 });
 
+// Forgot Password API endpoints
+import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
+
+// Mock user database (ในการใช้งานจริงควรใช้ฐานข้อมูลจริง)
+const users = [];
+const resetTokens = new Map();
+
+// ตรวจสอบ reset token
+app.post('/api/auth/verify-reset-token', (req, res) => {
+  try {
+    const { token } = req.body;
+    
+    if (!token) {
+      return res.status(400).json({ message: 'Token is required' });
+    }
+    
+    const tokenData = resetTokens.get(token);
+    
+    if (!tokenData) {
+      return res.status(400).json({ message: 'Token ไม่ถูกต้องหรือหมดอายุแล้ว' });
+    }
+    
+    // เช็คว่า token หมดอายุหรือไม่
+    if (Date.now() > tokenData.expires) {
+      resetTokens.delete(token);
+      return res.status(400).json({ message: 'Token หมดอายุแล้ว' });
+    }
+    
+    res.json({
+      message: 'Token ถูกต้อง',
+      email: tokenData.email,
+      success: true
+    });
+    
+  } catch (error) {
+    console.error('Verify reset token error:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการตรวจสอบ token' });
+  }
+});
+
+// อัพเดทรหัสผ่าน
+app.post('/api/auth/update-password', (req, res) => {
+  try {
+    const { email, password, token } = req.body;
+    
+    if (!email || !password || !token) {
+      return res.status(400).json({ message: 'ข้อมูลไม่ครบถ้วน' });
+    }
+    
+    const tokenData = resetTokens.get(token);
+    
+    if (!tokenData || tokenData.email !== email) {
+      return res.status(400).json({ message: 'Token ไม่ถูกต้อง' });
+    }
+    
+    // ลบ token หลังใช้งาน
+    resetTokens.delete(token);
+    
+    // ในการใช้งานจริง ต้องอัพเดทรหัสผ่านในฐานข้อมูล
+    console.log(`✅ Password updated for ${email}`);
+    
+    res.json({
+      message: 'อัพเดทรหัสผ่านเรียบร้อย',
+      success: true
+    });
+    
+  } catch (error) {
+    console.error('Update password error:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการอัพเดทรหัสผ่าน' });
+  }
+});
+
+// บันทึก reset token (สำหรับ frontend forgot-password)
+app.post('/api/auth/save-reset-token', (req, res) => {
+  try {
+    const { email, resetToken, resetTokenExpires } = req.body;
+    
+    // บันทึก token พร้อมข้อมูล
+    resetTokens.set(resetToken, {
+      email,
+      expires: resetTokenExpires,
+      created: Date.now()
+    });
+    
+    console.log(`✅ Reset token saved for ${email}`);
+    
+    res.json({ 
+      message: 'บันทึก reset token เรียบร้อย',
+      success: true 
+    });
+    
+  } catch (error) {
+    console.error('Save reset token error:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการบันทึก token' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Hotel Backend Server is running at http://localhost:${PORT}`);
   console.log('📋 Available endpoints:');

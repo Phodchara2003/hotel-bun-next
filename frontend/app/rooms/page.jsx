@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Calendar, Users, Wifi, Car, Coffee, Tv, Wind, Star, ArrowLeft } from 'lucide-react';
@@ -9,7 +9,7 @@ import { getRoomsData } from '../../lib/roomsData';
 import { getRoomImageUrl, getRoomPlaceholder, getPlaceholderImageUrl } from '../../lib/roomImageUtils';
 import { useAuth } from '../../contexts/AuthContext';
 
-export default function RoomsPage() {
+function RoomsContent() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const [rooms, setRooms] = useState([]);
@@ -177,13 +177,11 @@ export default function RoomsPage() {
               <div className="flex flex-col lg:flex-row">
                 {/* Room Content */}
                 <div className="lg:w-1/2 p-8 lg:p-12 flex flex-col justify-center transform transition-all duration-700 hover:translate-x-2">
-                  <h2 className="text-4xl lg:text-5xl font-light text-slate-800 mb-6 font-serif italic">
+                  <h2 className="text-4xl lg:text-5xl font-light text-slate-800 mb-6 font-english-elegant italic">
                     {room.name === 'Standard Room' ? 'Standard' : room.name === 'Deluxe Room' ? 'Deluxe' : room.name}
-                    <br />
-                    <span className="font-normal not-italic">Room</span>
                   </h2>
                   
-                  <p className="text-slate-600 text-lg leading-relaxed mb-8 font-light">
+                  <p className="text-slate-600 text-lg leading-relaxed mb-8 font-light font-english">
                     {room.description || 
                      (room.bed_type === 'Single' 
                        ? 'Our Standard Room offers a spacious and stylish design, complete with all the amenities you need for a comfortable stay. The room features a comfortable double bed, as well as a luxurious bathroom.'
@@ -209,13 +207,13 @@ export default function RoomsPage() {
                   <div className="flex space-x-4">
                     <Link
                       href={`/rooms/${room.id}?${searchParams.toString()}`}
-                      className="bg-slate-800 hover:bg-slate-900 text-white px-8 py-3 text-sm uppercase tracking-wider font-medium transition-all duration-300 flex-1 text-center transform hover:scale-105 hover:shadow-lg"
+                      className="bg-slate-800 hover:bg-slate-900 text-white px-8 py-3 text-sm uppercase tracking-wider font-medium transition-all duration-300 flex-1 text-center transform hover:scale-105 hover:shadow-lg font-english"
                     >
                       BOOK NOW
                     </Link>
                     <Link
                       href={`/rooms/${room.id}`}
-                      className="border border-slate-300 hover:border-slate-400 text-slate-700 hover:text-slate-800 px-8 py-3 text-sm uppercase tracking-wider font-medium transition-all duration-300 flex-1 text-center transform hover:scale-105 hover:shadow-md hover:bg-slate-50"
+                      className="border border-slate-300 hover:border-slate-400 text-slate-700 hover:text-slate-800 px-8 py-3 text-sm uppercase tracking-wider font-medium transition-all duration-300 flex-1 text-center transform hover:scale-105 hover:shadow-md hover:bg-slate-50 font-english"
                     >
                       DETAILS
                     </Link>
@@ -228,11 +226,11 @@ export default function RoomsPage() {
                         <div className="text-2xl font-light text-slate-800">
                           ฿{room.price_per_night?.toLocaleString()}
                         </div>
-                        <div className="text-sm text-slate-500">per night</div>
+                        <div className="text-sm text-slate-500 font-english">per night</div>
                       </div>
                     </div>
                     {searchCriteria.checkin && searchCriteria.checkout && (
-                      <div className="text-sm text-slate-600 mt-2">
+                      <div className="text-sm text-slate-600 mt-2 font-english">
                         Total: ฿{(room.price_per_night * calculateNights()).toLocaleString()} ({calculateNights()} nights)
                       </div>
                     )}
@@ -275,5 +273,26 @@ export default function RoomsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+function LoadingRooms() {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white">
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-amber-600 mx-auto"></div>
+          <p className="mt-4 text-slate-600">Loading rooms...</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function RoomsPage() {
+  return (
+    <Suspense fallback={<LoadingRooms />}>
+      <RoomsContent />
+    </Suspense>
   );
 }

@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
-export default function PaymentStepPage() {
+function PaymentStepContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user } = useAuth();
@@ -456,5 +456,24 @@ export default function PaymentStepPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function LoadingPayment() {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-green-50 to-white flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-600 mx-auto"></div>
+        <p className="mt-4 text-slate-600">Loading payment details...</p>
+      </div>
+    </div>
+  );
+}
+
+export default function PaymentStepPage() {
+  return (
+    <Suspense fallback={<LoadingPayment />}>
+      <PaymentStepContent />
+    </Suspense>
   );
 }

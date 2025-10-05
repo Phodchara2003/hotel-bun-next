@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTranslation } from '@/translations';
 import QRCodePayment from '@/components/QRCodePayment';
 
-export default function PaymentPage() {
+function PaymentContent() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { language } = useLanguage();
@@ -748,5 +748,24 @@ function LegacyBankTransfer({ settings, bookingId, amount, language }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function LoadingPaymentPage() {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-600 mx-auto"></div>
+        <p className="mt-4 text-slate-600">Loading payment options...</p>
+      </div>
+    </div>
+  );
+}
+
+export default function PaymentPage() {
+  return (
+    <Suspense fallback={<LoadingPaymentPage />}>
+      <PaymentContent />
+    </Suspense>
   );
 }
