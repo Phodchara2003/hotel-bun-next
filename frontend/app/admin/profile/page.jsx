@@ -153,15 +153,15 @@ export default function AdminProfilePage() {
           bio: updatedUser.bio || updatedUser.address || ''
         });
         
-        alert('อัปเดตโปรไฟล์สำเร็จ!');
+        toast.success('อัปเดตโปรไฟล์สำเร็จ!');
       } else {
         const errorText = await response.text();
         console.error('Profile update failed:', response.status, errorText);
-        alert('ไม่สามารถอัปเดตโปรไฟล์ได้: ' + errorText);
+        toast.error('ไม่สามารถอัปเดตโปรไฟล์ได้: ' + errorText);
       }
     } catch (error) {
       console.error('Error updating profile:', error);
-      alert('เกิดข้อผิดพลาดในการอัปเดตโปรไฟล์');
+      toast.error('เกิดข้อผิดพลาดในการอัปเดตโปรไฟล์');
     } finally {
       setSaving(false);
     }
@@ -177,7 +177,7 @@ export default function AdminProfilePage() {
         phone: user.phone || '',
         bio: user.bio || user.address || ''
       });
-      alert('รีเซ็ตข้อมูลเรียบร้อยแล้ว');
+      toast.success('รีเซ็ตข้อมูลเรียบร้อยแล้ว');
     }
   };
 

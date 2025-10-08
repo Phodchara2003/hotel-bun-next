@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -44,19 +44,19 @@ export default function RoomsManagement() {
   const ensureTokenPersistence = () => {
     const token = getAuthToken();
     if (token && user && typeof window !== 'undefined') {
-      // บันทึก token และข้อมูล user ใน localStorage เสมอ
+      // à¸šà¸±à¸™à¸—à¸¶à¸ token à¹à¸¥à¸°à¸‚à¹‰à¸­à¸¡à¸¹à¸¥ user à¹ƒà¸™ localStorage à¹€à¸ªà¸¡à¸­
       localStorage.setItem('auth_token_persistent', token);
       localStorage.setItem('user_data_persistent', JSON.stringify(user));
       localStorage.setItem('auth_expires_at', (Date.now() + (7 * 24 * 60 * 60 * 1000)).toString());
       
-      // บันทึกใน sessionStorage ด้วย
+      // à¸šà¸±à¸™à¸—à¸¶à¸à¹ƒà¸™ sessionStorage à¸”à¹‰à¸§à¸¢
       sessionStorage.setItem('auth_token', token);
       sessionStorage.setItem('user_data', JSON.stringify(user));
       
-      console.log('💾 Token persistence ensured');
+      console.log('ðŸ’¾ Token persistence ensured');
       return token;
     }
-    console.log('⚠️ No token or user data to persist');
+    console.log('âš ï¸ No token or user data to persist');
     return null;
   };
   const [rooms, setRooms] = useState([]);
@@ -73,8 +73,6 @@ export default function RoomsManagement() {
   // Delete confirmation modal states
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [roomToDelete, setRoomToDelete] = useState(null);
-  
-  // Sub rooms management
   const [editingSubRoom, setEditingSubRoom] = useState(null);
   const [showSubRoomModal, setShowSubRoomModal] = useState(false);
   const [subRoomFormData, setSubRoomFormData] = useState({
@@ -131,15 +129,15 @@ export default function RoomsManagement() {
   });
 
   const roomStatuses = [
-    { value: 'available', label: 'ว่าง', color: 'green' },
-    { value: 'occupied', label: 'มีผู้เข้าพัก', color: 'red' },
-    { value: 'maintenance', label: 'ซ่อมบำรุง', color: 'yellow' },
-    { value: 'cleaning', label: 'ทำความสะอาด', color: 'blue' }
+    { value: 'available', label: 'à¸§à¹ˆà¸²à¸‡', color: 'green' },
+    { value: 'occupied', label: 'à¸¡à¸µà¸œà¸¹à¹‰à¹€à¸‚à¹‰à¸²à¸žà¸±à¸', color: 'red' },
+    { value: 'maintenance', label: 'à¸‹à¹ˆà¸­à¸¡à¸šà¸³à¸£à¸¸à¸‡', color: 'yellow' },
+    { value: 'cleaning', label: 'à¸—à¸³à¸„à¸§à¸²à¸¡à¸ªà¸°à¸­à¸²à¸”', color: 'blue' }
   ];
 
   const bedTypes = [
-    { value: 'single', label: 'เตียงเดี่ยว' },
-    { value: 'double', label: 'เตียงคู่' }
+    { value: 'single', label: 'à¹€à¸•à¸µà¸¢à¸‡à¹€à¸”à¸µà¹ˆà¸¢à¸§' },
+    { value: 'double', label: 'à¹€à¸•à¸µà¸¢à¸‡à¸„à¸¹à¹ˆ' }
   ];
 
   // Helper function to get bed type label
@@ -149,20 +147,20 @@ export default function RoomsManagement() {
   };
 
   const [amenitiesOptions, setAmenitiesOptions] = useState([
-    'WiFi ฟรี',
-    'เครื่องปรับอากาศ',
-    'โทรทัศน์',
-    'ตู้เย็น',
-    'ตู้นิรภัย',
-    'เครื่องทำน้ำอุ่น',
-    'ระเบียง',
-    'วิวทะเล',
-    'วิวเมือง',
-    'อ่างอาบน้ำ',
-    'ฝักบัว',
-    'เครื่องใช้ในห้องน้ำ',
-    'รูมเซอร์วิส',
-    'ที่นั่งพักผ่อน'
+    'WiFi à¸Ÿà¸£à¸µ',
+    'à¹€à¸„à¸£à¸·à¹ˆà¸­à¸‡à¸›à¸£à¸±à¸šà¸­à¸²à¸à¸²à¸¨',
+    'à¹‚à¸—à¸£à¸—à¸±à¸¨à¸™à¹Œ',
+    'à¸•à¸¹à¹‰à¹€à¸¢à¹‡à¸™',
+    'à¸•à¸¹à¹‰à¸™à¸´à¸£à¸ à¸±à¸¢',
+    'à¹€à¸„à¸£à¸·à¹ˆà¸­à¸‡à¸—à¸³à¸™à¹‰à¸³à¸­à¸¸à¹ˆà¸™',
+    'à¸£à¸°à¹€à¸šà¸µà¸¢à¸‡',
+    'à¸§à¸´à¸§à¸—à¸°à¹€à¸¥',
+    'à¸§à¸´à¸§à¹€à¸¡à¸·à¸­à¸‡',
+    'à¸­à¹ˆà¸²à¸‡à¸­à¸²à¸šà¸™à¹‰à¸³',
+    'à¸à¸±à¸à¸šà¸±à¸§',
+    'à¹€à¸„à¸£à¸·à¹ˆà¸­à¸‡à¹ƒà¸Šà¹‰à¹ƒà¸™à¸«à¹‰à¸­à¸‡à¸™à¹‰à¸³',
+    'à¸£à¸¹à¸¡à¹€à¸‹à¸­à¸£à¹Œà¸§à¸´à¸ª',
+    'à¸—à¸µà¹ˆà¸™à¸±à¹ˆà¸‡à¸žà¸±à¸à¸œà¹ˆà¸­à¸™'
   ]);
 
   // States for managing amenities
@@ -175,9 +173,9 @@ export default function RoomsManagement() {
     if (newAmenity.trim() && !amenitiesOptions.includes(newAmenity.trim())) {
       setAmenitiesOptions([...amenitiesOptions, newAmenity.trim()]);
       setNewAmenity('');
-      toast.success('เพิ่มสิ่งอำนวยความสะดวกใหม่สำเร็จ');
+      toast.success('à¹€à¸žà¸´à¹ˆà¸¡à¸ªà¸´à¹ˆà¸‡à¸­à¸³à¸™à¸§à¸¢à¸„à¸§à¸²à¸¡à¸ªà¸°à¸”à¸§à¸à¹ƒà¸«à¸¡à¹ˆà¸ªà¸³à¹€à¸£à¹‡à¸ˆ');
     } else if (amenitiesOptions.includes(newAmenity.trim())) {
-      toast.error('สิ่งอำนวยความสะดวกนี้มีอยู่แล้ว');
+      toast.error('à¸ªà¸´à¹ˆà¸‡à¸­à¸³à¸™à¸§à¸¢à¸„à¸§à¸²à¸¡à¸ªà¸°à¸”à¸§à¸à¸™à¸µà¹‰à¸¡à¸µà¸­à¸¢à¸¹à¹ˆà¹à¸¥à¹‰à¸§');
     }
   };
 
@@ -189,7 +187,7 @@ export default function RoomsManagement() {
       ...prev,
       amenities: prev.amenities.filter(amenity => amenity !== amenityToDelete)
     }));
-    toast.success('ลบสิ่งอำนวยความสะดวกสำเร็จ');
+    toast.success('à¸¥à¸šà¸ªà¸´à¹ˆà¸‡à¸­à¸³à¸™à¸§à¸¢à¸„à¸§à¸²à¸¡à¸ªà¸°à¸”à¸§à¸à¸ªà¸³à¹€à¸£à¹‡à¸ˆ');
   };
 
   // Start editing amenity
@@ -214,7 +212,7 @@ export default function RoomsManagement() {
         )
       }));
       
-      toast.success('แก้ไขสิ่งอำนวยความสะดวกสำเร็จ');
+      toast.success('à¹à¸à¹‰à¹„à¸‚à¸ªà¸´à¹ˆà¸‡à¸­à¸³à¸™à¸§à¸¢à¸„à¸§à¸²à¸¡à¸ªà¸°à¸”à¸§à¸à¸ªà¸³à¹€à¸£à¹‡à¸ˆ');
     }
     setEditingAmenity(null);
     setEditAmenityValue('');
@@ -237,25 +235,25 @@ export default function RoomsManagement() {
     try {
       setLoading(true);
       
-      // ตรวจสอบ token ก่อนเรียก API
+      // à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸š token à¸à¹ˆà¸­à¸™à¹€à¸£à¸µà¸¢à¸ API
       const token = getAuthToken();
       if (!token) {
-        toast.error('เซสชันหมดอายุ กรุณาล็อกอินใหม่');
+        toast.error('à¹€à¸‹à¸ªà¸Šà¸±à¸™à¸«à¸¡à¸”à¸­à¸²à¸¢à¸¸ à¸à¸£à¸¸à¸“à¸²à¸¥à¹‡à¸­à¸à¸­à¸´à¸™à¹ƒà¸«à¸¡à¹ˆ');
         setLoading(false);
         return;
       }
       
-      console.log('🔄 Fetching rooms from database...');
+      console.log('ðŸ”„ Fetching rooms from database...');
       const response = await roomsAPI.getAllRooms();
-      console.log('✅ Rooms API response:', response);
+      console.log('âœ… Rooms API response:', response);
       
       if (response.data && Array.isArray(response.data)) {
-        console.log('🏠 Room count:', response.data.length);
-        console.log('🔧 Sample room data from API:', response.data[0]);
+        console.log('ðŸ  Room count:', response.data.length);
+        console.log('ðŸ”§ Sample room data from API:', response.data[0]);
         
         // Debug sub_rooms data
         response.data.forEach((room, index) => {
-          console.log(`🏠 Room ${index + 1}: ${room.name}`);
+          console.log(`ðŸ  Room ${index + 1}: ${room.name}`);
           console.log(`   - sub_rooms exists: ${!!room.sub_rooms}`);
           console.log(`   - sub_rooms length: ${room.sub_rooms ? room.sub_rooms.length : 0}`);
           if (room.sub_rooms && room.sub_rooms.length > 0) {
@@ -266,24 +264,24 @@ export default function RoomsManagement() {
         setRooms(response.data);
         calculateStats(response.data);
         setLastUpdated(new Date());
-        console.log('✅ Rooms loaded successfully');
+        console.log('âœ… Rooms loaded successfully');
       } else {
-        console.error('❌ No rooms data in response:', response);
-        toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูลห้องพัก');
+        console.error('âŒ No rooms data in response:', response);
+        toast.error('à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¹ƒà¸™à¸à¸²à¸£à¹‚à¸«à¸¥à¸”à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸«à¹‰à¸­à¸‡à¸žà¸±à¸');
       }
     } catch (error) {
-      console.error('❌ Error fetching rooms:', error);
-      console.error('❌ Error code:', error.code);
+      console.error('âŒ Error fetching rooms:', error);
+      console.error('âŒ Error code:', error.code);
       
       if (error.code === 'ECONNABORTED') {
-        toast.error('การเชื่อมต่อล่าช้า กรุณารอสักครู่...');
+        toast.error('à¸à¸²à¸£à¹€à¸Šà¸·à¹ˆà¸­à¸¡à¸•à¹ˆà¸­à¸¥à¹ˆà¸²à¸Šà¹‰à¸² à¸à¸£à¸¸à¸“à¸²à¸£à¸­à¸ªà¸±à¸à¸„à¸£à¸¹à¹ˆ...');
         // Retry after delay
         setTimeout(() => {
-          console.log('🔄 Retrying fetch rooms...');
+          console.log('ðŸ”„ Retrying fetch rooms...');
           fetchRooms();
         }, 3000);
       } else {
-        toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูลห้องพัก');
+        toast.error('à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¹ƒà¸™à¸à¸²à¸£à¹‚à¸«à¸¥à¸”à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸«à¹‰à¸­à¸‡à¸žà¸±à¸');
       }
     } finally {
       setLoading(false);
@@ -319,11 +317,11 @@ export default function RoomsManagement() {
       if (data.success) {
         setIndividualRooms(data.data);
       } else {
-        toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูลห้องพัก');
+        toast.error('à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¹ƒà¸™à¸à¸²à¸£à¹‚à¸«à¸¥à¸”à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸«à¹‰à¸­à¸‡à¸žà¸±à¸');
       }
     } catch (error) {
       console.error('Error fetching individual rooms:', error);
-      toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+      toast.error('à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¹ƒà¸™à¸à¸²à¸£à¹€à¸Šà¸·à¹ˆà¸­à¸¡à¸•à¹ˆà¸­');
     } finally {
       setIndividualRoomsLoading(false);
     }
@@ -342,30 +340,30 @@ export default function RoomsManagement() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success('เปลี่ยนสถานะห้องพักสำเร็จ');
+        toast.success('à¹€à¸›à¸¥à¸µà¹ˆà¸¢à¸™à¸ªà¸–à¸²à¸™à¸°à¸«à¹‰à¸­à¸‡à¸žà¸±à¸à¸ªà¸³à¹€à¸£à¹‡à¸ˆ');
         fetchIndividualRooms();
       } else {
-        toast.error(data.message || 'เกิดข้อผิดพลาด');
+        toast.error(data.message || 'à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”');
       }
     } catch (error) {
       console.error('Error updating room status:', error);
-      toast.error('เกิดข้อผิดพลาดในการเปลี่ยนสถานะ');
+      toast.error('à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¹ƒà¸™à¸à¸²à¸£à¹€à¸›à¸¥à¸µà¹ˆà¸¢à¸™à¸ªà¸–à¸²à¸™à¸°');
     }
   };
 
-  // ฟังก์ชันเปลี่ยนประเภทเตียง
+  // à¸Ÿà¸±à¸‡à¸à¹Œà¸Šà¸±à¸™à¹€à¸›à¸¥à¸µà¹ˆà¸¢à¸™à¸›à¸£à¸°à¹€à¸ à¸—à¹€à¸•à¸µà¸¢à¸‡
   const handleChangeBedType = async (roomId, newBedType) => {
     try {
       const bedTypeLabels = {
-        single: 'เตียงเดี่ยว',
-        double: 'เตียงคู่'
+        single: 'à¹€à¸•à¸µà¸¢à¸‡à¹€à¸”à¸µà¹ˆà¸¢à¸§',
+        double: 'à¹€à¸•à¸µà¸¢à¸‡à¸„à¸¹à¹ˆ'
       };
       
       const bedTypeLabel = bedTypeLabels[newBedType] || newBedType;
-      const confirmMessage = `ต้องการเปลี่ยนประเภทเตียงเป็น ${bedTypeLabel} ใช่หรือไม่?`;
+      const confirmMessage = `à¸•à¹‰à¸­à¸‡à¸à¸²à¸£à¹€à¸›à¸¥à¸µà¹ˆà¸¢à¸™à¸›à¸£à¸°à¹€à¸ à¸—à¹€à¸•à¸µà¸¢à¸‡à¹€à¸›à¹‡à¸™ ${bedTypeLabel} à¹ƒà¸Šà¹ˆà¸«à¸£à¸·à¸­à¹„à¸¡à¹ˆ?`;
       
       if (!confirm(confirmMessage)) {
-        // ถ้าผู้ใช้ยกเลิก ให้รีเฟรชข้อมูลเพื่อคืนค่าเดิม
+        // à¸–à¹‰à¸²à¸œà¸¹à¹‰à¹ƒà¸Šà¹‰à¸¢à¸à¹€à¸¥à¸´à¸ à¹ƒà¸«à¹‰à¸£à¸µà¹€à¸Ÿà¸£à¸Šà¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¹€à¸žà¸·à¹ˆà¸­à¸„à¸·à¸™à¸„à¹ˆà¸²à¹€à¸”à¸´à¸¡
         fetchIndividualRooms();
         return;
       }
@@ -381,17 +379,17 @@ export default function RoomsManagement() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success(`เปลี่ยนประเภทเตียงเป็น${bedTypeLabel}สำเร็จ`);
+        toast.success(`à¹€à¸›à¸¥à¸µà¹ˆà¸¢à¸™à¸›à¸£à¸°à¹€à¸ à¸—à¹€à¸•à¸µà¸¢à¸‡à¹€à¸›à¹‡à¸™${bedTypeLabel}à¸ªà¸³à¹€à¸£à¹‡à¸ˆ`);
         fetchIndividualRooms();
       } else {
-        toast.error(data.message || 'เกิดข้อผิดพลาดในการเปลี่ยนประเภทเตียง');
-        // รีเฟรชข้อมูลเพื่อคืนค่าเดิม
+        toast.error(data.message || 'à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¹ƒà¸™à¸à¸²à¸£à¹€à¸›à¸¥à¸µà¹ˆà¸¢à¸™à¸›à¸£à¸°à¹€à¸ à¸—à¹€à¸•à¸µà¸¢à¸‡');
+        // à¸£à¸µà¹€à¸Ÿà¸£à¸Šà¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¹€à¸žà¸·à¹ˆà¸­à¸„à¸·à¸™à¸„à¹ˆà¸²à¹€à¸”à¸´à¸¡
         fetchIndividualRooms();
       }
     } catch (error) {
       console.error('Error updating bed type:', error);
-      toast.error('เกิดข้อผิดพลาดในการเปลี่ยนประเภทเตียง');
-      // รีเฟรชข้อมูลเพื่อคืนค่าเดิม
+      toast.error('à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¹ƒà¸™à¸à¸²à¸£à¹€à¸›à¸¥à¸µà¹ˆà¸¢à¸™à¸›à¸£à¸°à¹€à¸ à¸—à¹€à¸•à¸µà¸¢à¸‡');
+      // à¸£à¸µà¹€à¸Ÿà¸£à¸Šà¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¹€à¸žà¸·à¹ˆà¸­à¸„à¸·à¸™à¸„à¹ˆà¸²à¹€à¸”à¸´à¸¡
       fetchIndividualRooms();
     }
   };
@@ -453,15 +451,15 @@ export default function RoomsManagement() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success('อัปเดตข้อมูลห้องพักสำเร็จ');
+        toast.success('à¸­à¸±à¸›à¹€à¸”à¸•à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸«à¹‰à¸­à¸‡à¸žà¸±à¸à¸ªà¸³à¹€à¸£à¹‡à¸ˆ');
         fetchIndividualRooms();
         closeIndividualRoomModal();
       } else {
-        toast.error(data.message || 'เกิดข้อผิดพลาด');
+        toast.error(data.message || 'à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”');
       }
     } catch (error) {
       console.error('Error updating individual room:', error);
-      toast.error('เกิดข้อผิดพลาดในการอัปเดต');
+      toast.error('à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¹ƒà¸™à¸à¸²à¸£à¸­à¸±à¸›à¹€à¸”à¸•');
     } finally {
       setActionLoading(false);
     }
@@ -484,10 +482,10 @@ export default function RoomsManagement() {
 
   const getIndividualRoomStatusText = (status) => {
     switch (status) {
-      case 'available': return 'ว่าง';
-      case 'occupied': return 'มีผู้เข้าพัก';
-      case 'maintenance': return 'ซ่อมบำรุง';
-      case 'reserved': return 'จองแล้ว';
+      case 'available': return 'à¸§à¹ˆà¸²à¸‡';
+      case 'occupied': return 'à¸¡à¸µà¸œà¸¹à¹‰à¹€à¸‚à¹‰à¸²à¸žà¸±à¸';
+      case 'maintenance': return 'à¸‹à¹ˆà¸­à¸¡à¸šà¸³à¸£à¸¸à¸‡';
+      case 'reserved': return 'à¸ˆà¸­à¸‡à¹à¸¥à¹‰à¸§';
       default: return status;
     }
   };
@@ -553,8 +551,8 @@ export default function RoomsManagement() {
     setModalType(type);
     setSelectedRoom(room);
     if (room) {
-      console.log('🔧 Opening modal for room:', room);
-      console.log('🔧 Original room data for edit:', room);
+      console.log('ðŸ”§ Opening modal for room:', room);
+      console.log('ðŸ”§ Original room data for edit:', room);
       
       // Map database fields to form fields with comprehensive field mapping
       const mappedFormData = {
@@ -598,10 +596,10 @@ export default function RoomsManagement() {
         })() // Safe images parsing
       };
       
-      console.log('🔧 Mapped form data for edit:', mappedFormData);
-      console.log('🏷️ Key mappings used:');
-      console.log('  - max_guests ➜ capacity:', room.max_guests, '➜', mappedFormData.capacity);
-      console.log('  - price_per_night ➜ price:', room.price_per_night, '➜', mappedFormData.price);
+      console.log('ðŸ”§ Mapped form data for edit:', mappedFormData);
+      console.log('ðŸ·ï¸ Key mappings used:');
+      console.log('  - max_guests âžœ capacity:', room.max_guests, 'âžœ', mappedFormData.capacity);
+      console.log('  - price_per_night âžœ price:', room.price_per_night, 'âžœ', mappedFormData.price);
       console.log('  - Generated defaults:');
 
       console.log('    - status:', mappedFormData.status);
@@ -622,7 +620,7 @@ export default function RoomsManagement() {
         bed_type: 'double',
         view_type: 'city'
       };
-      console.log('🆕 Setting empty form data for new room');
+      console.log('ðŸ†• Setting empty form data for new room');
       setFormData(emptyFormData);
     }
     setShowModal(true);
@@ -665,21 +663,21 @@ export default function RoomsManagement() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // ตรวจสอบและรักษา token ก่อนทำงาน
+    // à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¹à¸¥à¸°à¸£à¸±à¸à¸©à¸² token à¸à¹ˆà¸­à¸™à¸—à¸³à¸‡à¸²à¸™
     const token = ensureTokenPersistence();
     if (!token) {
-      toast.error('กรุณาเข้าสู่ระบบใหม่');
+      toast.error('à¸à¸£à¸¸à¸“à¸²à¹€à¸‚à¹‰à¸²à¸ªà¸¹à¹ˆà¸£à¸°à¸šà¸šà¹ƒà¸«à¸¡à¹ˆ');
       router.push('/admin/login');
       return;
     }
     
-    console.log('🚀 Form submission started');
-    console.log('📝 Modal Type:', modalType);
-    console.log('📝 Selected Room:', selectedRoom);
-    console.log('📝 Form Data:', formData);
+    console.log('ðŸš€ Form submission started');
+    console.log('ðŸ“ Modal Type:', modalType);
+    console.log('ðŸ“ Selected Room:', selectedRoom);
+    console.log('ðŸ“ Form Data:', formData);
     
     if (!formData.name || !formData.bed_type || !formData.price) {
-      toast.error('กรุณากรอกข้อมูลที่จำเป็น: ชื่อห้อง, ประเภทเตียง, และราคา');
+      toast.error('à¸à¸£à¸¸à¸“à¸²à¸à¸£à¸­à¸à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸—à¸µà¹ˆà¸ˆà¸³à¹€à¸›à¹‡à¸™: à¸Šà¸·à¹ˆà¸­à¸«à¹‰à¸­à¸‡, à¸›à¸£à¸°à¹€à¸ à¸—à¹€à¸•à¸µà¸¢à¸‡, à¹à¸¥à¸°à¸£à¸²à¸„à¸²');
       return;
     }
 
@@ -688,74 +686,74 @@ export default function RoomsManagement() {
       let response;
 
       if (modalType === 'add') {
-        console.log('➕ Creating new room...');
+        console.log('âž• Creating new room...');
         response = await roomsAPI.createRoom(formData);
-        console.log('➕ Create response:', response);
+        console.log('âž• Create response:', response);
         if (response.success) {
           const newRoomId = response.data?.id;
-          console.log('✅ Room created with ID:', newRoomId);
+          console.log('âœ… Room created with ID:', newRoomId);
           
-          // อัปโหลดรูปภาพหลังสร้างห้องสำเร็จ
+          // à¸­à¸±à¸›à¹‚à¸«à¸¥à¸”à¸£à¸¹à¸›à¸ à¸²à¸žà¸«à¸¥à¸±à¸‡à¸ªà¸£à¹‰à¸²à¸‡à¸«à¹‰à¸­à¸‡à¸ªà¸³à¹€à¸£à¹‡à¸ˆ
           if (selectedImages.length > 0 && newRoomId) {
-            console.log('📸 Uploading images for new room...');
+            console.log('ðŸ“¸ Uploading images for new room...');
             const uploadResult = await handleUploadImages(newRoomId);
             if (uploadResult?.success) {
-              toast.success('เพิ่มห้องพักและอัปโหลดรูปภาพสำเร็จ');
+              toast.success('à¹€à¸žà¸´à¹ˆà¸¡à¸«à¹‰à¸­à¸‡à¸žà¸±à¸à¹à¸¥à¸°à¸­à¸±à¸›à¹‚à¸«à¸¥à¸”à¸£à¸¹à¸›à¸ à¸²à¸žà¸ªà¸³à¹€à¸£à¹‡à¸ˆ');
             } else {
-              toast.success('เพิ่มห้องพักสำเร็จ แต่อัปโหลดรูปภาพไม่สำเร็จ');
+              toast.success('à¹€à¸žà¸´à¹ˆà¸¡à¸«à¹‰à¸­à¸‡à¸žà¸±à¸à¸ªà¸³à¹€à¸£à¹‡à¸ˆ à¹à¸•à¹ˆà¸­à¸±à¸›à¹‚à¸«à¸¥à¸”à¸£à¸¹à¸›à¸ à¸²à¸žà¹„à¸¡à¹ˆà¸ªà¸³à¹€à¸£à¹‡à¸ˆ');
             }
           } else {
-            toast.success('เพิ่มห้องพักสำเร็จ');
+            toast.success('à¹€à¸žà¸´à¹ˆà¸¡à¸«à¹‰à¸­à¸‡à¸žà¸±à¸à¸ªà¸³à¹€à¸£à¹‡à¸ˆ');
           }
           
           closeModal();
-          // รีเฟรชข้อมูลทันทีหลังเพิ่มห้องใหม่
+          // à¸£à¸µà¹€à¸Ÿà¸£à¸Šà¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸—à¸±à¸™à¸—à¸µà¸«à¸¥à¸±à¸‡à¹€à¸žà¸´à¹ˆà¸¡à¸«à¹‰à¸­à¸‡à¹ƒà¸«à¸¡à¹ˆ
           await fetchRooms();
         } else {
-          console.error('❌ Create failed:', response);
-          toast.error(response.message || 'เกิดข้อผิดพลาดในการเพิ่มห้องพัก');
+          console.error('âŒ Create failed:', response);
+          toast.error(response.message || 'à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¹ƒà¸™à¸à¸²à¸£à¹€à¸žà¸´à¹ˆà¸¡à¸«à¹‰à¸­à¸‡à¸žà¸±à¸');
         }
       } else if (modalType === 'edit') {
-        console.log('✏️ Updating room with ID:', selectedRoom.id);
-        console.log('✏️ Update data:', JSON.stringify(formData, null, 2));
-        console.log('✏️ Form data types:', Object.keys(formData).map(key => `${key}: ${typeof formData[key]} = ${formData[key]}`));
+        console.log('âœï¸ Updating room with ID:', selectedRoom.id);
+        console.log('âœï¸ Update data:', JSON.stringify(formData, null, 2));
+        console.log('âœï¸ Form data types:', Object.keys(formData).map(key => `${key}: ${typeof formData[key]} = ${formData[key]}`));
         
         // Create update data without images field to preserve existing images
         const updateData = { ...formData };
         delete updateData.images; // Remove images field to let backend preserve existing images
-        console.log('✏️ Update data (without images):', JSON.stringify(updateData, null, 2));
+        console.log('âœï¸ Update data (without images):', JSON.stringify(updateData, null, 2));
         
-        // ตรวจสอบ token ก่อนทำงาน
+        // à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸š token à¸à¹ˆà¸­à¸™à¸—à¸³à¸‡à¸²à¸™
         const token = getAuthToken();
         if (!token) {
-          toast.error('เซสชันหมดอายุ กรุณาล็อกอินใหม่');
+          toast.error('à¹€à¸‹à¸ªà¸Šà¸±à¸™à¸«à¸¡à¸”à¸­à¸²à¸¢à¸¸ à¸à¸£à¸¸à¸“à¸²à¸¥à¹‡à¸­à¸à¸­à¸´à¸™à¹ƒà¸«à¸¡à¹ˆ');
           return;
         }
         
         response = await roomsAPI.updateRoom(selectedRoom.id, updateData);
-        console.log('✏️ Update response:', response);
+        console.log('âœï¸ Update response:', response);
         if (response.success) {
-          toast.success('แก้ไขห้องพักสำเร็จ - ข้อมูลได้รับการอัปเดต');
+          toast.success('à¹à¸à¹‰à¹„à¸‚à¸«à¹‰à¸­à¸‡à¸žà¸±à¸à¸ªà¸³à¹€à¸£à¹‡à¸ˆ - à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¹„à¸”à¹‰à¸£à¸±à¸šà¸à¸²à¸£à¸­à¸±à¸›à¹€à¸”à¸•');
           
-          // บันทึก token และข้อมูล user อีกครั้งเพื่อป้องกันการหาย
+          // à¸šà¸±à¸™à¸—à¸¶à¸ token à¹à¸¥à¸°à¸‚à¹‰à¸­à¸¡à¸¹à¸¥ user à¸­à¸µà¸à¸„à¸£à¸±à¹‰à¸‡à¹€à¸žà¸·à¹ˆà¸­à¸›à¹‰à¸­à¸‡à¸à¸±à¸™à¸à¸²à¸£à¸«à¸²à¸¢
           ensureTokenPersistence();
           
-          // ปิด Modal ก่อน
+          // à¸›à¸´à¸” Modal à¸à¹ˆà¸­à¸™
           closeModal();
           
-          // รีเฟรชข้อมูลทันทีเพื่อแสดงการเปลี่ยนแปลง
-          console.log('🔄 Refreshing data after successful update...');
+          // à¸£à¸µà¹€à¸Ÿà¸£à¸Šà¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸—à¸±à¸™à¸—à¸µà¹€à¸žà¸·à¹ˆà¸­à¹à¸ªà¸”à¸‡à¸à¸²à¸£à¹€à¸›à¸¥à¸µà¹ˆà¸¢à¸™à¹à¸›à¸¥à¸‡
+          console.log('ðŸ”„ Refreshing data after successful update...');
           await fetchRooms();
           
         } else {
-          console.error('❌ Update failed:', response);
-          toast.error(response.message || 'เกิดข้อผิดพลาดในการแก้ไขห้องพัก');
+          console.error('âŒ Update failed:', response);
+          toast.error(response.message || 'à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¹ƒà¸™à¸à¸²à¸£à¹à¸à¹‰à¹„à¸‚à¸«à¹‰à¸­à¸‡à¸žà¸±à¸');
         }
       }
     } catch (error) {
-      console.error('💥 Error saving room:', error);
-      console.error('💥 Error details:', error.response?.data || error.message);
-      toast.error('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + (error.response?.data?.message || error.message));
+      console.error('ðŸ’¥ Error saving room:', error);
+      console.error('ðŸ’¥ Error details:', error.response?.data || error.message);
+      toast.error('à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¹ƒà¸™à¸à¸²à¸£à¸šà¸±à¸™à¸—à¸¶à¸à¸‚à¹‰à¸­à¸¡à¸¹à¸¥: ' + (error.response?.data?.message || error.message));
     } finally {
       setActionLoading(false);
     }
@@ -775,16 +773,16 @@ export default function RoomsManagement() {
       setActionLoading(true);
       const response = await roomsAPI.deleteRoom(roomToDelete.id);
       if (response.success) {
-        toast.success('ลบห้องพักสำเร็จ - ข้อมูลได้รับการอัปเดต');
-        // รีเฟรชข้อมูลทันทีหลังลบ
+        toast.success('à¸¥à¸šà¸«à¹‰à¸­à¸‡à¸žà¸±à¸à¸ªà¸³à¹€à¸£à¹‡à¸ˆ - à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¹„à¸”à¹‰à¸£à¸±à¸šà¸à¸²à¸£à¸­à¸±à¸›à¹€à¸”à¸•');
+        // à¸£à¸µà¹€à¸Ÿà¸£à¸Šà¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸—à¸±à¸™à¸—à¸µà¸«à¸¥à¸±à¸‡à¸¥à¸š
         await fetchRooms();
       } else {
-        // แสดงข้อความข้อผิดพลาดแบบละเอียด
-        const errorMessage = response.message || 'เกิดข้อผิดพลาดในการลบห้องพัก';
+        // à¹à¸ªà¸”à¸‡à¸‚à¹‰à¸­à¸„à¸§à¸²à¸¡à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¹à¸šà¸šà¸¥à¸°à¹€à¸­à¸µà¸¢à¸”
+        const errorMessage = response.message || 'à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¹ƒà¸™à¸à¸²à¸£à¸¥à¸šà¸«à¹‰à¸­à¸‡à¸žà¸±à¸';
         
-        // แสดง toast ข้อผิดพลาดแบบยาว
+        // à¹à¸ªà¸”à¸‡ toast à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¹à¸šà¸šà¸¢à¸²à¸§
         toast.error(errorMessage, {
-          duration: 8000, // แสดงนาน 8 วินาที
+          duration: 8000, // à¹à¸ªà¸”à¸‡à¸™à¸²à¸™ 8 à¸§à¸´à¸™à¸²à¸—à¸µ
           style: {
             maxWidth: '500px',
             fontSize: '14px',
@@ -792,7 +790,7 @@ export default function RoomsManagement() {
           }
         });
         
-        // Log รายละเอียดเพิ่มเติม
+        // Log à¸£à¸²à¸¢à¸¥à¸°à¹€à¸­à¸µà¸¢à¸”à¹€à¸žà¸´à¹ˆà¸¡à¹€à¸•à¸´à¸¡
         if (response.details) {
           console.log('Booking details that prevent deletion:', response.details);
         }
@@ -800,7 +798,7 @@ export default function RoomsManagement() {
     } catch (error) {
       console.error('Error deleting room:', error);
       
-      // ตรวจสอบว่าเป็น error จาก API response หรือไม่
+      // à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¸§à¹ˆà¸²à¹€à¸›à¹‡à¸™ error à¸ˆà¸²à¸ API response à¸«à¸£à¸·à¸­à¹„à¸¡à¹ˆ
       if (error.response && error.response.data && error.response.data.message) {
         toast.error(error.response.data.message, {
           duration: 8000,
@@ -811,7 +809,7 @@ export default function RoomsManagement() {
           }
         });
       } else {
-        toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์');
+        toast.error('à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¹ƒà¸™à¸à¸²à¸£à¹€à¸Šà¸·à¹ˆà¸­à¸¡à¸•à¹ˆà¸­à¸à¸±à¸šà¹€à¸‹à¸´à¸£à¹Œà¸Ÿà¹€à¸§à¸­à¸£à¹Œ');
       }
     } finally {
       setActionLoading(false);
@@ -831,12 +829,12 @@ export default function RoomsManagement() {
     const validFiles = files.filter(file => {
       // Check file type
       if (!file.type.startsWith('image/')) {
-        toast.error(`ไฟล์ ${file.name} ไม่ใช่รูปภาพ`);
+        toast.error(`à¹„à¸Ÿà¸¥à¹Œ ${file.name} à¹„à¸¡à¹ˆà¹ƒà¸Šà¹ˆà¸£à¸¹à¸›à¸ à¸²à¸ž`);
         return false;
       }
       // Check file size (10MB max)
       if (file.size > 10 * 1024 * 1024) {
-        toast.error(`ไฟล์ ${file.name} มีขนาดใหญ่เกิน 10MB`);
+        toast.error(`à¹„à¸Ÿà¸¥à¹Œ ${file.name} à¸¡à¸µà¸‚à¸™à¸²à¸”à¹ƒà¸«à¸à¹ˆà¹€à¸à¸´à¸™ 10MB`);
         return false;
       }
       return true;
@@ -844,11 +842,18 @@ export default function RoomsManagement() {
     
     if (validFiles.length > 0) {
       setSelectedImages(prev => [...prev, ...validFiles]);
-      toast.success(`เลือกไฟล์สำเร็จ: ${validFiles.length} ไฟล์`);
+      toast.success(`à¹€à¸¥à¸·à¸­à¸à¹„à¸Ÿà¸¥à¹Œà¸ªà¸³à¹€à¸£à¹‡à¸ˆ: ${validFiles.length} à¹„à¸Ÿà¸¥à¹Œ`);
     }
   };
 
   // Sub Rooms Management Functions
+  const toggleSubRooms = (roomId) => {
+    setShowSubRooms(prev => ({
+      ...prev,
+      [roomId]: !prev[roomId]
+    }));
+  };
+
   const updateSubRoomStatus = async (roomId, subRoomId, field, value) => {
     try {
       // Update local state first
@@ -869,10 +874,10 @@ export default function RoomsManagement() {
       // Here you would typically make an API call to update the backend
       // await roomsAPI.updateSubRoom(roomId, subRoomId, { [field]: value });
       
-      toast.success('อัปเดตสถานะห้องเรียบร้อยแล้ว');
+      toast.success('à¸­à¸±à¸›à¹€à¸”à¸•à¸ªà¸–à¸²à¸™à¸°à¸«à¹‰à¸­à¸‡à¹€à¸£à¸µà¸¢à¸šà¸£à¹‰à¸­à¸¢à¹à¸¥à¹‰à¸§');
     } catch (error) {
       console.error('Error updating sub room:', error);
-      toast.error('เกิดข้อผิดพลาดในการอัปเดต');
+      toast.error('à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¹ƒà¸™à¸à¸²à¸£à¸­à¸±à¸›à¹€à¸”à¸•');
       // Revert changes if API call fails
       await fetchRooms();
     }
@@ -941,11 +946,11 @@ export default function RoomsManagement() {
       // Here you would make an API call to update the backend
       // await roomsAPI.updateSubRoom(editingSubRoom.parentRoomId, editingSubRoom.id, subRoomFormData);
       
-      toast.success('อัปเดตข้อมูลห้องพักย่อยเรียบร้อยแล้ว');
+      toast.success('à¸­à¸±à¸›à¹€à¸”à¸•à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸«à¹‰à¸­à¸‡à¸žà¸±à¸à¸¢à¹ˆà¸­à¸¢à¹€à¸£à¸µà¸¢à¸šà¸£à¹‰à¸­à¸¢à¹à¸¥à¹‰à¸§');
       closeSubRoomModal();
     } catch (error) {
       console.error('Error updating sub room:', error);
-      toast.error('เกิดข้อผิดพลาดในการอัปเดต');
+      toast.error('à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¹ƒà¸™à¸à¸²à¸£à¸­à¸±à¸›à¹€à¸”à¸•');
       // Revert changes if API call fails
       await fetchRooms();
     } finally {
@@ -954,7 +959,7 @@ export default function RoomsManagement() {
   };
 
   const formatPrice = (amount) => {
-    if (!amount) return '฿0';
+    if (!amount) return 'à¸¿0';
     return new Intl.NumberFormat('th-TH', {
       style: 'currency',
       currency: 'THB',
@@ -1016,7 +1021,7 @@ export default function RoomsManagement() {
       
       return deepFlatten(result);
     } catch (error) {
-      console.error('❌ Error parsing room images:', error);
+      console.error('âŒ Error parsing room images:', error);
       return [];
     }
   };
@@ -1042,14 +1047,14 @@ export default function RoomsManagement() {
     );
     
     if (files.length === 0) {
-      toast.error('กรุณาวางเฉพาะไฟล์รูปภาพ');
+      toast.error('à¸à¸£à¸¸à¸“à¸²à¸§à¸²à¸‡à¹€à¸‰à¸žà¸²à¸°à¹„à¸Ÿà¸¥à¹Œà¸£à¸¹à¸›à¸ à¸²à¸ž');
       return;
     }
     
     // Validate file sizes
     const validFiles = files.filter(file => {
       if (file.size > 10 * 1024 * 1024) {
-        toast.error(`ไฟล์ ${file.name} มีขนาดใหญ่เกิน 10MB`);
+        toast.error(`à¹„à¸Ÿà¸¥à¹Œ ${file.name} à¸¡à¸µà¸‚à¸™à¸²à¸”à¹ƒà¸«à¸à¹ˆà¹€à¸à¸´à¸™ 10MB`);
         return false;
       }
       return true;
@@ -1067,21 +1072,21 @@ export default function RoomsManagement() {
     const targetRoomId = roomId || selectedRoom?.id;
     
     // Debug logging
-    console.log('🔍 DEBUG: roomId parameter:', roomId);
-    console.log('🔍 DEBUG: selectedRoom:', selectedRoom);
-    console.log('🔍 DEBUG: selectedRoom?.id:', selectedRoom?.id);
-    console.log('🔍 DEBUG: targetRoomId:', targetRoomId);
-    console.log('🔍 DEBUG: typeof targetRoomId:', typeof targetRoomId);
+    console.log('ðŸ” DEBUG: roomId parameter:', roomId);
+    console.log('ðŸ” DEBUG: selectedRoom:', selectedRoom);
+    console.log('ðŸ” DEBUG: selectedRoom?.id:', selectedRoom?.id);
+    console.log('ðŸ” DEBUG: targetRoomId:', targetRoomId);
+    console.log('ðŸ” DEBUG: typeof targetRoomId:', typeof targetRoomId);
     
     // Ensure targetRoomId is a number
     const finalRoomId = parseInt(targetRoomId);
-    console.log('🔍 DEBUG: finalRoomId after parseInt:', finalRoomId);
+    console.log('ðŸ” DEBUG: finalRoomId after parseInt:', finalRoomId);
     
     if (!finalRoomId || isNaN(finalRoomId) || selectedImages.length === 0) {
       if (modalType === 'add') {
-        toast.error('กรุณาเพิ่มห้องพักก่อน จากนั้นจึงอัปโหลดรูปภาพ');
+        toast.error('à¸à¸£à¸¸à¸“à¸²à¹€à¸žà¸´à¹ˆà¸¡à¸«à¹‰à¸­à¸‡à¸žà¸±à¸à¸à¹ˆà¸­à¸™ à¸ˆà¸²à¸à¸™à¸±à¹‰à¸™à¸ˆà¸¶à¸‡à¸­à¸±à¸›à¹‚à¸«à¸¥à¸”à¸£à¸¹à¸›à¸ à¸²à¸ž');
       } else {
-        toast.error('กรุณาเลือกรูปภาพก่อนอัปโหลด หรือ Room ID ไม่ถูกต้อง');
+        toast.error('à¸à¸£à¸¸à¸“à¸²à¹€à¸¥à¸·à¸­à¸à¸£à¸¹à¸›à¸ à¸²à¸žà¸à¹ˆà¸­à¸™à¸­à¸±à¸›à¹‚à¸«à¸¥à¸” à¸«à¸£à¸·à¸­ Room ID à¹„à¸¡à¹ˆà¸–à¸¹à¸à¸•à¹‰à¸­à¸‡');
       }
       return null;
     }
@@ -1089,11 +1094,11 @@ export default function RoomsManagement() {
     try {
       setUploadingImages(true);
       
-      console.log('📸 Uploading images for room ID:', finalRoomId);
-      console.log('� Files to upload:', selectedImages.map(f => ({ name: f.name, size: f.size, type: f.type })));
+      console.log('ðŸ“¸ Uploading images for room ID:', finalRoomId);
+      console.log('ï¿½ Files to upload:', selectedImages.map(f => ({ name: f.name, size: f.size, type: f.type })));
       
       const result = await roomsAPI.uploadImages(finalRoomId, selectedImages);
-      console.log('📸 Upload result:', result);
+      console.log('ðŸ“¸ Upload result:', result);
 
       if (result.success) {
         toast.success(result.message);
@@ -1101,11 +1106,11 @@ export default function RoomsManagement() {
         
         // Invalidate cache for this room's images
         invalidateRoomImageCache(finalRoomId);
-        console.log('🔄 Cache invalidated for room:', finalRoomId);
+        console.log('ðŸ”„ Cache invalidated for room:', finalRoomId);
         
         // Show additional success message about cache refresh
         setTimeout(() => {
-          toast.success('รูปภาพใหม่จะปรากฏในหน้าหลักภายในไม่กี่วินาที', {
+          toast.success('à¸£à¸¹à¸›à¸ à¸²à¸žà¹ƒà¸«à¸¡à¹ˆà¸ˆà¸°à¸›à¸£à¸²à¸à¸à¹ƒà¸™à¸«à¸™à¹‰à¸²à¸«à¸¥à¸±à¸à¸ à¸²à¸¢à¹ƒà¸™à¹„à¸¡à¹ˆà¸à¸µà¹ˆà¸§à¸´à¸™à¸²à¸—à¸µ', {
             duration: 3000,
             position: 'top-right'
           });
@@ -1122,12 +1127,12 @@ export default function RoomsManagement() {
         }
         return result;
       } else {
-        toast.error(result.message || 'เกิดข้อผิดพลาดในการอัปโหลด');
+        toast.error(result.message || 'à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¹ƒà¸™à¸à¸²à¸£à¸­à¸±à¸›à¹‚à¸«à¸¥à¸”');
         return null;
       }
     } catch (error) {
       console.error('Error uploading images:', error);
-      toast.error('เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ');
+      toast.error('à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¹ƒà¸™à¸à¸²à¸£à¸­à¸±à¸›à¹‚à¸«à¸¥à¸”à¸£à¸¹à¸›à¸ à¸²à¸ž');
       return null;
     } finally {
       setUploadingImages(false);
@@ -1137,7 +1142,7 @@ export default function RoomsManagement() {
   const handleDeleteImage = async (filename) => {
     if (!selectedRoom?.id) return;
     
-    if (!confirm(`คุณต้องการลบรูปภาพ "${filename}" หรือไม่?`)) {
+    if (!confirm(`à¸„à¸¸à¸“à¸•à¹‰à¸­à¸‡à¸à¸²à¸£à¸¥à¸šà¸£à¸¹à¸›à¸ à¸²à¸ž "${filename}" à¸«à¸£à¸·à¸­à¹„à¸¡à¹ˆ?`)) {
       return;
     }
 
@@ -1154,11 +1159,11 @@ export default function RoomsManagement() {
           setSelectedRoom(updatedRoom.data);
         }
       } else {
-        toast.error(result.message || 'เกิดข้อผิดพลาดในการลบรูปภาพ');
+        toast.error(result.message || 'à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¹ƒà¸™à¸à¸²à¸£à¸¥à¸šà¸£à¸¹à¸›à¸ à¸²à¸ž');
       }
     } catch (error) {
       console.error('Error deleting image:', error);
-      toast.error('เกิดข้อผิดพลาดในการลบรูปภาพ');
+      toast.error('à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¹ƒà¸™à¸à¸²à¸£à¸¥à¸šà¸£à¸¹à¸›à¸ à¸²à¸ž');
     }
   };
 
@@ -1167,10 +1172,10 @@ export default function RoomsManagement() {
       <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-900">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-white mb-4">
-            กรุณาเข้าสู่ระบบ
+            à¸à¸£à¸¸à¸“à¸²à¹€à¸‚à¹‰à¸²à¸ªà¸¹à¹ˆà¸£à¸°à¸šà¸š
           </h1>
           <Link href="/login" className="btn-primary">
-            เข้าสู่ระบบ
+            à¹€à¸‚à¹‰à¸²à¸ªà¸¹à¹ˆà¸£à¸°à¸šà¸š
           </Link>
         </div>
       </div>
@@ -1182,13 +1187,13 @@ export default function RoomsManagement() {
       <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-900">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-white mb-4">
-            ไม่มีสิทธิ์เข้าถึง
+            à¹„à¸¡à¹ˆà¸¡à¸µà¸ªà¸´à¸—à¸˜à¸´à¹Œà¹€à¸‚à¹‰à¸²à¸–à¸¶à¸‡
           </h1>
           <p className="text-neutral-600 dark:text-neutral-400 mb-6">
-            คุณไม่มีสิทธิ์เข้าถึงหน้านี้
+            à¸„à¸¸à¸“à¹„à¸¡à¹ˆà¸¡à¸µà¸ªà¸´à¸—à¸˜à¸´à¹Œà¹€à¸‚à¹‰à¸²à¸–à¸¶à¸‡à¸«à¸™à¹‰à¸²à¸™à¸µà¹‰
           </p>
           <Link href="/dashboard" className="btn-primary">
-            กลับหน้าหลัก
+            à¸à¸¥à¸±à¸šà¸«à¸™à¹‰à¸²à¸«à¸¥à¸±à¸
           </Link>
         </div>
       </div>
@@ -1203,19 +1208,35 @@ export default function RoomsManagement() {
         <div className="bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-neutral-200 dark:border-neutral-700 p-6 mb-8">
           <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">จัดการห้องพัก</h1>
-              <p className="text-neutral-600 dark:text-neutral-400">จัดการข้อมูลห้องพักและประเภทห้องพัก</p>
+              <h1 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">à¸ˆà¸±à¸”à¸à¸²à¸£à¸«à¹‰à¸­à¸‡à¸žà¸±à¸</h1>
+              <p className="text-neutral-600 dark:text-neutral-400">à¸ˆà¸±à¸”à¸à¸²à¸£à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸«à¹‰à¸­à¸‡à¸žà¸±à¸à¹à¸¥à¸°à¸›à¸£à¸°à¹€à¸ à¸—à¸«à¹‰à¸­à¸‡à¸žà¸±à¸</p>
             </div>
             
             {/* Navigation buttons */}
             <div className="flex flex-wrap gap-3">
               <Link 
+                href="/admin/room-types"
+                className="flex items-center px-4 py-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900 dark:hover:bg-blue-800 text-blue-700 dark:text-blue-300 rounded-lg transition-colors"
+              >
+                <Hotel className="w-4 h-4 mr-2" />
+                à¸›à¸£à¸°à¹€à¸ à¸—à¸«à¹‰à¸­à¸‡à¸žà¸±à¸
+              </Link>
+              
+              <Link 
                 href="/admin/individual-rooms"
                 className="flex items-center px-4 py-2 bg-green-100 hover:bg-green-200 dark:bg-green-900 dark:hover:bg-green-800 text-green-700 dark:text-green-300 rounded-lg transition-colors"
               >
                 <Bed className="w-4 h-4 mr-2" />
-                ห้องพักย่อย
+                à¸«à¹‰à¸­à¸‡à¸žà¸±à¸à¸¢à¹ˆà¸­à¸¢
               </Link>
+              
+              <button
+                onClick={() => openModal('add')}
+                className="btn-primary flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                à¹€à¸žà¸´à¹ˆà¸¡à¸«à¹‰à¸­à¸‡à¸žà¸±à¸
+              </button>
             </div>
           </div>
         </div>
@@ -1225,7 +1246,21 @@ export default function RoomsManagement() {
         <div className={`mb-8 transform transition-all duration-700 ease-out ${
           isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
         }`}>
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-between">
+            {/* Last Updated Time */}
+            {lastUpdated && (
+              <div className="text-sm text-neutral-600 dark:text-neutral-400">
+                à¸­à¸±à¸›à¹€à¸”à¸•à¸¥à¹ˆà¸²à¸ªà¸¸à¸”: {lastUpdated.toLocaleString('th-TH', {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit'
+                })}
+              </div>
+            )}
+            
             <div className="flex items-center gap-4">
               <button
                 onClick={fetchRooms}
@@ -1233,10 +1268,165 @@ export default function RoomsManagement() {
                 className="btn-outline flex items-center gap-2"
               >
                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                รีเฟรช
+                à¸£à¸µà¹€à¸Ÿà¸£à¸Š
+              </button>
+
+              <button
+                onClick={() => openModal('add')}
+                className="btn-primary flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                à¹€à¸žà¸´à¹ˆà¸¡à¸«à¹‰à¸­à¸‡à¸žà¸±à¸
               </button>
             </div>
           </div>
+
+        {/* Stats Cards */}
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8 transform transition-all duration-700 delay-200 ease-out ${
+          isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
+        }`}>
+          <div className="bg-white dark:bg-neutral-800 rounded-xl p-6 shadow-lg border border-neutral-200 dark:border-neutral-700 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">à¸«à¹‰à¸­à¸‡à¸žà¸±à¸à¸—à¸±à¹‰à¸‡à¸«à¸¡à¸”</p>
+                <p className="text-2xl font-bold text-neutral-900 dark:text-white">{stats.totalRooms}</p>
+              </div>
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                <Hotel className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-neutral-800 rounded-xl p-6 shadow-lg border border-neutral-200 dark:border-neutral-700 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">à¸«à¹‰à¸­à¸‡à¸§à¹ˆà¸²à¸‡</p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.availableRooms}</p>
+              </div>
+              <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-neutral-800 rounded-xl p-6 shadow-lg border border-neutral-200 dark:border-neutral-700 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">à¸¡à¸µà¸œà¸¹à¹‰à¹€à¸‚à¹‰à¸²à¸žà¸±à¸</p>
+                <p className="text-2xl font-bold text-red-600 dark:text-red-400">{stats.occupiedRooms}</p>
+              </div>
+              <div className="w-12 h-12 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center">
+                <XCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-neutral-800 rounded-xl p-6 shadow-lg border border-neutral-200 dark:border-neutral-700 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">à¸‹à¹ˆà¸­à¸¡à¸šà¸³à¸£à¸¸à¸‡</p>
+                <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.maintenanceRooms}</p>
+              </div>
+              <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900 rounded-lg flex items-center justify-center">
+                <AlertCircle className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-neutral-800 rounded-xl p-6 shadow-lg border border-neutral-200 dark:border-neutral-700 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">à¸£à¸²à¸„à¸²à¹€à¸‰à¸¥à¸µà¹ˆà¸¢</p>
+                <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{formatPrice(stats.avgPrice)}</p>
+              </div>
+              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
+                <DollarSign className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-neutral-800 rounded-xl p-6 shadow-lg border border-neutral-200 dark:border-neutral-700 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">à¸„à¸§à¸²à¸¡à¸ˆà¸¸à¸£à¸§à¸¡</p>
+                <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.totalCapacity}</p>
+              </div>
+              <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center">
+                <Users className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+
+        {/* Filters */}
+        <div className={`bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-neutral-200 dark:border-neutral-700 p-6 mb-8 transform transition-all duration-700 delay-300 ease-out ${
+          isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
+        }`}>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-neutral-900 dark:text-white flex items-center">
+              <Filter className="h-5 w-5 mr-2" />
+              à¸•à¸±à¸§à¸à¸£à¸­à¸‡à¸‚à¹‰à¸­à¸¡à¸¹à¸¥
+            </h2>
+            <button
+              onClick={clearFilters}
+              className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+            >
+              à¸¥à¹‰à¸²à¸‡à¸•à¸±à¸§à¸à¸£à¸­à¸‡
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                à¸„à¹‰à¸™à¸«à¸²
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                <input
+                  type="text"
+                  placeholder="à¸Šà¸·à¹ˆà¸­à¸«à¹‰à¸­à¸‡, à¸«à¸¡à¸²à¸¢à¹€à¸¥à¸‚, à¸›à¸£à¸°à¹€à¸ à¸—..."
+                  value={filters.search}
+                  onChange={(e) => handleFilterChange('search', e.target.value)}
+                  className="input-field pl-10"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                à¸ªà¸–à¸²à¸™à¸°
+              </label>
+              <select
+                value={filters.status}
+                onChange={(e) => handleFilterChange('status', e.target.value)}
+                className="input-field"
+              >
+                <option value="">à¸—à¸¸à¸à¸ªà¸–à¸²à¸™à¸°</option>
+                {roomStatuses.map(status => (
+                  <option key={status.value} value={status.value}>{status.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                à¸Šà¹ˆà¸§à¸‡à¸£à¸²à¸„à¸²
+              </label>
+              <select
+                value={filters.priceRange}
+                onChange={(e) => handleFilterChange('priceRange', e.target.value)}
+                className="input-field"
+              >
+                <option value="">à¸—à¸¸à¸à¸Šà¹ˆà¸§à¸‡à¸£à¸²à¸„à¸²</option>
+                <option value="low">à¸•à¹ˆà¸³à¸à¸§à¹ˆà¸² à¸¿2,000</option>
+                <option value="medium">à¸¿2,000 - à¸¿5,000</option>
+                <option value="high">à¸ªà¸¹à¸‡à¸à¸§à¹ˆà¸² à¸¿5,000</option>
+              </select>
+            </div>
+          </div>
+        </div>
 
         {/* Rooms Grid */}
         <div className={`transform transition-all duration-700 delay-400 ease-out ${
@@ -1245,22 +1435,22 @@ export default function RoomsManagement() {
           {loading ? (
             <div className="bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-neutral-200 dark:border-neutral-700 p-12 text-center">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mb-4"></div>
-              <p className="text-neutral-600 dark:text-neutral-400">กำลังโหลดข้อมูลห้องพัก...</p>
+              <p className="text-neutral-600 dark:text-neutral-400">à¸à¸³à¸¥à¸±à¸‡à¹‚à¸«à¸¥à¸”à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸«à¹‰à¸­à¸‡à¸žà¸±à¸...</p>
             </div>
           ) : filteredRooms.length === 0 ? (
             <div className="bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-neutral-200 dark:border-neutral-700 p-12 text-center">
               <Hotel className="h-16 w-16 text-neutral-400 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-neutral-900 dark:text-white mb-2">
-                ไม่มีข้อมูลห้องพัก
+                à¹„à¸¡à¹ˆà¸¡à¸µà¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸«à¹‰à¸­à¸‡à¸žà¸±à¸
               </h3>
               <p className="text-neutral-600 dark:text-neutral-400 mb-6">
-                ยังไม่มีห้องพักในระบบ หรือไม่มีข้อมูลที่ตรงกับการค้นหา
+                à¸¢à¸±à¸‡à¹„à¸¡à¹ˆà¸¡à¸µà¸«à¹‰à¸­à¸‡à¸žà¸±à¸à¹ƒà¸™à¸£à¸°à¸šà¸š à¸«à¸£à¸·à¸­à¹„à¸¡à¹ˆà¸¡à¸µà¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸—à¸µà¹ˆà¸•à¸£à¸‡à¸à¸±à¸šà¸à¸²à¸£à¸„à¹‰à¸™à¸«à¸²
               </p>
               <button
                 onClick={() => openModal('add')}
                 className="btn-primary"
               >
-                เพิ่มห้องพักแรก
+                à¹€à¸žà¸´à¹ˆà¸¡à¸«à¹‰à¸­à¸‡à¸žà¸±à¸à¹à¸£à¸
               </button>
             </div>
           ) : (
@@ -1284,7 +1474,7 @@ export default function RoomsManagement() {
                             return (
                               <img
                                 src={firstImage ? `/images/rooms/${firstImage}` : '/images/rooms/placeholder.svg'}
-                                alt={room.name || 'ห้องพัก'}
+                                alt={room.name || 'à¸«à¹‰à¸­à¸‡à¸žà¸±à¸'}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
                                   e.target.src = '/images/rooms/placeholder.svg';
@@ -1303,7 +1493,7 @@ export default function RoomsManagement() {
                           <div className="flex items-center gap-4 mt-2 text-sm text-neutral-600 dark:text-neutral-400">
                             <span className="flex items-center gap-1">
                               <Users className="h-4 w-4" />
-                              สำหรับ {room.max_occupancy} คน
+                              à¸ªà¸³à¸«à¸£à¸±à¸š {room.max_occupancy} à¸„à¸™
                             </span>
                             <span className="flex items-center gap-1">
                               <Bed className="h-4 w-4" />
@@ -1317,18 +1507,44 @@ export default function RoomsManagement() {
                                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200'
                                     : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'
                                 }`}
-                                title={room.total_bookings > 0 ? 'ไม่สามารถเปลี่ยนประเภทเตียงได้เนื่องจากมีการจองอยู่' : 'เลือกประเภทเตียง'}
+                                title={room.total_bookings > 0 ? 'à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¹€à¸›à¸¥à¸µà¹ˆà¸¢à¸™à¸›à¸£à¸°à¹€à¸ à¸—à¹€à¸•à¸µà¸¢à¸‡à¹„à¸”à¹‰à¹€à¸™à¸·à¹ˆà¸­à¸‡à¸ˆà¸²à¸à¸¡à¸µà¸à¸²à¸£à¸ˆà¸­à¸‡à¸­à¸¢à¸¹à¹ˆ' : 'à¹€à¸¥à¸·à¸­à¸à¸›à¸£à¸°à¹€à¸ à¸—à¹€à¸•à¸µà¸¢à¸‡'}
                               >
-                                <option value="single">เตียงเดี่ยว</option>
-                                <option value="double">เตียงคู่</option>
+                                <option value="single">à¹€à¸•à¸µà¸¢à¸‡à¹€à¸”à¸µà¹ˆà¸¢à¸§</option>
+                                <option value="double">à¹€à¸•à¸µà¸¢à¸‡à¸„à¸¹à¹ˆ</option>
                               </select>
                             </span>
                             <span className="flex items-center gap-1">
                               <DollarSign className="h-4 w-4" />
-                              {formatPrice(room.price_per_night)}/คืน
+                              {formatPrice(room.price_per_night)}/à¸„à¸·à¸™
+                            </span>
+                            <span className="flex items-center gap-1">
+                              {room.sub_rooms && (
+                                <>
+                                  <Hotel className="h-4 w-4" />
+                                  {room.sub_rooms.filter(sr => sr.status === 'available').length}/{room.sub_rooms.length} à¸«à¹‰à¸­à¸‡à¸žà¸£à¹‰à¸­à¸¡à¹ƒà¸Šà¹‰
+                                </>
+                              )}
                             </span>
                           </div>
                         </div>
+                      </div>
+                      
+                      {/* Room Statistics */}
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className="flex items-center gap-2 text-sm text-neutral-600">
+                          <Hotel className="h-4 w-4" />
+                          <span>à¸—à¸±à¹‰à¸‡à¸«à¸¡à¸”: {room.total_rooms || 0} à¸«à¹‰à¸­à¸‡</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-green-600">
+                          <CheckCircle className="h-4 w-4" />
+                          <span>à¸§à¹ˆà¸²à¸‡: {room.available_rooms || 0} à¸«à¹‰à¸­à¸‡</span>
+                        </div>
+                        {room.occupied_rooms > 0 && (
+                          <div className="flex items-center gap-2 text-sm text-red-600">
+                            <XCircle className="h-4 w-4" />
+                            <span>à¸ˆà¸­à¸‡: {room.occupied_rooms} à¸«à¹‰à¸­à¸‡</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Action Buttons */}
@@ -1338,7 +1554,7 @@ export default function RoomsManagement() {
                           className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg transition-colors"
                         >
                           <Edit className="h-4 w-4" />
-                          แก้ไข
+                          à¹à¸à¹‰à¹„à¸‚
                         </button>
                       </div>
                     </div>
@@ -1357,8 +1573,8 @@ export default function RoomsManagement() {
             {/* Modal Header */}
             <div className="sticky top-0 bg-white dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700 px-6 py-4 flex items-center justify-between">
               <h2 className="text-xl font-bold text-neutral-900 dark:text-white">
-                {modalType === 'add' ? 'เพิ่มห้องพัก' :
-                 modalType === 'edit' ? 'แก้ไขห้องพัก' : 'ข้อมูลห้องพัก'}
+                {modalType === 'add' ? 'à¹€à¸žà¸´à¹ˆà¸¡à¸«à¹‰à¸­à¸‡à¸žà¸±à¸' :
+                 modalType === 'edit' ? 'à¹à¸à¹‰à¹„à¸‚à¸«à¹‰à¸­à¸‡à¸žà¸±à¸' : 'à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸«à¹‰à¸­à¸‡à¸žà¸±à¸'}
               </h2>
               <button
                 onClick={closeModal}
@@ -1371,12 +1587,12 @@ export default function RoomsManagement() {
             {/* Modal Content */}
             <div className="p-6">
               {modalType === 'view' ? (
-                // View Mode - แสดงข้อมูลจริงจากฐานข้อมูล
+                // View Mode - à¹à¸ªà¸”à¸‡à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸ˆà¸£à¸´à¸‡à¸ˆà¸²à¸à¸à¸²à¸™à¸‚à¹‰à¸­à¸¡à¸¹à¸¥
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                        ชื่อห้อง
+                        à¸Šà¸·à¹ˆà¸­à¸«à¹‰à¸­à¸‡
                       </label>
                       <p className="text-neutral-900 dark:text-white">
                         {selectedRoom?.name || '-'}
@@ -1384,7 +1600,7 @@ export default function RoomsManagement() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                        ประเภทเตียง
+                        à¸›à¸£à¸°à¹€à¸ à¸—à¹€à¸•à¸µà¸¢à¸‡
                       </label>
                       <div className="flex items-center">
                         <Bed className="h-4 w-4 mr-2 text-emerald-600" />
@@ -1395,23 +1611,23 @@ export default function RoomsManagement() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                        สถานะ
+                        à¸ªà¸–à¸²à¸™à¸°
                       </label>
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300`}>
-                        {selectedRoom?.status ? getStatusLabel(selectedRoom.status) : 'พร้อมใช้งาน'}
+                        {selectedRoom?.status ? getStatusLabel(selectedRoom.status) : 'à¸žà¸£à¹‰à¸­à¸¡à¹ƒà¸Šà¹‰à¸‡à¸²à¸™'}
                       </span>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                        ความจุ
+                        à¸„à¸§à¸²à¸¡à¸ˆà¸¸
                       </label>
                       <p className="text-neutral-900 dark:text-white">
-                        {selectedRoom?.max_guests || selectedRoom?.capacity || '2'} คน
+                        {selectedRoom?.max_guests || selectedRoom?.capacity || '2'} à¸„à¸™
                       </p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                        ราคา
+                        à¸£à¸²à¸„à¸²
                       </label>
                       <p className="text-neutral-900 dark:text-white">
                         {formatPrice(selectedRoom?.price_per_night || selectedRoom?.price || 1500)}
@@ -1419,7 +1635,7 @@ export default function RoomsManagement() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                        โรงแรม
+                        à¹‚à¸£à¸‡à¹à¸£à¸¡
                       </label>
                       <p className="text-neutral-900 dark:text-white">
                         {selectedRoom?.hotel_name || '-'}
@@ -1430,7 +1646,7 @@ export default function RoomsManagement() {
                   {selectedRoom?.description && (
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                        คำอธิบาย
+                        à¸„à¸³à¸­à¸˜à¸´à¸šà¸²à¸¢
                       </label>
                       <p className="text-neutral-900 dark:text-white">
                         {selectedRoom.description}
@@ -1446,7 +1662,7 @@ export default function RoomsManagement() {
                       return (
                         <div>
                           <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                            รูปภาพห้องพัก ({roomImages.length} รูป)
+                            à¸£à¸¹à¸›à¸ à¸²à¸žà¸«à¹‰à¸­à¸‡à¸žà¸±à¸ ({roomImages.length} à¸£à¸¹à¸›)
                           </label>
                           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                             {roomImages.map((image, index) => (
@@ -1477,11 +1693,11 @@ export default function RoomsManagement() {
                   {selectedRoom?.amenities && selectedRoom.amenities.length > 0 && (
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                        สิ่งอำนวยความสะดวก
+                        à¸ªà¸´à¹ˆà¸‡à¸­à¸³à¸™à¸§à¸¢à¸„à¸§à¸²à¸¡à¸ªà¸°à¸”à¸§à¸
                       </label>
                       <div className="flex flex-wrap gap-2">
                         {(() => {
-                          // จัดการกับข้อมูล amenities ที่อาจเป็น array หรือ string
+                          // à¸ˆà¸±à¸”à¸à¸²à¸£à¸à¸±à¸šà¸‚à¹‰à¸­à¸¡à¸¹à¸¥ amenities à¸—à¸µà¹ˆà¸­à¸²à¸ˆà¹€à¸›à¹‡à¸™ array à¸«à¸£à¸·à¸­ string
                           let amenitiesList = [];
                           try {
                             if (Array.isArray(selectedRoom.amenities)) {
@@ -1513,7 +1729,7 @@ export default function RoomsManagement() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                        ชื่อห้อง *
+                        à¸Šà¸·à¹ˆà¸­à¸«à¹‰à¸­à¸‡ *
                       </label>
                       <input
                         type="text"
@@ -1522,12 +1738,12 @@ export default function RoomsManagement() {
                         onChange={handleInputChange}
                         required
                         className="input-field"
-                        placeholder="ห้องดีลักซ์ วิวทะเล 101"
+                        placeholder="à¸«à¹‰à¸­à¸‡à¸”à¸µà¸¥à¸±à¸à¸‹à¹Œ à¸§à¸´à¸§à¸—à¸°à¹€à¸¥ 101"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                        ความจุ (คน)
+                        à¸„à¸§à¸²à¸¡à¸ˆà¸¸ (à¸„à¸™)
                       </label>
                       <input
                         type="number"
@@ -1540,7 +1756,7 @@ export default function RoomsManagement() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                        ราคาต่อคืน (บาท)
+                        à¸£à¸²à¸„à¸²à¸•à¹ˆà¸­à¸„à¸·à¸™ (à¸šà¸²à¸—)
                       </label>
                       <input
                         type="number"
@@ -1553,7 +1769,7 @@ export default function RoomsManagement() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                        สถานะ
+                        à¸ªà¸–à¸²à¸™à¸°
                       </label>
                       <select
                         name="status"
@@ -1568,7 +1784,7 @@ export default function RoomsManagement() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                        ประเภทเตียง
+                        à¸›à¸£à¸°à¹€à¸ à¸—à¹€à¸•à¸µà¸¢à¸‡
                       </label>
                       <select
                         name="bed_type"
@@ -1576,7 +1792,7 @@ export default function RoomsManagement() {
                         onChange={handleInputChange}
                         className="input-field"
                       >
-                        <option value="">เลือกประเภทเตียง</option>
+                        <option value="">à¹€à¸¥à¸·à¸­à¸à¸›à¸£à¸°à¹€à¸ à¸—à¹€à¸•à¸µà¸¢à¸‡</option>
                         {bedTypes.map(bedType => (
                           <option key={bedType.value} value={bedType.value}>{bedType.label}</option>
                         ))}
@@ -1586,7 +1802,7 @@ export default function RoomsManagement() {
 
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      คำอธิบาย
+                      à¸„à¸³à¸­à¸˜à¸´à¸šà¸²à¸¢
                     </label>
                     <textarea
                       name="description"
@@ -1594,13 +1810,13 @@ export default function RoomsManagement() {
                       onChange={handleInputChange}
                       rows={4}
                       className="input-field"
-                      placeholder="อธิบายคุณสมบัติพิเศษของห้อง..."
+                      placeholder="à¸­à¸˜à¸´à¸šà¸²à¸¢à¸„à¸¸à¸“à¸ªà¸¡à¸šà¸±à¸•à¸´à¸žà¸´à¹€à¸¨à¸©à¸‚à¸­à¸‡à¸«à¹‰à¸­à¸‡..."
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      สิ่งอำนวยความสะดวก
+                      à¸ªà¸´à¹ˆà¸‡à¸­à¸³à¸™à¸§à¸¢à¸„à¸§à¸²à¸¡à¸ªà¸°à¸”à¸§à¸
                     </label>
                     
                     {/* Add New Amenity */}
@@ -1610,7 +1826,7 @@ export default function RoomsManagement() {
                           type="text"
                           value={newAmenity}
                           onChange={(e) => setNewAmenity(e.target.value)}
-                          placeholder="เพิ่มสิ่งอำนวยความสะดวกใหม่..."
+                          placeholder="à¹€à¸žà¸´à¹ˆà¸¡à¸ªà¸´à¹ˆà¸‡à¸­à¸³à¸™à¸§à¸¢à¸„à¸§à¸²à¸¡à¸ªà¸°à¸”à¸§à¸à¹ƒà¸«à¸¡à¹ˆ..."
                           className="flex-1 input-field text-sm"
                           onKeyPress={(e) => {
                             if (e.key === 'Enter') {
@@ -1625,7 +1841,7 @@ export default function RoomsManagement() {
                           className="px-3 py-1 bg-primary-600 text-white rounded-md hover:bg-primary-700 text-sm flex items-center gap-1"
                         >
                           <Plus className="h-3 w-3" />
-                          เพิ่ม
+                          à¹€à¸žà¸´à¹ˆà¸¡
                         </button>
                       </div>
                     </div>
@@ -1662,7 +1878,7 @@ export default function RoomsManagement() {
                                 type="button"
                                 onClick={handleSaveEditAmenity}
                                 className="p-1 text-green-600 hover:text-green-800"
-                                title="บันทึก"
+                                title="à¸šà¸±à¸™à¸—à¸¶à¸"
                               >
                                 <Save className="h-4 w-4" />
                               </button>
@@ -1670,7 +1886,7 @@ export default function RoomsManagement() {
                                 type="button"
                                 onClick={handleCancelEditAmenity}
                                 className="p-1 text-gray-600 hover:text-gray-800"
-                                title="ยกเลิก"
+                                title="à¸¢à¸à¹€à¸¥à¸´à¸"
                               >
                                 <X className="h-4 w-4" />
                               </button>
@@ -1683,7 +1899,7 @@ export default function RoomsManagement() {
                                   type="button"
                                   onClick={() => handleStartEditAmenity(amenity)}
                                   className="p-1 text-blue-600 hover:text-blue-800"
-                                  title="แก้ไข"
+                                  title="à¹à¸à¹‰à¹„à¸‚"
                                 >
                                   <Edit className="h-3 w-3" />
                                 </button>
@@ -1691,7 +1907,7 @@ export default function RoomsManagement() {
                                   type="button"
                                   onClick={() => handleDeleteAmenity(amenity)}
                                   className="p-1 text-red-600 hover:text-red-800"
-                                  title="ลบ"
+                                  title="à¸¥à¸š"
                                 >
                                   <Trash2 className="h-3 w-3" />
                                 </button>
@@ -1706,13 +1922,13 @@ export default function RoomsManagement() {
                   {/* Room Images Section */}
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      รูปภาพห้องพัก
+                      à¸£à¸¹à¸›à¸ à¸²à¸žà¸«à¹‰à¸­à¸‡à¸žà¸±à¸
                     </label>
                     
                     {/* Current Images Display */}
                     {modalType === 'edit' && selectedRoom?.images && parseRoomImages(selectedRoom.images).length > 0 && (
                       <div className="mb-4">
-                        <h4 className="text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-2">รูปภาพปัจจุบัน:</h4>
+                        <h4 className="text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-2">à¸£à¸¹à¸›à¸ à¸²à¸žà¸›à¸±à¸ˆà¸ˆà¸¸à¸šà¸±à¸™:</h4>
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                           {parseRoomImages(selectedRoom.images).map((image, index) => (
                             <div key={index} className="relative group">
@@ -1728,9 +1944,9 @@ export default function RoomsManagement() {
                                 type="button"
                                 onClick={() => handleDeleteImage(image)}
                                 className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                                title="ลบรูปภาพ"
+                                title="à¸¥à¸šà¸£à¸¹à¸›à¸ à¸²à¸ž"
                               >
-                                ×
+                                Ã—
                               </button>
                             </div>
                           ))}
@@ -1762,10 +1978,10 @@ export default function RoomsManagement() {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                            คลิกเพื่อเลือกรูปภาพ หรือลากไฟล์มาวาง
+                            à¸„à¸¥à¸´à¸à¹€à¸žà¸·à¹ˆà¸­à¹€à¸¥à¸·à¸­à¸à¸£à¸¹à¸›à¸ à¸²à¸ž à¸«à¸£à¸·à¸­à¸¥à¸²à¸à¹„à¸Ÿà¸¥à¹Œà¸¡à¸²à¸§à¸²à¸‡
                           </p>
                           <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                            รองรับ JPG, PNG, WebP (สูงสุด 10MB ต่อรูป)
+                            à¸£à¸­à¸‡à¸£à¸±à¸š JPG, PNG, WebP (à¸ªà¸¹à¸‡à¸ªà¸¸à¸” 10MB à¸•à¹ˆà¸­à¸£à¸¹à¸›)
                           </p>
                         </div>
                       </label>
@@ -1775,7 +1991,7 @@ export default function RoomsManagement() {
                     {selectedImages.length > 0 && (
                       <div className="mt-4">
                         <h4 className="text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-2">
-                          รูปภาพที่เลือก ({selectedImages.length} รูป):
+                          à¸£à¸¹à¸›à¸ à¸²à¸žà¸—à¸µà¹ˆà¹€à¸¥à¸·à¸­à¸ ({selectedImages.length} à¸£à¸¹à¸›):
                         </h4>
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                           {selectedImages.map((file, index) => (
@@ -1789,9 +2005,9 @@ export default function RoomsManagement() {
                                 type="button"
                                 onClick={() => removeSelectedImage(index)}
                                 className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                                title="ลบรูปภาพ"
+                                title="à¸¥à¸šà¸£à¸¹à¸›à¸ à¸²à¸ž"
                               >
-                                ×
+                                Ã—
                               </button>
                               <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
                                 {(file.size / 1024 / 1024).toFixed(1)}MB
@@ -1809,7 +2025,7 @@ export default function RoomsManagement() {
                             className={`mt-3 flex items-center gap-2 text-sm ${
                               modalType === 'add' ? 'btn-secondary cursor-not-allowed' : 'btn-outline'
                             }`}
-                            title={modalType === 'add' ? 'รูปภาพจะถูกอัปโหลดหลังจากเพิ่มห้องพักสำเร็จ' : 'อัปโหลดรูปภาพทันที'}
+                            title={modalType === 'add' ? 'à¸£à¸¹à¸›à¸ à¸²à¸žà¸ˆà¸°à¸–à¸¹à¸à¸­à¸±à¸›à¹‚à¸«à¸¥à¸”à¸«à¸¥à¸±à¸‡à¸ˆà¸²à¸à¹€à¸žà¸´à¹ˆà¸¡à¸«à¹‰à¸­à¸‡à¸žà¸±à¸à¸ªà¸³à¹€à¸£à¹‡à¸ˆ' : 'à¸­à¸±à¸›à¹‚à¸«à¸¥à¸”à¸£à¸¹à¸›à¸ à¸²à¸žà¸—à¸±à¸™à¸—à¸µ'}
                           >
                             {uploadingImages ? (
                               <RefreshCw className="h-4 w-4 animate-spin" />
@@ -1818,10 +2034,10 @@ export default function RoomsManagement() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                               </svg>
                             )}
-                            {uploadingImages ? 'กำลังอัปโหลด...' : 
+                            {uploadingImages ? 'à¸à¸³à¸¥à¸±à¸‡à¸­à¸±à¸›à¹‚à¸«à¸¥à¸”...' : 
                               modalType === 'add' ? 
-                                `เตรียมอัปโหลด ${selectedImages.length} รูป (หลังเพิ่มห้อง)` : 
-                                `อัปโหลด ${selectedImages.length} รูป`
+                                `à¹€à¸•à¸£à¸µà¸¢à¸¡à¸­à¸±à¸›à¹‚à¸«à¸¥à¸” ${selectedImages.length} à¸£à¸¹à¸› (à¸«à¸¥à¸±à¸‡à¹€à¸žà¸´à¹ˆà¸¡à¸«à¹‰à¸­à¸‡)` : 
+                                `à¸­à¸±à¸›à¹‚à¸«à¸¥à¸” ${selectedImages.length} à¸£à¸¹à¸›`
                             }
                           </button>
                         )}
@@ -1836,7 +2052,7 @@ export default function RoomsManagement() {
                       onClick={closeModal}
                       className="btn-outline"
                     >
-                      ยกเลิก
+                      à¸¢à¸à¹€à¸¥à¸´à¸
                     </button>
                     <button
                       type="submit"
@@ -1846,12 +2062,12 @@ export default function RoomsManagement() {
                       {actionLoading ? (
                         <>
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          กำลังบันทึก...
+                          à¸à¸³à¸¥à¸±à¸‡à¸šà¸±à¸™à¸—à¸¶à¸...
                         </>
                       ) : (
                         <>
                           <Save className="h-4 w-4" />
-                          {modalType === 'add' ? 'เพิ่มห้องพัก' : 'บันทึกการแก้ไข'}
+                          {modalType === 'add' ? 'à¹€à¸žà¸´à¹ˆà¸¡à¸«à¹‰à¸­à¸‡à¸žà¸±à¸' : 'à¸šà¸±à¸™à¸—à¸¶à¸à¸à¸²à¸£à¹à¸à¹‰à¹„à¸‚'}
                         </>
                       )}
                     </button>
@@ -1872,7 +2088,7 @@ export default function RoomsManagement() {
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-2">
                   <AlertCircle className="h-6 w-6 text-red-500" />
-                  ยืนยันการลบห้องพัก
+                  à¸¢à¸·à¸™à¸¢à¸±à¸™à¸à¸²à¸£à¸¥à¸šà¸«à¹‰à¸­à¸‡à¸žà¸±à¸
                 </h2>
                 <button
                   onClick={cancelDelete}
@@ -1889,10 +2105,10 @@ export default function RoomsManagement() {
                     <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
                     <div>
                       <p className="text-sm font-medium text-red-800 dark:text-red-200 mb-1">
-                        คำเตือน: การดำเนินการนี้ไม่สามารถย้อนกลับได้
+                        à¸„à¸³à¹€à¸•à¸·à¸­à¸™: à¸à¸²à¸£à¸”à¸³à¹€à¸™à¸´à¸™à¸à¸²à¸£à¸™à¸µà¹‰à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¸¢à¹‰à¸­à¸™à¸à¸¥à¸±à¸šà¹„à¸”à¹‰
                       </p>
                       <p className="text-sm text-red-600 dark:text-red-300">
-                        ข้อมูลห้องพักจะถูกลบออกจากระบบอย่างถาวร
+                        à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸«à¹‰à¸­à¸‡à¸žà¸±à¸à¸ˆà¸°à¸–à¸¹à¸à¸¥à¸šà¸­à¸­à¸à¸ˆà¸²à¸à¸£à¸°à¸šà¸šà¸­à¸¢à¹ˆà¸²à¸‡à¸–à¸²à¸§à¸£
                       </p>
                     </div>
                   </div>
@@ -1900,7 +2116,7 @@ export default function RoomsManagement() {
 
                 <div className="space-y-3">
                   <p className="text-neutral-700 dark:text-neutral-300">
-                    คุณแน่ใจหรือไม่ที่จะลบห้องพัก:
+                    à¸„à¸¸à¸“à¹à¸™à¹ˆà¹ƒà¸ˆà¸«à¸£à¸·à¸­à¹„à¸¡à¹ˆà¸—à¸µà¹ˆà¸ˆà¸°à¸¥à¸šà¸«à¹‰à¸­à¸‡à¸žà¸±à¸:
                   </p>
                   
                   <div className="bg-neutral-50 dark:bg-neutral-700 rounded-lg p-4 border border-neutral-200 dark:border-neutral-600">
@@ -1913,11 +2129,11 @@ export default function RoomsManagement() {
                     <div className="grid grid-cols-2 gap-2 text-sm text-neutral-600 dark:text-neutral-400">
                       <div className="flex items-center gap-1">
                         <Users className="h-4 w-4" />
-                        <span>{roomToDelete.capacity} ท่าน</span>
+                        <span>{roomToDelete.capacity} à¸—à¹ˆà¸²à¸™</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <DollarSign className="h-4 w-4" />
-                        <span>{roomToDelete.price?.toLocaleString()} บาท/คืน</span>
+                        <span>{roomToDelete.price?.toLocaleString()} à¸šà¸²à¸—/à¸„à¸·à¸™</span>
                       </div>
                     </div>
                   </div>
@@ -1932,7 +2148,7 @@ export default function RoomsManagement() {
                   disabled={actionLoading}
                   className="px-4 py-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-colors disabled:opacity-50"
                 >
-                  ยกเลิก
+                  à¸¢à¸à¹€à¸¥à¸´à¸
                 </button>
                 <button
                   type="button"
@@ -1943,12 +2159,12 @@ export default function RoomsManagement() {
                   {actionLoading ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      กำลังลบ...
+                      à¸à¸³à¸¥à¸±à¸‡à¸¥à¸š...
                     </>
                   ) : (
                     <>
                       <Trash2 className="h-4 w-4" />
-                      ยืนยันลบ
+                      à¸¢à¸·à¸™à¸¢à¸±à¸™à¸¥à¸š
                     </>
                   )}
                 </button>
@@ -1966,7 +2182,7 @@ export default function RoomsManagement() {
             <div className="sticky top-0 bg-white dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700 px-6 py-4 flex items-center justify-between">
               <h2 className="text-xl font-bold text-neutral-900 dark:text-white flex items-center gap-2">
                 <Bed className="h-5 w-5 text-emerald-600" />
-                แก้ไขห้องพักย่อย - ห้อง {editingSubRoom.room_number}
+                à¹à¸à¹‰à¹„à¸‚à¸«à¹‰à¸­à¸‡à¸žà¸±à¸à¸¢à¹ˆà¸­à¸¢ - à¸«à¹‰à¸­à¸‡ {editingSubRoom.room_number}
               </h2>
               <button
                 onClick={closeSubRoomModal}
@@ -1982,7 +2198,7 @@ export default function RoomsManagement() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      หมายเลขห้อง *
+                      à¸«à¸¡à¸²à¸¢à¹€à¸¥à¸‚à¸«à¹‰à¸­à¸‡ *
                     </label>
                     <input
                       type="text"
@@ -1997,7 +2213,7 @@ export default function RoomsManagement() {
                   
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      สถานะ
+                      à¸ªà¸–à¸²à¸™à¸°
                     </label>
                     <select
                       name="status"
@@ -2005,16 +2221,16 @@ export default function RoomsManagement() {
                       onChange={handleSubRoomInputChange}
                       className="input-field"
                     >
-                      <option value="available">ว่าง</option>
-                      <option value="occupied">มีผู้เข้าพัก</option>
-                      <option value="maintenance">ซ่อมบำรุง</option>
-                      <option value="reserved">จองแล้ว</option>
+                      <option value="available">à¸§à¹ˆà¸²à¸‡</option>
+                      <option value="occupied">à¸¡à¸µà¸œà¸¹à¹‰à¹€à¸‚à¹‰à¸²à¸žà¸±à¸</option>
+                      <option value="maintenance">à¸‹à¹ˆà¸­à¸¡à¸šà¸³à¸£à¸¸à¸‡</option>
+                      <option value="reserved">à¸ˆà¸­à¸‡à¹à¸¥à¹‰à¸§</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      ผู้เข้าพัก
+                      à¸œà¸¹à¹‰à¹€à¸‚à¹‰à¸²à¸žà¸±à¸
                     </label>
                     <input
                       type="text"
@@ -2022,13 +2238,13 @@ export default function RoomsManagement() {
                       value={subRoomFormData.guest_name}
                       onChange={handleSubRoomInputChange}
                       className="input-field"
-                      placeholder="ชื่อผู้เข้าพัก"
+                      placeholder="à¸Šà¸·à¹ˆà¸­à¸œà¸¹à¹‰à¹€à¸‚à¹‰à¸²à¸žà¸±à¸"
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      หมายเลขการจอง
+                      à¸«à¸¡à¸²à¸¢à¹€à¸¥à¸‚à¸à¸²à¸£à¸ˆà¸­à¸‡
                     </label>
                     <input
                       type="text"
@@ -2050,7 +2266,7 @@ export default function RoomsManagement() {
                         className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500"
                       />
                       <span className="text-sm text-neutral-700 dark:text-neutral-300">
-                        ห้องพร้อมใช้งาน
+                        à¸«à¹‰à¸­à¸‡à¸žà¸£à¹‰à¸­à¸¡à¹ƒà¸Šà¹‰à¸‡à¸²à¸™
                       </span>
                     </label>
                   </div>
@@ -2058,7 +2274,7 @@ export default function RoomsManagement() {
 
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                    หมายเหตุ
+                    à¸«à¸¡à¸²à¸¢à¹€à¸«à¸•à¸¸
                   </label>
                   <textarea
                     name="notes"
@@ -2066,7 +2282,7 @@ export default function RoomsManagement() {
                     onChange={handleSubRoomInputChange}
                     rows={3}
                     className="input-field"
-                    placeholder="หมายเหตุเพิ่มเติม..."
+                    placeholder="à¸«à¸¡à¸²à¸¢à¹€à¸«à¸•à¸¸à¹€à¸žà¸´à¹ˆà¸¡à¹€à¸•à¸´à¸¡..."
                   />
                 </div>
 
@@ -2077,7 +2293,7 @@ export default function RoomsManagement() {
                     onClick={closeSubRoomModal}
                     className="btn-outline"
                   >
-                    ยกเลิก
+                    à¸¢à¸à¹€à¸¥à¸´à¸
                   </button>
                   <button
                     type="submit"
@@ -2087,12 +2303,12 @@ export default function RoomsManagement() {
                     {actionLoading ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        กำลังบันทึก...
+                        à¸à¸³à¸¥à¸±à¸‡à¸šà¸±à¸™à¸—à¸¶à¸...
                       </>
                     ) : (
                       <>
                         <Save className="h-4 w-4" />
-                        บันทึกการแก้ไข
+                        à¸šà¸±à¸™à¸—à¸¶à¸à¸à¸²à¸£à¹à¸à¹‰à¹„à¸‚
                       </>
                     )}
                   </button>
@@ -2111,7 +2327,7 @@ export default function RoomsManagement() {
             <div className="sticky top-0 bg-white dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700 px-6 py-4 flex items-center justify-between">
               <h2 className="text-xl font-bold text-neutral-900 dark:text-white flex items-center gap-2">
                 <Edit className="h-5 w-5 text-blue-600" />
-                แก้ไขห้องพัก - ห้อง {editingIndividualRoom.room_number}
+                à¹à¸à¹‰à¹„à¸‚à¸«à¹‰à¸­à¸‡à¸žà¸±à¸ - à¸«à¹‰à¸­à¸‡ {editingIndividualRoom.room_number}
               </h2>
               <button
                 onClick={closeIndividualRoomModal}
@@ -2127,7 +2343,7 @@ export default function RoomsManagement() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      หมายเลขห้อง *
+                      à¸«à¸¡à¸²à¸¢à¹€à¸¥à¸‚à¸«à¹‰à¸­à¸‡ *
                     </label>
                     <input
                       type="text"
@@ -2142,7 +2358,7 @@ export default function RoomsManagement() {
                   
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      สถานะห้อง
+                      à¸ªà¸–à¸²à¸™à¸°à¸«à¹‰à¸­à¸‡
                     </label>
                     <select
                       name="status"
@@ -2150,16 +2366,16 @@ export default function RoomsManagement() {
                       onChange={handleIndividualRoomInputChange}
                       className="input-field"
                     >
-                      <option value="available">ว่าง</option>
-                      <option value="occupied">มีผู้เข้าพัก</option>
-                      <option value="maintenance">ซ่อมบำรุง</option>
-                      <option value="reserved">จองแล้ว</option>
+                      <option value="available">à¸§à¹ˆà¸²à¸‡</option>
+                      <option value="occupied">à¸¡à¸µà¸œà¸¹à¹‰à¹€à¸‚à¹‰à¸²à¸žà¸±à¸</option>
+                      <option value="maintenance">à¸‹à¹ˆà¸­à¸¡à¸šà¸³à¸£à¸¸à¸‡</option>
+                      <option value="reserved">à¸ˆà¸­à¸‡à¹à¸¥à¹‰à¸§</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      ชื่อผู้เข้าพัก
+                      à¸Šà¸·à¹ˆà¸­à¸œà¸¹à¹‰à¹€à¸‚à¹‰à¸²à¸žà¸±à¸
                     </label>
                     <input
                       type="text"
@@ -2167,13 +2383,13 @@ export default function RoomsManagement() {
                       value={individualRoomFormData.guest_name}
                       onChange={handleIndividualRoomInputChange}
                       className="input-field"
-                      placeholder="ชื่อผู้เข้าพัก"
+                      placeholder="à¸Šà¸·à¹ˆà¸­à¸œà¸¹à¹‰à¹€à¸‚à¹‰à¸²à¸žà¸±à¸"
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      หมายเลขการจอง
+                      à¸«à¸¡à¸²à¸¢à¹€à¸¥à¸‚à¸à¸²à¸£à¸ˆà¸­à¸‡
                     </label>
                     <input
                       type="text"
@@ -2187,7 +2403,7 @@ export default function RoomsManagement() {
 
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      สถานะการจอง
+                      à¸ªà¸–à¸²à¸™à¸°à¸à¸²à¸£à¸ˆà¸­à¸‡
                     </label>
                     <select
                       name="booking_status"
@@ -2195,17 +2411,17 @@ export default function RoomsManagement() {
                       onChange={handleIndividualRoomInputChange}
                       className="input-field"
                     >
-                      <option value="">ไม่มีการจอง</option>
-                      <option value="confirmed">ยืนยันแล้ว</option>
-                      <option value="checked_in">เช็คอินแล้ว</option>
-                      <option value="checked_out">เช็คเอาท์แล้ว</option>
-                      <option value="cancelled">ยกเลิก</option>
+                      <option value="">à¹„à¸¡à¹ˆà¸¡à¸µà¸à¸²à¸£à¸ˆà¸­à¸‡</option>
+                      <option value="confirmed">à¸¢à¸·à¸™à¸¢à¸±à¸™à¹à¸¥à¹‰à¸§</option>
+                      <option value="checked_in">à¹€à¸Šà¹‡à¸„à¸­à¸´à¸™à¹à¸¥à¹‰à¸§</option>
+                      <option value="checked_out">à¹€à¸Šà¹‡à¸„à¹€à¸­à¸²à¸—à¹Œà¹à¸¥à¹‰à¸§</option>
+                      <option value="cancelled">à¸¢à¸à¹€à¸¥à¸´à¸</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      วันที่เช็คอิน
+                      à¸§à¸±à¸™à¸—à¸µà¹ˆà¹€à¸Šà¹‡à¸„à¸­à¸´à¸™
                     </label>
                     <input
                       type="date"
@@ -2218,7 +2434,7 @@ export default function RoomsManagement() {
 
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      วันที่เช็คเอาท์
+                      à¸§à¸±à¸™à¸—à¸µà¹ˆà¹€à¸Šà¹‡à¸„à¹€à¸­à¸²à¸—à¹Œ
                     </label>
                     <input
                       type="date"
@@ -2232,7 +2448,7 @@ export default function RoomsManagement() {
 
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                    หมายเหตุ
+                    à¸«à¸¡à¸²à¸¢à¹€à¸«à¸•à¸¸
                   </label>
                   <textarea
                     name="notes"
@@ -2240,7 +2456,7 @@ export default function RoomsManagement() {
                     onChange={handleIndividualRoomInputChange}
                     rows={3}
                     className="input-field"
-                    placeholder="หมายเหตุเพิ่มเติม..."
+                    placeholder="à¸«à¸¡à¸²à¸¢à¹€à¸«à¸•à¸¸à¹€à¸žà¸´à¹ˆà¸¡à¹€à¸•à¸´à¸¡..."
                   />
                 </div>
 
@@ -2251,7 +2467,7 @@ export default function RoomsManagement() {
                     onClick={closeIndividualRoomModal}
                     className="btn-outline"
                   >
-                    ยกเลิก
+                    à¸¢à¸à¹€à¸¥à¸´à¸
                   </button>
                   <button
                     type="submit"
@@ -2261,12 +2477,12 @@ export default function RoomsManagement() {
                     {actionLoading ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        กำลังบันทึก...
+                        à¸à¸³à¸¥à¸±à¸‡à¸šà¸±à¸™à¸—à¸¶à¸...
                       </>
                     ) : (
                       <>
                         <Save className="h-4 w-4" />
-                        บันทึกการแก้ไข
+                        à¸šà¸±à¸™à¸—à¸¶à¸à¸à¸²à¸£à¹à¸à¹‰à¹„à¸‚
                       </>
                     )}
                   </button>

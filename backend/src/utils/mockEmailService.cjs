@@ -158,64 +158,121 @@ const sendBookingCancellationEmail = async (userEmail, userName, bookingData) =>
 };
 
 const sendAdminNotificationEmail = async (bookingData) => {
-  // ใช้อีเมลจากไฟล์ backend/.env - รองรับทั้งแบบเดียวและหลายอีเมล
-  const adminEmailsString = process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL_1 || 'hotelsystem.rmu.ac.th@gmail.com';
-  const adminEmails = adminEmailsString.split(',').map(email => email.trim()).filter(email => email && email.includes('@'));
+  try {
+    // ใช้อีเมลจากไฟล์ backend/.env - รองรับทั้งแบบเดียวและหลายอีเมล
+    const adminEmailsString = process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL_1 || 'hotelsystem.rmu.ac.th@gmail.com';
+    const adminEmails = adminEmailsString.split(',').map(email => email.trim()).filter(email => email && email.includes('@'));
 
-  console.log('📧 Sending admin notification emails to:', adminEmails);
+    console.log('📧 Sending admin notification emails to:', adminEmails);
 
-  const subject = '🆕 มีการจองใหม่ต้องการการอนุมัติ - โรงแรมวรุณภัฏ';
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #d32f2f;">🆕 มีการจองใหม่ต้องการการอนุมัติ</h2>
-      
-      <div style="background: #ffebee; border: 1px solid #ef5350; padding: 15px; border-radius: 5px; margin: 20px 0;">
-        <p style="color: #c62828; font-weight: bold; margin: 0;">
-          ⚠️ การจองนี้รอการอนุมัติจากแอดมิน กรุณาดำเนินการโดยเร็วที่สุด
-        </p>
+    const subject = '🆕 มีการจองใหม่ต้องการการอนุมัติ - โรงแรมวรุณภัฏ';
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 20px;">
+        <div style="background: white; border-radius: 10px; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+          <div style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 30px;">
+            <h1 style="margin: 0; font-size: 24px;">🆕 การจองใหม่เข้าสู่ระบบ</h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">มีการจองใหม่ต้องการการอนุมัติจากแอดมิน</p>
+          </div>
+          
+          <div style="background: #fff3e0; border: 1px solid #ff9800; padding: 15px; border-radius: 5px; margin: 20px 0; text-align: center;">
+            <p style="color: #e65100; font-weight: bold; margin: 0; font-size: 16px;">
+              ⚠️ การจองนี้รอการอนุมัติจากแอดมิน กรุณาดำเนินการโดยเร็วที่สุด
+            </p>
+          </div>
+          
+          <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2196f3;">
+            <h3 style="color: #1976d2; margin-top: 0;">📋 รายละเอียดการจอง</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr style="border-bottom: 1px solid #e0e0e0;">
+                <td style="padding: 8px 0; font-weight: bold; color: #555;">รหัสการจอง:</td>
+                <td style="padding: 8px 0; color: #333;">${bookingData.bookingReference || 'N/A'}</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #e0e0e0;">
+                <td style="padding: 8px 0; font-weight: bold; color: #555;">ชื่อลูกค้า:</td>
+                <td style="padding: 8px 0; color: #333;">${bookingData.customerName || 'N/A'}</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #e0e0e0;">
+                <td style="padding: 8px 0; font-weight: bold; color: #555;">อีเมลลูกค้า:</td>
+                <td style="padding: 8px 0; color: #333;">${bookingData.customerEmail || 'N/A'}</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #e0e0e0;">
+                <td style="padding: 8px 0; font-weight: bold; color: #555;">โรงแรม:</td>
+                <td style="padding: 8px 0; color: #333;">${bookingData.hotelName || 'โรงแรมวรุณภัฏ'}</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #e0e0e0;">
+                <td style="padding: 8px 0; font-weight: bold; color: #555;">ประเภทห้อง:</td>
+                <td style="padding: 8px 0; color: #333;">${bookingData.roomTypeName || 'N/A'}</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #e0e0e0;">
+                <td style="padding: 8px 0; font-weight: bold; color: #555;">วันที่เข้าพัก:</td>
+                <td style="padding: 8px 0; color: #333;">${new Date(bookingData.checkInDate).toLocaleDateString('th-TH') || 'N/A'}</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #e0e0e0;">
+                <td style="padding: 8px 0; font-weight: bold; color: #555;">วันที่ออก:</td>
+                <td style="padding: 8px 0; color: #333;">${new Date(bookingData.checkOutDate).toLocaleDateString('th-TH') || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #555;">ราคารวม:</td>
+                <td style="padding: 8px 0; color: #28a745; font-weight: bold; font-size: 18px;">฿${bookingData.totalPrice?.toLocaleString() || 'N/A'}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="http://localhost:3002/admin/bookings" style="
+              display: inline-block;
+              padding: 15px 30px;
+              background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+              color: white;
+              text-decoration: none;
+              border-radius: 8px;
+              font-weight: bold;
+              font-size: 16px;
+              box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+            ">🏨 ไปที่หน้าแอดมิน Admin Panel</a>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0; text-align: center; border-top: 1px solid #dee2e6;">
+            <p style="margin: 0; color: #6c757d; font-size: 14px;">
+              📞 หากมีข้อสงสัย กรุณาติดต่อ: 043-721-040<br>
+              <strong>ระบบจองโรงแรมวรุณภัฏมหาวิทยาลัยราชภัฏมหาสารคาม</strong><br>
+              <small>วันที่: ${new Date().toLocaleDateString('th-TH', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}</small>
+            </p>
+          </div>
+        </div>
       </div>
-      
-      <div style="background: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0;">
-        <h3>📋 รายละเอียดการจอง</h3>
-        <p><strong>รหัสการจอง:</strong> ${bookingData.bookingReference || 'N/A'}</p>
-        <p><strong>ชื่อลูกค้า:</strong> ${bookingData.customerName || 'N/A'}</p>
-        <p><strong>อีเมลลูกค้า:</strong> ${bookingData.customerEmail || 'N/A'}</p>
-        <p><strong>โรงแรม:</strong> ${bookingData.hotelName || 'โรงแรมวรุณภัฏ'}</p>
-        <p><strong>ประเภทห้อง:</strong> ${bookingData.roomTypeName || 'N/A'}</p>
-        <p><strong>วันที่เข้าพัก:</strong> ${bookingData.checkInDate || 'N/A'}</p>
-        <p><strong>วันที่ออก:</strong> ${bookingData.checkOutDate || 'N/A'}</p>
-        <p><strong>ราคารวม:</strong> ฿${bookingData.totalPrice?.toLocaleString() || 'N/A'}</p>
-      </div>
-      
-      <div style="background: #fff3e0; border: 1px solid #ff9800; padding: 15px; border-radius: 5px; margin: 20px 0;">
-        <p style="color: #e65100; font-weight: bold; margin: 0;">
-          👨‍💼 กรุณาเข้าสู่ระบบ Admin Panel เพื่อตรวจสอบและอนุมัติการจองนี้
-        </p>
-      </div>
-      
-      <p>📞 หากมีข้อสงสัย กรุณาติดต่อ: 043-721-040</p>
-      <p><strong>ระบบจองโรงแรมวรุณภัฏมหาวิทยาลัยราชภัฏมหาสารคาม</strong></p>
-    </div>
-  `;
+    `;
 
-  // ส่งอีเมลไปยังแอดมินทุกคน
-  const results = [];
-  for (const adminEmail of adminEmails) {
-    try {
-      const result = await mockEmailService.sendEmail({
-        to: adminEmail,
-        subject: subject,
-        html: html,
-        from: 'hotelvarunkorn@gmail.com'
-      });
-      results.push({ email: adminEmail, success: true, messageId: result.messageId });
-    } catch (error) {
-      console.error(`❌ Failed to send admin email to ${adminEmail}:`, error);
-      results.push({ email: adminEmail, success: false, error: error.message });
+    // ส่งอีเมลไปยังแอดมินทุกคน
+    const results = [];
+    for (const adminEmail of adminEmails) {
+      try {
+        const result = await mockEmailService.sendEmail({
+          to: adminEmail,
+          subject: subject,
+          html: html,
+          from: 'hotelvarunkorn@gmail.com'
+        });
+        console.log(`✅ Admin notification email sent to ${adminEmail}`);
+        results.push({ email: adminEmail, success: true, messageId: result.messageId });
+      } catch (error) {
+        console.error(`❌ Failed to send admin email to ${adminEmail}:`, error);
+        results.push({ email: adminEmail, success: false, error: error.message });
+      }
     }
-  }
 
-  return { success: true, results };
+    console.log('📧 Admin notification email sending completed:', results);
+    return { success: true, results };
+  } catch (error) {
+    console.error('❌ Error in sendAdminNotificationEmail:', error);
+    return { success: false, error: error.message };
+  }
 };
 
 // Export utility functions

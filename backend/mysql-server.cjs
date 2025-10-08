@@ -214,18 +214,30 @@ const sendJSON = (res, statusCode, data) => {
 const getRequestBody = (req) => {
   return new Promise((resolve, reject) => {
     let body = '';
+    
+    console.log('🔍 getRequestBody called');
+    console.log('📋 Content-Type:', req.headers['content-type']);
+    console.log('📋 Content-Length:', req.headers['content-length']);
+    
     req.on('data', chunk => {
       body += chunk.toString();
+      console.log('📥 Received chunk:', chunk.toString());
     });
+    
     req.on('end', () => {
       try {
+        console.log('📝 Final body string:', body);
         const data = body ? JSON.parse(body) : {};
+        console.log('📦 Parsed data:', data);
         resolve(data);
       } catch (error) {
+        console.error('❌ JSON parse error:', error);
         reject(new Error('Invalid JSON in request body'));
       }
     });
+    
     req.on('error', (error) => {
+      console.error('❌ Request error:', error);
       reject(error);
     });
   });
@@ -5682,6 +5694,8 @@ const server = createServer(async (req, res) => {
             const query = `
               SELECT 
                 r.id,
+                r.hotel_id,
+                r.room_type_id,
                 r.room_number,
                 r.floor,
                 r.status,
@@ -5715,6 +5729,115 @@ const server = createServer(async (req, res) => {
             sendJSON(res, 500, {
               success: false,
               message: 'เกิดข้อผิดพลาดในการดึงข้อมูลห้องพัก'
+            });
+          }
+        } else if (req.method === 'POST') {
+          try {
+            console.log('🔄 Processing POST request for individual rooms...');
+            console.log('📋 Request method:', req.method);
+            console.log('📋 Request headers:', req.headers);
+            
+            let body;
+            try {
+              body = await getRequestBody(req);
+              console.log('📝 Body parsed successfully:', body);
+            } catch (bodyError) {
+              console.error('❌ Failed to parse body:', bodyError);
+              sendJSON(res, 400, {
+                success: false,
+                message: 'Invalid request body format'
+              });
+              return;
+            }
+            
+            // Check if body is empty or null
+            if (!body || typeof body !== 'object') {
+              console.log('❌ Body is empty or not an object:', body);
+              sendJSON(res, 400, {
+                success: false,
+                message: 'Request body is required'
+              });
+              return;
+            }
+            
+            const { room_number, floor, status, hotel_id, room_type_id } = body;
+            
+            console.log('🏠 Admin creating new individual room:');
+            console.log('   - room_number:', room_number);
+            console.log('   - floor:', floor);
+            console.log('   - status:', status);
+            console.log('   - hotel_id:', hotel_id);
+            console.log('   - room_type_id:', room_type_id);
+            
+            // Validate required fields
+            if (!room_number || !floor || !hotel_id || !room_type_id) {
+              console.log('❌ Missing required fields:');
+              console.log('   - room_number:', !!room_number);
+              console.log('   - floor:', !!floor);
+              console.log('   - hotel_id:', !!hotel_id);
+              console.log('   - room_type_id:', !!room_type_id);
+              
+              sendJSON(res, 400, {
+                success: false,
+                message: 'กรุณากรอกข้อมูลที่จำเป็น (room_number, floor, hotel_id, room_type_id)',
+                received: { room_number, floor, hotel_id, room_type_id }
+              });
+              return;
+            }
+            
+            // Check if room number already exists
+            console.log('🔍 Checking if room number exists...');
+            const [existingRoom] = await connection.execute(
+              'SELECT id FROM rooms WHERE room_number = ? AND hotel_id = ?',
+              [room_number, hotel_id]
+            );
+            
+            if (existingRoom.length > 0) {
+              console.log('❌ Room number already exists');
+              sendJSON(res, 400, {
+                success: false,
+                message: 'หมายเลขห้องนี้มีอยู่แล้วในระบบ'
+              });
+              return;
+            }
+            
+            // Insert new room (simple version)
+            console.log('💾 Inserting new room into database...');
+            const insertData = [
+              room_number, 
+              parseInt(floor), 
+              status || 'available', 
+              parseInt(hotel_id), 
+              parseInt(room_type_id)
+            ];
+            console.log('📋 Insert data:', insertData);
+            
+            const [result] = await connection.execute(
+              'INSERT INTO rooms (room_number, floor, status, hotel_id, room_type_id) VALUES (?, ?, ?, ?, ?)',
+              insertData
+            );
+            
+            console.log('✅ Room created successfully with ID:', result.insertId);
+            
+            sendJSON(res, 201, {
+              success: true,
+              message: 'เพิ่มห้องพักใหม่สำเร็จ',
+              data: {
+                id: result.insertId,
+                room_number,
+                floor: parseInt(floor),
+                status: status || 'available',
+                hotel_id: parseInt(hotel_id),
+                room_type_id: parseInt(room_type_id)
+              }
+            });
+          } catch (error) {
+            console.error('❌ Error creating individual room:', error);
+            console.error('🔍 Error details:', error.message);
+            console.error('📋 Error stack:', error.stack);
+            sendJSON(res, 500, {
+              success: false,
+              message: 'เกิดข้อผิดพลาดในการเพิ่มห้องพัก: ' + error.message
             });
           }
         } else {
@@ -5956,6 +6079,45 @@ const server = createServer(async (req, res) => {
           sendJSON(res, 405, {
             success: false,
             error: 'Method not allowed'
+          });
+        }
+        break;
+
+      case '/api/test-admin-email':
+        console.log('🎯 Reached test-admin-email case, method:', req.method);
+        setCorsHeaders(res);
+        
+        if (req.method === 'POST') {
+          try {
+            console.log('🧪 Test admin email endpoint called');
+            
+            const body = await getRequestBody(req);
+            console.log('📧 Received test data:', body);
+            
+            // ส่งอีเมลแจ้งเตือนแอดมินด้วย REAL EMAIL SERVICE
+            console.log('🚀 Loading Real Email Service for switch case...');
+            delete require.cache[require.resolve('./src/utils/realEmailService.cjs')];
+            const realEmailService = require('./src/utils/realEmailService.cjs');
+            const result = await realEmailService.sendAdminNotificationEmail(body);
+            
+            console.log('✅ Test admin email sent successfully with Real Email Service');
+            sendJSON(res, 200, {
+              success: true,
+              message: 'ส่งอีเมลแจ้งเตือนแอดมินสำเร็จ (REAL EMAIL)',
+              result: result
+            });
+          } catch (error) {
+            console.error('❌ Test admin email error:', error);
+            sendJSON(res, 500, {
+              success: false,
+              message: 'เกิดข้อผิดพลาดในการทดสอบอีเมล',
+              error: error.message
+            });
+          }
+        } else {
+          sendJSON(res, 405, {
+            success: false,
+            message: 'Method not allowed'
           });
         }
         break;
@@ -6279,6 +6441,44 @@ const server = createServer(async (req, res) => {
 
             return;
           }
+        }
+        
+        // Handle admin email test endpoint FIRST to avoid conflicts with other routes
+        if (normalizedPathname === '/api/test-admin-email' && req.method === 'POST') {
+          console.log('🔧 DEBUG: Reached test-admin-email case!');
+          setCorsHeaders(res);
+          
+          try {
+            const body = await getRequestBody(req);
+            console.log('📧 Testing admin email notification with data:', body);
+            
+            // Import REAL email service (clear cache first)
+            console.log('🔄 Loading REAL Email Service...');
+            delete require.cache[require.resolve('./src/utils/realEmailService.cjs')];
+            const emailService = require('./src/utils/realEmailService.cjs');
+            console.log('✅ Real Email Service loaded successfully');
+            
+            // Send admin notification
+            console.log('📤 Calling sendAdminNotificationEmail...');
+            const result = await emailService.sendAdminNotificationEmail(body);
+            console.log('📬 Email sending result:', result);
+            
+            sendJSON(res, 200, {
+              success: true,
+              message: 'ส่งอีเมลแจ้งเตือนแอดมินสำเร็จ (Real Email)',
+              result: result
+            });
+            
+          } catch (error) {
+            console.error('❌ Error sending admin email:', error);
+            sendJSON(res, 500, {
+              success: false,
+              message: 'Failed to send admin email notification',
+              error: error.message
+            });
+          }
+          
+          return; // Exit early to prevent further processing
         }
         
         // Handle booking status updates
@@ -6966,6 +7166,54 @@ const server = createServer(async (req, res) => {
               sendJSON(res, 500, {
                 success: false,
                 message: 'เกิดข้อผิดพลาดในการอัปเดตข้อมูลห้อง'
+              });
+            }
+          } else if (req.method === 'DELETE') {
+            // DELETE /api/admin/individual-rooms/{id} - Delete room
+            try {
+              console.log(`🗑️ Deleting individual room ID: ${roomId}`);
+              
+              // ตรวจสอบว่าห้องมีอยู่จริง
+              const [roomCheck] = await connection.execute(
+                'SELECT id, room_number FROM rooms WHERE id = ?',
+                [parseInt(roomId)]
+              );
+              
+              if (roomCheck.length === 0) {
+                return sendJSON(res, 404, {
+                  success: false,
+                  message: 'ไม่พบห้องที่ระบุ'
+                });
+              }
+              
+              // ตรวจสอบว่าห้องมีการจองที่ active อยู่หรือไม่
+              const [bookingCheck] = await connection.execute(
+                'SELECT COUNT(*) as count FROM bookings WHERE room_id = ? AND status IN ("confirmed", "checked_in")',
+                [parseInt(roomId)]
+              );
+              
+              if (bookingCheck[0].count > 0) {
+                return sendJSON(res, 400, {
+                  success: false,
+                  message: 'ไม่สามารถลบห้องได้ เนื่องจากมีการจองที่ยังไม่เสร็จสิ้น'
+                });
+              }
+              
+              // ลบห้อง
+              await connection.execute('DELETE FROM rooms WHERE id = ?', [parseInt(roomId)]);
+              
+              console.log(`✅ Room ${roomCheck[0].room_number} deleted successfully`);
+              
+              sendJSON(res, 200, {
+                success: true,
+                message: `ลบห้อง ${roomCheck[0].room_number} เรียบร้อยแล้ว`
+              });
+              
+            } catch (error) {
+              console.error('❌ Error deleting room:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในการลบห้อง'
               });
             }
           } else {

@@ -90,7 +90,8 @@ export default function UsersManagementPage() {
           regularUsers
         });
 
-        toast.success(`โหลดข้อมูลผู้ใช้สำเร็จ (${totalUsers} คน)`);
+        // Remove toast.success to prevent duplicate notifications
+        console.log(`✅ โหลดข้อมูลผู้ใช้สำเร็จ (${totalUsers} คน)`);
       }
     } catch (error) {
       console.error('❌ Error fetching users:', error);
@@ -104,7 +105,7 @@ export default function UsersManagementPage() {
     if (isAuthenticated && isStaffOrAdmin(currentUser)) {
       fetchUsers();
     }
-  }, [isAuthenticated, currentUser, fetchUsers]);
+  }, [isAuthenticated, currentUser]); // Remove fetchUsers from dependency array
 
   // CRUD Functions
   const handleCreateUser = async (userData) => {

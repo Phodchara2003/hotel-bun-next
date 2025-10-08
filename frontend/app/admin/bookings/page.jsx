@@ -319,6 +319,16 @@ function BookingManagementContent() {
         className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
         icon: CheckCircle
       },
+      checked_in: { 
+        label: 'เช็คอินแล้ว', 
+        className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+        icon: LogIn
+      },
+      checked_out: { 
+        label: 'เช็คเอาท์แล้ว', 
+        className: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
+        icon: CheckCircle
+      },
       completed: { 
         label: 'สำเร็จแล้ว', 
         className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
