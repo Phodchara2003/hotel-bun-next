@@ -163,7 +163,7 @@ export const AuthProvider = ({ children }) => {
         setUser(userData);
         
         console.log('Login successful:', userData);
-        toast.success('เข้าสู่ระบบสำเร็จ!');
+        toast.success(`ยินดีต้อนรับ ${userData.first_name || userData.email}!`);
         return { success: true, user: userData };
       } else {
         throw new Error('Invalid response format');
@@ -218,7 +218,7 @@ export const AuthProvider = ({ children }) => {
     clearAuthData();
     setUser(null);
     console.log('User logged out');
-    toast.success('ออกจากระบบเรียบร้อย');
+    toast.success('ออกจากระบบสำเร็จ');
   };
 
   const updateUser = (userData) => {

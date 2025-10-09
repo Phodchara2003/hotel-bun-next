@@ -6083,44 +6083,7 @@ const server = createServer(async (req, res) => {
         }
         break;
 
-      case '/api/test-admin-email':
-        console.log('🎯 Reached test-admin-email case, method:', req.method);
-        setCorsHeaders(res);
-        
-        if (req.method === 'POST') {
-          try {
-            console.log('🧪 Test admin email endpoint called');
-            
-            const body = await getRequestBody(req);
-            console.log('📧 Received test data:', body);
-            
-            // ส่งอีเมลแจ้งเตือนแอดมินด้วย REAL EMAIL SERVICE
-            console.log('🚀 Loading Real Email Service for switch case...');
-            delete require.cache[require.resolve('./src/utils/realEmailService.cjs')];
-            const realEmailService = require('./src/utils/realEmailService.cjs');
-            const result = await realEmailService.sendAdminNotificationEmail(body);
-            
-            console.log('✅ Test admin email sent successfully with Real Email Service');
-            sendJSON(res, 200, {
-              success: true,
-              message: 'ส่งอีเมลแจ้งเตือนแอดมินสำเร็จ (REAL EMAIL)',
-              result: result
-            });
-          } catch (error) {
-            console.error('❌ Test admin email error:', error);
-            sendJSON(res, 500, {
-              success: false,
-              message: 'เกิดข้อผิดพลาดในการทดสอบอีเมล',
-              error: error.message
-            });
-          }
-        } else {
-          sendJSON(res, 405, {
-            success: false,
-            message: 'Method not allowed'
-          });
-        }
-        break;
+
 
       case '/api/room-statistics':
         setCorsHeaders(res);
@@ -6443,44 +6406,7 @@ const server = createServer(async (req, res) => {
           }
         }
         
-        // Handle admin email test endpoint FIRST to avoid conflicts with other routes
-        if (normalizedPathname === '/api/test-admin-email' && req.method === 'POST') {
-          console.log('🔧 DEBUG: Reached test-admin-email case!');
-          setCorsHeaders(res);
-          
-          try {
-            const body = await getRequestBody(req);
-            console.log('📧 Testing admin email notification with data:', body);
-            
-            // Import REAL email service (clear cache first)
-            console.log('🔄 Loading REAL Email Service...');
-            delete require.cache[require.resolve('./src/utils/realEmailService.cjs')];
-            const emailService = require('./src/utils/realEmailService.cjs');
-            console.log('✅ Real Email Service loaded successfully');
-            
-            // Send admin notification
-            console.log('📤 Calling sendAdminNotificationEmail...');
-            const result = await emailService.sendAdminNotificationEmail(body);
-            console.log('📬 Email sending result:', result);
-            
-            sendJSON(res, 200, {
-              success: true,
-              message: 'ส่งอีเมลแจ้งเตือนแอดมินสำเร็จ (Real Email)',
-              result: result
-            });
-            
-          } catch (error) {
-            console.error('❌ Error sending admin email:', error);
-            sendJSON(res, 500, {
-              success: false,
-              message: 'Failed to send admin email notification',
-              error: error.message
-            });
-          }
-          
-          return; // Exit early to prevent further processing
-        }
-        
+
         // Handle booking status updates
         console.log('🔍 Checking path for booking status update:', normalizedPathname);
         if (normalizedPathname.match(/^\/api\/bookings\/\d+\/status$/)) {
@@ -7104,6 +7030,7 @@ const server = createServer(async (req, res) => {
                 room_number, 
                 floor, 
                 status, 
+                bed_type, // เพิ่ม bed_type สำหรับการแก้ไข
                 guest_name, 
                 booking_id, 
                 check_in_date, 
@@ -7127,30 +7054,27 @@ const server = createServer(async (req, res) => {
                 });
               }
               
-              // อัปเดตข้อมูลห้อง
+              // อัปเดตข้อมูลห้อง (รวม bed_type และ room_type_id ที่ตรงกัน)
               await connection.execute(`
                 UPDATE rooms SET 
                   room_number = COALESCE(?, room_number),
                   floor = COALESCE(?, floor),
                   status = COALESCE(?, status),
-                  guest_name = ?,
-                  booking_id = ?,
-                  check_in_date = ?,
-                  check_out_date = ?,
-                  booking_status = ?,
-                  notes = ?,
+                  bed_type = COALESCE(?, bed_type),
+                  room_type_id = CASE 
+                    WHEN COALESCE(?, bed_type) = 'single' THEN 8
+                    WHEN COALESCE(?, bed_type) = 'double' THEN 10
+                    ELSE room_type_id
+                  END,
                   updated_at = NOW()
                 WHERE id = ?
               `, [
                 room_number, 
                 floor, 
                 status, 
-                guest_name || null, 
-                booking_id || null, 
-                check_in_date || null, 
-                check_out_date || null, 
-                booking_status || null, 
-                notes || null, 
+                bed_type,
+                bed_type, // สำหรับ CASE statement แรก
+                bed_type, // สำหรับ CASE statement ที่สอง
                 parseInt(roomId)
               ]);
               

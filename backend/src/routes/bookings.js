@@ -513,6 +513,31 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
         return { error: 'Database connection failed' };
       }
       
+      // ป้องกันการจองซ้ำ - ตรวจสอบว่าผู้ใช้มีการจองที่ยังไม่เสร็จสิ้นหรือไม่
+      console.log('Checking for duplicate bookings...');
+      const existingPendingBookings = await sql`
+        SELECT id, booking_reference, status, created_at
+        FROM bookings
+        WHERE user_id = ${user.id}
+        AND status IN ('pending', 'confirmed')
+        AND created_at > NOW() - INTERVAL '5 minutes'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `;
+      
+      if (existingPendingBookings.length > 0) {
+        const existingBooking = existingPendingBookings[0];
+        console.log('Found existing pending booking:', existingBooking);
+        set.status = 400;
+        return { 
+          error: 'คุณมีการจองที่ยังไม่เสร็จสิ้นอยู่ กรุณารอสักครู่หรือเสร็จสิ้นการจองเดิมก่อน',
+          existingBookingReference: existingBooking.booking_reference,
+          code: 'DUPLICATE_BOOKING_ATTEMPT'
+        };
+      }
+      
+      console.log('No duplicate bookings found, proceeding...');
+      
       // Check if room type exists and has enough capacity
       const roomType = await sql`
         SELECT rt.*, h.name as hotel_name
@@ -537,36 +562,40 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
         return { error: 'Room cannot accommodate the requested number of guests' };
       }
       
-      // Check availability - only check active bookings
-      console.log('Checking availability for:', {
-        roomTypeId,
-        checkInDate,
-        checkOutDate
-      });
+      // 🏨 Find available specific room to assign
+      console.log('Finding available specific room for room type:', roomTypeId);
       
-      const existingBookings = await sql`
-        SELECT id, check_in_date, check_out_date, status FROM bookings
-        WHERE room_type_id = ${roomTypeId}
-        AND status IN ('confirmed', 'pending')
-        AND check_out_date > ${checkInDate}
-        AND check_in_date < ${checkOutDate}
+      const availableRooms = await sql`
+        SELECT r.*, rt.name as room_type_name
+        FROM rooms r
+        JOIN room_types rt ON r.room_type_id = rt.id
+        WHERE r.room_type_id = ${roomTypeId}
+        AND r.status = 'available'
+        AND r.id NOT IN (
+          SELECT DISTINCT r2.id 
+          FROM rooms r2
+          JOIN bookings b ON r2.id = b.room_id
+          WHERE b.status IN ('confirmed', 'pending', 'checked_in')
+          AND b.check_out_date > ${checkInDate}
+          AND b.check_in_date < ${checkOutDate}
+        )
+        ORDER BY r.room_number
+        LIMIT 1
       `;
       
-      console.log('Existing bookings found:', existingBookings);
+      console.log('Available rooms found:', availableRooms);
       
-      if (existingBookings.length > 0) {
-        console.log('Room not available due to existing bookings');
+      if (!availableRooms.length) {
+        console.log('No available specific rooms for this room type');
         set.status = 400;
         return { 
-          error: 'Room is not available for the selected dates',
-          conflictingBookings: existingBookings.map(b => ({
-            id: b.id,
-            checkIn: b.check_in_date,
-            checkOut: b.check_out_date,
-            status: b.status
-          }))
+          error: 'No available rooms for the selected dates and room type',
+          roomType: roomType[0].name
         };
       }
+      
+      const selectedRoom = availableRooms[0];
+      console.log('Selected room for assignment:', selectedRoom);
       
       console.log('Room is available, proceeding with booking...');
       
@@ -579,24 +608,35 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
       // Generate booking reference
       const bookingReference = generateBookingReference();
       
-      // Create booking
+      // Create booking with assigned room
       const newBooking = await sql`
         INSERT INTO bookings (
-          user_id, hotel_id, room_type_id, check_in_date, check_out_date,
+          user_id, hotel_id, room_type_id, room_id, check_in_date, check_out_date,
           guests, total_price, special_requests, booking_reference
         )
         VALUES (
-          ${user.id}, ${hotelId}, ${roomTypeId}, ${checkInDate}, ${checkOutDate},
+          ${user.id}, ${hotelId}, ${roomTypeId}, ${selectedRoom.id}, ${checkInDate}, ${checkOutDate},
           ${guests}, ${totalPrice}, ${specialRequests || null}, ${bookingReference}
         )
         RETURNING *
       `;
+
+      // Update room status to reserved
+      await sql`
+        UPDATE rooms 
+        SET status = 'reserved', current_booking_id = ${newBooking[0].id}
+        WHERE id = ${selectedRoom.id}
+      `;
+
+      console.log(`✅ Room ${selectedRoom.room_number} (Floor ${selectedRoom.floor}) assigned to booking ${newBooking[0].id}`);
 
       const bookingResult = {
         id: newBooking[0].id,
         bookingReference: newBooking[0].booking_reference,
         hotelName: roomType[0].hotel_name,
         roomTypeName: roomType[0].name,
+        roomNumber: selectedRoom.room_number,
+        floor: selectedRoom.floor,
         checkInDate: newBooking[0].check_in_date,
         checkOutDate: newBooking[0].check_out_date,
         guests: newBooking[0].guests,
@@ -612,9 +652,15 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
           bookingReference: bookingResult.bookingReference,
           hotelName: bookingResult.hotelName,
           roomTypeName: bookingResult.roomTypeName,
+          roomNumber: bookingResult.roomNumber,
+          floor: bookingResult.floor,
+          bedType: roomType[0].bed_type,
+          pricePerNight: roomType[0].price_per_night,
+          nights: Math.ceil((new Date(bookingResult.checkOutDate) - new Date(bookingResult.checkInDate)) / (1000 * 60 * 60 * 24)),
           checkInDate: bookingResult.checkInDate,
           checkOutDate: bookingResult.checkOutDate,
           guests: bookingResult.guests,
+          maxGuests: roomType[0].max_guests,
           totalPrice: bookingResult.totalPrice,
           status: bookingResult.status,
           specialRequests: bookingResult.specialRequests
@@ -730,8 +776,8 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
       
       // Get additional booking details for email
       const fullBookingDetails = await sql`
-        SELECT b.*, h.name as hotel_name, rt.name as room_type_name, u.email as user_email,
-               u.first_name, u.last_name
+        SELECT b.*, h.name as hotel_name, rt.name as room_type_name, rt.bed_type, rt.price_per_night, 
+               u.email as user_email, u.first_name, u.last_name
         FROM bookings b
         JOIN hotels h ON b.hotel_id = h.id
         JOIN room_types rt ON b.room_type_id = rt.id
@@ -747,10 +793,17 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
       if (fullBookingDetails.length > 0) {
         try {
           const bookingDetail = fullBookingDetails[0];
+          const checkInDate = new Date(bookingDetail.check_in_date);
+          const checkOutDate = new Date(bookingDetail.check_out_date);
+          const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
+          
           const bookingEmailData = {
             bookingReference: bookingDetail.booking_reference,
             hotelName: bookingDetail.hotel_name,
             roomTypeName: bookingDetail.room_type_name,
+            bedType: bookingDetail.bed_type,
+            pricePerNight: bookingDetail.price_per_night,
+            nights: nights,
             checkInDate: bookingDetail.check_in_date,
             checkOutDate: bookingDetail.check_out_date,
             guests: bookingDetail.guests,
@@ -1581,7 +1634,7 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
             
             // ดึงข้อมูลโรงแรมและประเภทห้อง
             const bookingDetails = await sql`
-              SELECT b.*, h.name as hotel_name, rt.name as room_type_name
+              SELECT b.*, h.name as hotel_name, rt.name as room_type_name, rt.bed_type, rt.price_per_night
               FROM bookings b
               LEFT JOIN hotels h ON b.hotel_id = h.id
               LEFT JOIN room_types rt ON b.room_type_id = rt.id
@@ -1593,8 +1646,11 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
                 bookingReference: bookingDetails[0].booking_reference,
                 hotelName: bookingDetails[0].hotel_name,
                 roomTypeName: bookingDetails[0].room_type_name,
+                bedType: bookingDetails[0].bed_type,
+                pricePerNight: bookingDetails[0].price_per_night,
                 checkInDate: new Date(check_in_date).toLocaleDateString('th-TH'),
                 checkOutDate: new Date(check_out_date).toLocaleDateString('th-TH'),
+                nights: nights,
                 totalPrice: totalPrice,
                 guests: bookingDetails[0].guests
               };

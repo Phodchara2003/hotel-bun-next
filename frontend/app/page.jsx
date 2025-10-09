@@ -44,12 +44,68 @@ function HomePageContent() {
     fetchContactSettings();
   }, []);
 
-  const fetchData = async () => {
+  // Force refresh เมื่อหน้าจอได้ focus (กลับมาจากหน้าอื่น)
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('Page focused - refreshing data...');
+      fetchData(true); // Force refresh
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('Page visible - refreshing data...');
+        fetchData(true); // Force refresh
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  const fetchData = async (forceRefresh = false) => {
     try {
       setIsLoading(true);
       
+      // ลบ cache ถ้าต้องการ force refresh
+      if (forceRefresh) {
+        // Clear browser cache for API endpoints
+        if ('caches' in window) {
+          try {
+            const cacheNames = await caches.keys();
+            await Promise.all(
+              cacheNames.map(cacheName => caches.delete(cacheName))
+            );
+            console.log('All caches cleared');
+          } catch (error) {
+            console.log('Cache clearing error:', error);
+          }
+        }
+        
+        // Clear localStorage cache
+        try {
+          Object.keys(localStorage).forEach(key => {
+            if (key.includes('room') || key.includes('cache')) {
+              localStorage.removeItem(key);
+            }
+          });
+        } catch (error) {
+          console.log('localStorage clear error:', error);
+        }
+      }
+      
       // ดึงข้อมูลห้องพักล่าสุดจาก API (รวมรูปภาพที่แอดมินอัพเดต)
-      const updatedRooms = await getFeaturedRooms();
+      const updatedRooms = await getFeaturedRooms(forceRefresh);
+      console.log('🏠 Homepage received room data:', updatedRooms.map(r => ({
+        id: r.id,
+        name: r.name,
+        bed_type: r.bed_type,
+        room_type: r.room_type
+      })));
       setRoomTypes(updatedRooms);
       
       // พยายามดึงข้อมูลโรงแรมจาก API
@@ -65,7 +121,13 @@ function HomePageContent() {
     } catch (error) {
       console.error('Error fetching data:', error);
       // Fallback ไปใช้ข้อมูลท้องถิ่น
-      const localRooms = await getFeaturedRooms();
+      const localRooms = await getFeaturedRooms(forceRefresh);
+      console.log('🏠 Homepage fallback room data:', localRooms.map(r => ({
+        id: r.id,
+        name: r.name,
+        bed_type: r.bed_type,
+        room_type: r.room_type
+      })));
       setRoomTypes(localRooms);
     } finally {
       setIsLoading(false);
@@ -352,6 +414,26 @@ function HomePageContent() {
 
   return (
     <div className="min-h-screen pt-16">
+      {/* Refresh Button - Fixed position */}
+      <div className="fixed top-20 right-4 z-50">
+        <button
+          onClick={() => fetchData(true)}
+          disabled={isLoading}
+          className="bg-amber-600 hover:bg-amber-700 disabled:bg-amber-400 text-white px-4 py-2 rounded-full shadow-lg transition-all duration-300 flex items-center gap-2 text-sm font-medium"
+          title="รีเฟรชข้อมูลห้องพัก"
+        >
+          <svg 
+            className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          {isLoading ? 'กำลังโหลด...' : 'รีเฟรช'}
+        </button>
+      </div>
+
       {/* Hero Section - แบบ Gregori Hotel */}
       <section className="relative h-screen">
         {/* Background Image */}
@@ -504,6 +586,14 @@ function HomePageContent() {
       {/* Room Types Section */}
       <section className="py-20 bg-slate-100">
         <div className="container mx-auto px-6">
+          {/* Data Update Indicator */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-4 py-2 rounded-full text-sm">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              ข้อมูลห้องพักล่าสุด (อัปเดต: {new Date().toLocaleTimeString('th-TH')})
+            </div>
+          </div>
+          
           {roomTypes.slice(0, 3).map((roomType, index) => (
             <div 
               key={roomType.id} 
@@ -546,7 +636,10 @@ function HomePageContent() {
                     <FadeInUp delay={500}>
                       <div className="flex items-center text-amber-200 text-sm mb-8 space-x-4 font-thai">
                         <span>👥 {roomType.max_occupancy} ผู้เข้าพัก</span>
-                        <span>🛏️ {roomType.bed_type || '1 King Size Bed'}</span>
+                        <span>🛏️ {roomType.bed_type === 'single' ? 'เตียงเดี่ยว (Single)' : roomType.bed_type === 'double' ? 'เตียงคู่ (Double)' : roomType.bed_type || '1 King Size Bed'}</span>
+                        <span className="bg-amber-500/20 px-2 py-1 rounded text-xs">
+                          ID: {roomType.id}
+                        </span>
                       </div>
                     </FadeInUp>
                     <FadeInUp delay={700}>

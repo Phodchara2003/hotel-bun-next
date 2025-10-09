@@ -24,6 +24,7 @@ export default function CreatePaymentPage() {
   const [paymentReceiptFile, setPaymentReceiptFile] = useState(null);
   const [paymentReceiptUrl, setPaymentReceiptUrl] = useState('');
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
+  const [isBookingSubmitted, setIsBookingSubmitted] = useState(false); // ป้องกันการกดซ้ำ
   const [paymentSettings, setPaymentSettings] = useState(null);
   const [customerInfo, setCustomerInfo] = useState({
     guestName: '',
@@ -52,13 +53,6 @@ export default function CreatePaymentPage() {
       }
       
       const data = JSON.parse(storedData);
-      
-      // แปลง bed_type จากภาษาไทยเป็นภาษาอังกฤษ (แก้ไข cache ข้อมูลเก่า)
-      if (data.bed_type === 'เตียงคู่') {
-        data.bed_type = 'double';
-      } else if (data.bed_type === 'เตียงเดี่ยว') {
-        data.bed_type = 'single';
-      }
       
       console.log('🔍 Loaded booking data with bed_type:', data.bed_type);
       
@@ -192,6 +186,12 @@ export default function CreatePaymentPage() {
   };
 
   const handlePaymentConfirm = async () => {
+    // ป้องกันการกดซ้ำ
+    if (isBookingSubmitted || isUploadingReceipt) {
+      toast.error('กำลังดำเนินการอยู่ กรุณารอสักครู่...');
+      return;
+    }
+
     if (!paymentReceiptFile) {
       toast.error('กรุณาอัพโหลดรูปใบเสร็จการชำระเงิน');
       return;
@@ -205,7 +205,11 @@ export default function CreatePaymentPage() {
     }
 
     try {
+      // ตั้งสถานะป้องกันการกดซ้ำ
+      setIsBookingSubmitted(true);
       setIsUploadingReceipt(true);
+      
+      console.log('🔄 Starting booking creation process...');
       
       // สร้างการจองในฐานข้อมูลก่อน
       const completeBookingData = {
@@ -231,6 +235,8 @@ export default function CreatePaymentPage() {
         throw new Error('ไม่ได้รับ ID การจอง');
       }
       
+      console.log('✅ Booking created successfully with ID:', bookingId);
+      
       // แปลงไฟล์เป็น base64
       const base64 = await convertFileToBase64(paymentReceiptFile);
       
@@ -241,6 +247,8 @@ export default function CreatePaymentPage() {
         paymentReceiptFile.name, 
         paymentReceiptFile.size
       );
+      
+      console.log('✅ Payment receipt uploaded successfully');
       
       // ลบข้อมูลการจองออกจาก localStorage
       localStorage.removeItem('pendingBookingData');
@@ -269,8 +277,11 @@ export default function CreatePaymentPage() {
       }, 2000);
       
     } catch (error) {
-      console.error('Error creating booking or uploading receipt:', error);
+      console.error('❌ Error creating booking or uploading receipt:', error);
       toast.error(error.message || 'เกิดข้อผิดพลาดในการสร้างการจองหรืออัพโหลดใบเสร็จ');
+      
+      // รีเซ็ตสถานะเมื่อเกิดข้อผิดพลาด
+      setIsBookingSubmitted(false);
     } finally {
       setIsUploadingReceipt(false);
     }
@@ -524,15 +535,20 @@ export default function CreatePaymentPage() {
                       
                       <button
                         onClick={handlePaymentConfirm}
-                        disabled={!paymentReceiptFile || isUploadingReceipt}
+                        disabled={!paymentReceiptFile || isUploadingReceipt || isBookingSubmitted}
                         className={`bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold py-4 px-6 rounded-lg shadow-lg flex items-center justify-center w-full transition-all duration-200 ${
-                          !paymentReceiptFile || isUploadingReceipt ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-xl transform hover:scale-105'
+                          !paymentReceiptFile || isUploadingReceipt || isBookingSubmitted ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-xl transform hover:scale-105'
                         }`}
                       >
                         {isUploadingReceipt ? (
                           <>
                             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-3"></div>
                             กำลังสร้างการจองและอัพโหลด...
+                          </>
+                        ) : isBookingSubmitted ? (
+                          <>
+                            <CheckCircle className="h-6 w-6 mr-3" />
+                            การจองเสร็จสิ้นแล้ว
                           </>
                         ) : (
                           <>

@@ -38,7 +38,6 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }) {
   const handleLogout = async () => {
     try {
       await logout();
-      toast.success('ออกจากระบบสำเร็จ');
     } catch (error) {
       toast.error('เกิดข้อผิดพลาดในการออกจากระบบ');
     }

@@ -257,18 +257,12 @@ export default function RoomDetailPage() {
         toast.error('ข้อมูลราคาหรือจำนวนคืนไม่ถูกต้อง');
         return;
       }
-      
-      // ตรวจสอบว่า bed_type มีค่าหรือไม่
-      if (!room.bed_type) {
-        console.error('❌ bed_type is missing from room data:', room);
-        toast.error('ข้อมูลประเภทเตียงไม่ครบถ้วน กรุณาลองใหม่');
-        return;
-      }
 
       const bookingData = {
         user_id: parseInt(user.id),
         hotel_id: parseInt(room.hotel_id || 2), // Use hotel_id 2 as default (from database)
-        bed_type: room.bed_type, // ใช้ bed_type แทน room_type_id
+        roomTypeId: parseInt(room.id), // ใช้ room.id เป็น roomTypeId ที่ถูกต้อง
+        bed_type: room.bed_type, // เพิ่ม bed_type สำหรับ backend validation
         check_in_date: checkinDate,
         check_out_date: checkoutDate,
         guests: parseInt(guestCount),
@@ -281,7 +275,9 @@ export default function RoomDetailPage() {
       };
 
       console.log('🔍 Creating booking with data:', bookingData);
+      console.log('🔍 roomTypeId value:', bookingData.roomTypeId);
       console.log('🔍 bed_type value:', bookingData.bed_type);
+      console.log('🔍 bed_type from room:', room.bed_type);
       console.log('📊 Calculated nights:', nights, 'Total price:', totalPrice);
       
       // เก็บข้อมูลการจองไว้ใน localStorage

@@ -24,14 +24,22 @@ export const roomsData = [
       "เครื่องทำน้ำอุ่น"
     ],
     available: true,
-    // ห้องย่อยที่แอดมินจัดการ
+    // ห้องย่อยที่แอดมินจัดการ - Single bed rooms
     sub_rooms: [
-      { id: 201, room_number: "507", available: true, has_booking: false },
-      { id: 202, room_number: "508", available: true, has_booking: false },
-      { id: 203, room_number: "509", available: true, has_booking: false },
-      { id: 204, room_number: "510", available: true, has_booking: false },
-      { id: 205, room_number: "511", available: true, has_booking: false },
-      { id: 206, room_number: "512", available: true, has_booking: false }
+      { id: 101, room_number: "501", available: true, has_booking: false },
+      { id: 102, room_number: "502", available: true, has_booking: false },
+      { id: 103, room_number: "503", available: true, has_booking: false },
+      { id: 104, room_number: "504", available: true, has_booking: false },
+      { id: 105, room_number: "505", available: true, has_booking: false },
+      { id: 106, room_number: "506", available: true, has_booking: false },
+      { id: 113, room_number: "513", available: true, has_booking: false },
+      { id: 114, room_number: "514", available: true, has_booking: false },
+      { id: 115, room_number: "515", available: true, has_booking: false },
+      { id: 116, room_number: "516", available: true, has_booking: false },
+      { id: 117, room_number: "517", available: true, has_booking: false },
+      { id: 601, room_number: "601", available: true, has_booking: false },
+      { id: 602, room_number: "602", available: true, has_booking: false },
+      { id: 603, room_number: "603", available: true, has_booking: false }
     ]
   },
   {
@@ -60,55 +68,86 @@ export const roomsData = [
     ],
     available: true,
     featured: true,
-    // ห้องย่อยที่แอดมินจัดการ (ตัวอย่างบางส่วน)
+    // ห้องย่อยที่แอดมินจัดการ - Double bed rooms
     sub_rooms: [
-      { id: 101, room_number: "501", available: true, has_booking: false },
-      { id: 102, room_number: "502", available: true, has_booking: false },
-      { id: 103, room_number: "503", available: true, has_booking: false },
-      { id: 104, room_number: "504", available: true, has_booking: false },
-      { id: 105, room_number: "505", available: true, has_booking: false }
+      { id: 107, room_number: "507", available: true, has_booking: false },
+      { id: 108, room_number: "508", available: true, has_booking: false },
+      { id: 109, room_number: "509", available: true, has_booking: false },
+      { id: 110, room_number: "510", available: true, has_booking: false },
+      { id: 111, room_number: "511", available: true, has_booking: false },
+      { id: 112, room_number: "512", available: true, has_booking: false },
+      { id: 604, room_number: "604", available: true, has_booking: false },
+      { id: 605, room_number: "605", available: true, has_booking: false },
+      { id: 606, room_number: "606", available: true, has_booking: false },
+      { id: 607, room_number: "607", available: true, has_booking: false },
+      { id: 608, room_number: "608", available: true, has_booking: false },
+      { id: 609, room_number: "609", available: true, has_booking: false },
+      { id: 610, room_number: "610", available: true, has_booking: false },
+      { id: 611, room_number: "611", available: true, has_booking: false },
+      { id: 612, room_number: "612", available: true, has_booking: false },
+      { id: 613, room_number: "613", available: true, has_booking: false },
+      { id: 614, room_number: "614", available: true, has_booking: false },
+      { id: 615, room_number: "615", available: true, has_booking: false },
+      { id: 616, room_number: "616", available: true, has_booking: false },
+      { id: 617, room_number: "617", available: true, has_booking: false }
     ]
   }
 ];
 
 // ฟังก์ชันสำหรับดึงข้อมูลห้องพักจาก API
-export const getRoomsData = async () => {
+export const getRoomsData = async (forceRefresh = false) => {
   try {
-    // ใช้ backend API สำหรับข้อมูลที่อัพเดตแล้วจากแอดมิน พร้อม cache busting
-    const timestamp = new Date().getTime();
+    // Cache busting แรงสุด - บังคับให้ดึงข้อมูลใหม่ทุกครั้ง
+    const timestamp = Date.now();
+    const randomId = Math.floor(Math.random() * 1000000);
+    const sessionId = Math.random().toString(36).substring(7);
+    const refreshParam = forceRefresh ? '&force=1' : '';
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-    const response = await fetch(`${API_BASE_URL}/api/room-types-with-images?t=${timestamp}`, {
-      cache: 'no-cache',
+    
+    console.log('🔄 Force fetching fresh data from API...', forceRefresh ? '(FORCE REFRESH)' : '');
+    
+    const response = await fetch(`${API_BASE_URL}/api/room-types-with-images?bust=${timestamp}&r=${randomId}&s=${sessionId}${refreshParam}`, {
+      method: 'GET',
+      cache: 'no-store',
       headers: {
-        'Cache-Control': 'no-cache'
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'If-Modified-Since': 'Mon, 26 Jul 1997 05:00:00 GMT'
       }
     });
     const result = await response.json();
     
     if (result.success && result.data) {
-      // แปลงข้อมูลจาก backend format เป็น frontend format
-      const convertedRooms = result.data.map(room => ({
-        id: room.id,
-        name: room.name,
-        description: room.description || 'ห้องพักสะดวกสบาย',
-        image_url: room.images && room.images.length > 0 ? `/images/rooms/${room.images[0]}` : '/images/rooms/room-placeholder.jpg',
-        images: room.images && room.images.length > 0 
-          ? room.images.map(img => `/images/rooms/${img}`) 
-          : ['/images/rooms/room-placeholder.jpg'],
-        price_per_night: parseFloat(room.price_per_night) || 1500,
-        max_occupancy: room.max_guests || 2,
-        bed_type: room.bed_type === 'single' ? 'เตียงเดี่ยว' : 'เตียงคู่',
-        room_type: room.bed_type || 'single',
-        category: 'room-type',
-        amenities: Array.isArray(room.amenities) ? room.amenities : (typeof room.amenities === 'string' ? JSON.parse(room.amenities) : []),
-        available: true,
-        featured: true,
-        floor: room.floor || '1',
-        size_sqm: room.size_sqm,
-        hotel_name: room.hotel_name,
-        hotel_id: room.hotel_id || 2 // Add hotel_id from backend data
-      }));
+      console.log('🔄 Raw API data:', result.data);
       
+      // แปลงข้อมูลจาก backend format เป็น frontend format
+      const convertedRooms = result.data.map(room => {
+        console.log(`🏨 Converting room ID ${room.id}: ${room.name} - bed_type: ${room.bed_type}`);
+        return {
+          id: room.id,
+          name: room.name,
+          description: room.description || 'ห้องพักสะดวกสบาย',
+          image_url: room.images && room.images.length > 0 ? `/images/rooms/${room.images[0]}` : '/images/rooms/room-placeholder.jpg',
+          images: room.images && room.images.length > 0 
+            ? room.images.map(img => `/images/rooms/${img}`) 
+            : ['/images/rooms/room-placeholder.jpg'],
+          price_per_night: parseFloat(room.price_per_night) || 1500,
+          max_occupancy: room.max_guests || 2,
+          bed_type: room.bed_type, // ใช้ bed_type ต้นฉบับจาก backend (single/double)
+          room_type: room.bed_type || 'single',
+          category: 'room-type',
+          amenities: Array.isArray(room.amenities) ? room.amenities : (typeof room.amenities === 'string' ? JSON.parse(room.amenities) : []),
+          available: true,
+          featured: true,
+          floor: room.floor || '1',
+          size_sqm: room.size_sqm,
+          hotel_name: room.hotel_name,
+          hotel_id: room.hotel_id || 2 // Add hotel_id from backend data
+        };
+      });
+      
+      console.log('✅ Converted rooms data:', convertedRooms.map(r => ({ id: r.id, name: r.name, bed_type: r.bed_type })));
       console.log('✅ Loaded rooms from backend API:', convertedRooms.length);
       return convertedRooms;
     } else {
@@ -122,14 +161,14 @@ export const getRoomsData = async () => {
 };
 
 // ฟังก์ชันสำหรับดึงข้อมูลห้องพักตาม ID (async version)
-export const getRoomById = async (id) => {
-  const rooms = await getRoomsData();
+export const getRoomById = async (id, forceRefresh = false) => {
+  const rooms = await getRoomsData(forceRefresh);
   return rooms.find(room => room.id === parseInt(id));
 };
 
 // ฟังก์ชันสำหรับดึงห้องพักที่แนะนำ (async version)
-export const getFeaturedRooms = async () => {
-  const rooms = await getRoomsData();
+export const getFeaturedRooms = async (forceRefresh = false) => {
+  const rooms = await getRoomsData(forceRefresh);
   return rooms.filter(room => room.featured || room.available);
 };
 

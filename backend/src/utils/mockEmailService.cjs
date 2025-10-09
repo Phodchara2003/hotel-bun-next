@@ -78,12 +78,17 @@ const sendBookingConfirmationEmail = async (userEmail, userName, bookingData) =>
       <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
         <h3>📋 รายละเอียดการจอง</h3>
         <p><strong>รหัสการจอง:</strong> ${bookingData.bookingReference || 'N/A'}</p>
+        ${bookingData.roomNumber ? `<p><strong>หมายเลขห้อง:</strong> ห้อง ${bookingData.roomNumber}${bookingData.floor ? ` ชั้น ${bookingData.floor}` : ''}</p>` : ''}
         <p><strong>โรงแรม:</strong> ${bookingData.hotelName || 'โรงแรมวรุณภัฏ'}</p>
         <p><strong>ประเภทห้อง:</strong> ${bookingData.roomTypeName || 'N/A'}</p>
+        ${bookingData.bedType ? `<p><strong>ประเภทเตียง:</strong> ${bookingData.bedType}</p>` : ''}
         <p><strong>วันที่เข้าพัก:</strong> ${bookingData.checkInDate || 'N/A'}</p>
         <p><strong>วันที่ออก:</strong> ${bookingData.checkOutDate || 'N/A'}</p>
-        <p><strong>จำนวนผู้เข้าพัก:</strong> ${bookingData.guests || 'N/A'} ท่าน</p>
+        ${bookingData.nights ? `<p><strong>จำนวนคืน:</strong> ${bookingData.nights} คืน</p>` : ''}
+        <p><strong>จำนวนผู้เข้าพัก:</strong> ${bookingData.guests || 'N/A'} ท่าน${bookingData.maxGuests ? ` (สูงสุด ${bookingData.maxGuests} ท่าน)` : ''}</p>
+        ${bookingData.pricePerNight ? `<p><strong>ราคาต่อคืน:</strong> ฿${bookingData.pricePerNight?.toLocaleString()}</p>` : ''}
         <p><strong>ราคารวม:</strong> ฿${bookingData.totalPrice?.toLocaleString() || 'N/A'}</p>
+        ${bookingData.specialRequests ? `<p><strong>ความต้องการพิเศษ:</strong> ${bookingData.specialRequests}</p>` : ''}
       </div>
       
       <p>📞 หากมีข้อสงสัย กรุณาติดต่อ: 043-721-040</p>
@@ -110,8 +115,14 @@ const sendBookingUpdateEmail = async (userEmail, userName, bookingData) => {
       <div style="background: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0;">
         <h3>📋 รายละเอียดการจองใหม่</h3>
         <p><strong>รหัสการจอง:</strong> ${bookingData.bookingReference || 'N/A'}</p>
+        <p><strong>โรงแรม:</strong> ${bookingData.hotelName || 'โรงแรมวรุณภัฏ'}</p>
+        <p><strong>ประเภทห้อง:</strong> ${bookingData.roomTypeName || 'N/A'}</p>
+        ${bookingData.bedType ? `<p><strong>ประเภทเตียง:</strong> ${bookingData.bedType}</p>` : ''}
         <p><strong>วันที่เข้าพักใหม่:</strong> ${bookingData.checkInDate || 'N/A'}</p>
         <p><strong>วันที่ออกใหม่:</strong> ${bookingData.checkOutDate || 'N/A'}</p>
+        ${bookingData.nights ? `<p><strong>จำนวนคืน:</strong> ${bookingData.nights} คืน</p>` : ''}
+        <p><strong>จำนวนผู้เข้าพัก:</strong> ${bookingData.guests || 'N/A'} ท่าน</p>
+        ${bookingData.pricePerNight ? `<p><strong>ราคาต่อคืน:</strong> ฿${bookingData.pricePerNight?.toLocaleString()}</p>` : ''}
         <p><strong>ราคารวมใหม่:</strong> ฿${bookingData.totalPrice?.toLocaleString() || 'N/A'}</p>
       </div>
       
@@ -140,8 +151,15 @@ const sendBookingCancellationEmail = async (userEmail, userName, bookingData) =>
         <h3>📋 รายละเอียดการจองที่ยกเลิก</h3>
         <p><strong>รหัสการจอง:</strong> ${bookingData.bookingReference || 'N/A'}</p>
         <p><strong>โรงแรม:</strong> ${bookingData.hotelName || 'โรงแรมวรุณภัฏ'}</p>
+        <p><strong>ประเภทห้อง:</strong> ${bookingData.roomTypeName || 'N/A'}</p>
+        ${bookingData.bedType ? `<p><strong>ประเภทเตียง:</strong> ${bookingData.bedType}</p>` : ''}
         <p><strong>วันที่เข้าพัก:</strong> ${bookingData.checkInDate || 'N/A'}</p>
         <p><strong>วันที่ออก:</strong> ${bookingData.checkOutDate || 'N/A'}</p>
+        ${bookingData.nights ? `<p><strong>จำนวนคืน:</strong> ${bookingData.nights} คืน</p>` : ''}
+        <p><strong>จำนวนผู้เข้าพัก:</strong> ${bookingData.guests || 'N/A'} ท่าน</p>
+        ${bookingData.pricePerNight ? `<p><strong>ราคาต่อคืน:</strong> ฿${bookingData.pricePerNight?.toLocaleString()}</p>` : ''}
+        <p><strong>ราคารวม:</strong> ฿${bookingData.totalPrice?.toLocaleString() || 'N/A'}</p>
+        ${bookingData.specialRequests ? `<p><strong>ความต้องการพิเศษ:</strong> ${bookingData.specialRequests}</p>` : ''}
       </div>
       
       <p>📞 หากมีข้อสงสัย กรุณาติดต่อ: 043-721-040</p>

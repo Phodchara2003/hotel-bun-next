@@ -111,7 +111,7 @@ export const AuthProvider = ({ children }) => {
       
       setUser(response.user);
       console.log('Login successful, user set:', response.user);
-      toast.success('เข้าสู่ระบบสำเร็จ!');
+      toast.success(`ยินดีต้อนรับ ${response.user.first_name || response.user.email}!`);
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);
@@ -178,7 +178,7 @@ export const AuthProvider = ({ children }) => {
     // Clear user state immediately
     setUser(null);
     
-    toast.success('ออกจากระบบเรียบร้อย');
+    toast.success('ออกจากระบบสำเร็จ');
   };
 
   const value = {

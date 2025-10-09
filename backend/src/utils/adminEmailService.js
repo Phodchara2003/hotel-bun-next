@@ -3,7 +3,7 @@ import { AdminEmailTemplates } from './adminEmailTemplates.js';
 
 // กำหนดค่า SMTP สำหรับ Gmail
 const createTransporter = () => {
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     service: 'gmail',
     auth: {
       user: process.env.GMAIL_USER,

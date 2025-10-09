@@ -483,7 +483,7 @@ export const AuthProvider = ({ children }) => {
     clearAuthData();
     setUser(null);
     console.log('✅ User logged out successfully');
-    toast.success('ออกจากระบบเรียบร้อย');
+    toast.success('ออกจากระบบสำเร็จ');
   };
 
   const updateUser = (userData) => {

@@ -39,7 +39,7 @@ export const translations = {
     clickHere: "คลิกที่นี่",
     loginSuccess: "เข้าสู่ระบบสำเร็จ!",
     registerSuccess: "สมัครสมาชิกสำเร็จ!",
-    logoutSuccess: "ออกจากระบบเรียบร้อย",
+    logoutSuccess: "ออกจากระบบสำเร็จ",
     loginError: "เข้าสู่ระบบไม่สำเร็จ",
     registerError: "เกิดข้อผิดพลาดในการสมัครสมาชิก"
   },

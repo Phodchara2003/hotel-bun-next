@@ -357,7 +357,19 @@ export const hotelAPI = {
   searchRooms: async (searchParams) => {
     try {
       console.log('🔍 Searching rooms with params:', searchParams);
-      const response = await api.get('/rooms/search', { params: searchParams });
+      // เพิ่ม cache busting สำหรับ search
+      const cacheParams = {
+        ...searchParams,
+        _t: Date.now(),
+        _r: Math.floor(Math.random() * 100000)
+      };
+      const response = await api.get('/rooms/search', { 
+        params: cacheParams,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
       console.log('✅ Room search results:', response.data);
       // Return backend response directly
       return response.data;

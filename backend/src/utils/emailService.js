@@ -440,6 +440,12 @@ const sendBookingConfirmationEmail = async (userEmail, bookingData, userName = '
               </div>
               
               <div class="booking-details">
+                ${bookingData.roomNumber ? `
+                <div class="detail-item">
+                  <div class="detail-label">🚪 หมายเลขห้อง</div>
+                  <div class="detail-value">ห้อง ${bookingData.roomNumber}${bookingData.floor ? ` ชั้น ${bookingData.floor}` : ''}</div>
+                </div>
+                ` : ''}
                 <div class="detail-item">
                   <div class="detail-label">🏨 โรงแรม</div>
                   <div class="detail-value">${bookingData.hotelName}</div>
@@ -448,6 +454,12 @@ const sendBookingConfirmationEmail = async (userEmail, bookingData, userName = '
                   <div class="detail-label">🛏️ ประเภทห้อง</div>
                   <div class="detail-value">${bookingData.roomTypeName}</div>
                 </div>
+                ${bookingData.bedType ? `
+                <div class="detail-item">
+                  <div class="detail-label">🛏️ ประเภทเตียง</div>
+                  <div class="detail-value">${bookingData.bedType}</div>
+                </div>
+                ` : ''}
                 <div class="detail-item">
                   <div class="detail-label">📅 วันที่เข้าพัก</div>
                   <div class="detail-value">${new Date(bookingData.checkInDate).toLocaleDateString('th-TH')}</div>
@@ -456,10 +468,22 @@ const sendBookingConfirmationEmail = async (userEmail, bookingData, userName = '
                   <div class="detail-label">📅 วันที่ออก</div>
                   <div class="detail-value">${new Date(bookingData.checkOutDate).toLocaleDateString('th-TH')}</div>
                 </div>
+                ${bookingData.nights ? `
+                <div class="detail-item">
+                  <div class="detail-label">🌙 จำนวนคืน</div>
+                  <div class="detail-value">${bookingData.nights} คืน</div>
+                </div>
+                ` : ''}
                 <div class="detail-item">
                   <div class="detail-label">👥 จำนวนผู้เข้าพัก</div>
-                  <div class="detail-value">${bookingData.guests} คน</div>
+                  <div class="detail-value">${bookingData.guests} คน${bookingData.maxGuests ? ` (สูงสุด ${bookingData.maxGuests} คน)` : ''}</div>
                 </div>
+                ${bookingData.pricePerNight ? `
+                <div class="detail-item">
+                  <div class="detail-label">💰 ราคาต่อคืน</div>
+                  <div class="detail-value">${bookingData.pricePerNight?.toLocaleString('th-TH')} บาท</div>
+                </div>
+                ` : ''}
                 <div class="detail-item">
                   <div class="detail-label">💰 ราคารวม</div>
                   <div class="detail-value">${bookingData.totalPrice?.toLocaleString('th-TH')} บาท</div>

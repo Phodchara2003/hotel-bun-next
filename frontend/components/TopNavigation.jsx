@@ -20,7 +20,6 @@ export default function TopNavigation() {
   const handleLogout = async () => {
     try {
       await logout();
-      toast.success('ออกจากระบบสำเร็จ');
       setIsMenuOpen(false);
     } catch (error) {
       toast.error('เกิดข้อผิดพลาดในการออกจากระบบ');

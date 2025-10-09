@@ -39,6 +39,15 @@ export default function IndividualRoomsPage() {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  // Room status definitions
+  const roomStatuses = [
+    { value: 'available', label: 'ว่าง' },
+    { value: 'occupied', label: 'มีผู้เข้าพัก' },
+    { value: 'reserved', label: 'จองแล้ว' },
+    { value: 'maintenance', label: 'ซ่อมบำรุง' },
+    { value: 'cleaning', label: 'ทำความสะอาด' }
+  ];
+
   useEffect(() => {
     if (!authLoading && (!isAuthenticated || !isStaffOrAdmin(user))) {
       router.push('/login');
@@ -84,13 +93,15 @@ export default function IndividualRoomsPage() {
             guest_name: room.guest_name || '',
             booking_id: room.booking_id || '',
             room_type_name: room.room_type_name || 'N/A',
+            room_type_id: room.room_type_id || null, // เพิ่ม room_type_id
             check_in_date: room.check_in_date || null,
             check_out_date: room.check_out_date || null,
             booking_status: room.booking_status || null
           }));
           
           setRooms(transformedRooms);
-          toast.success(`โหลดข้อมูลห้องพักสำเร็จ ${transformedRooms.length} ห้อง`);
+          // ลบ toast.success เพื่อไม่ให้แจ้งเตือนซ้ำ
+          console.log(`✅ Loaded ${transformedRooms.length} rooms successfully`);
         } else {
           console.warn('⚠️ API returned no data');
           setRooms([]);
@@ -124,14 +135,21 @@ export default function IndividualRoomsPage() {
   };
 
   const handleEditRoom = (room) => {
+    console.log('🔧 Edit Room Data:', room); // Debug log
     setModalType('edit');
     setSelectedRoom(room);
     setFormData({
       room_number: room.room_number || '',
       floor: room.floor || '',
       status: room.status || 'available',
-      room_type_id: room.room_type_id || ''
+      room_type_id: room.room_type_id || '' // ใช้ room_type_id จากข้อมูลห้อง
     });
+    console.log('📝 Form Data Set:', {
+      room_number: room.room_number || '',
+      floor: room.floor || '',
+      status: room.status || 'available',
+      room_type_id: room.room_type_id || ''
+    }); // Debug log
     setShowModal(true);
   };
 
@@ -160,6 +178,7 @@ export default function IndividualRoomsPage() {
           ...formData,
           floor: parseInt(formData.floor),
           room_type_id: parseInt(formData.room_type_id),
+          bed_type: parseInt(formData.room_type_id) === 8 ? 'single' : 'double', // แปลง room_type_id เป็น bed_type
           hotel_id: 1
         }
       });
@@ -174,6 +193,7 @@ export default function IndividualRoomsPage() {
           ...formData,
           floor: parseInt(formData.floor),
           room_type_id: parseInt(formData.room_type_id),
+          bed_type: parseInt(formData.room_type_id) === 8 ? 'single' : 'double', // แปลง room_type_id เป็น bed_type
           hotel_id: 2 // Use existing hotel_id from database
         })
       });
@@ -229,14 +249,6 @@ export default function IndividualRoomsPage() {
       toast.error('เกิดข้อผิดพลาดในการลบห้องพัก');
     }
   };
-
-  const roomStatuses = [
-    { value: 'available', label: 'ว่าง', color: 'green' },
-    { value: 'occupied', label: 'มีผู้เข้าพัก', color: 'red' },
-    { value: 'reserved', label: 'จองแล้ว', color: 'orange' },
-    { value: 'maintenance', label: 'ซ่อมบำรุง', color: 'yellow' },
-    { value: 'cleaning', label: 'ทำความสะอาด', color: 'blue' }
-  ];
 
   // Get unique room types from rooms data
   const roomTypes = [
@@ -566,7 +578,7 @@ export default function IndividualRoomsPage() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">
-                  {modalType === 'add' ? 'เพิ่มห้องพักใหม่' : 'แก้ไขห้องพัก'}
+                  {modalType === 'add' ? 'เพิ่มห้องพักใหม่' : `แก้ไขห้องพัก ${selectedRoom?.room_number}`}
                 </h2>
                 <button
                   onClick={() => setShowModal(false)}
@@ -575,6 +587,18 @@ export default function IndividualRoomsPage() {
                   <X className="h-6 w-6" />
                 </button>
               </div>
+
+              {/* แสดงข้อมูลปัจจุบันสำหรับการแก้ไข */}
+              {modalType === 'edit' && selectedRoom && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <h3 className="text-sm font-semibold text-blue-800 mb-2">🔍 ข้อมูลปัจจุบัน</h3>
+                  <div className="text-sm text-blue-700 space-y-1">
+                    <p><span className="font-medium">ประเภทเตียง:</span> {selectedRoom.bed_type === 'single' ? '🛏️ เตียงเดี่ยว' : selectedRoom.bed_type === 'double' ? '🛏️🛏️ เตียงคู่' : selectedRoom.bed_type}</p>
+                    <p><span className="font-medium">ประเภทห้อง:</span> {selectedRoom.room_type_name}</p>
+                    <p><span className="font-medium">สถานะ:</span> {roomStatuses.find(s => s.value === selectedRoom.status)?.label || selectedRoom.status}</p>
+                  </div>
+                </div>
+              )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>

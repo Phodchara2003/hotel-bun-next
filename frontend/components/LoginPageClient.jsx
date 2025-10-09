@@ -69,7 +69,6 @@ export default function LoginPageClient() {
       
       if (result.success) {
         if (result.user) {
-          toast.success(`ยินดีต้อนรับ ${result.user.first_name || result.user.username || 'คุณ'}!`);
           // Redirect based on user role
           const userRole = result.user.role?.toLowerCase();
           if (userRole === 'admin' || userRole === 'staff' || userRole === 'manager') {
@@ -78,7 +77,6 @@ export default function LoginPageClient() {
             router.push('/');
           }
         } else {
-          toast.success('เข้าสู่ระบบสำเร็จ!');
           router.push('/');
         }
       } else {

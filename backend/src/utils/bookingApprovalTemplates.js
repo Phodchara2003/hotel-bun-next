@@ -99,6 +99,12 @@ export const BookingApprovalTemplates = {
               <span class="info-label">รหัสการจอง:</span>
               <span class="info-value">${bookingData.bookingReference}</span>
             </div>
+            ${bookingData.roomNumber ? `
+            <div class="info-row">
+              <span class="info-label">หมายเลขห้อง:</span>
+              <span class="info-value">ห้อง ${bookingData.roomNumber}${bookingData.floor ? ` ชั้น ${bookingData.floor}` : ''}</span>
+            </div>
+            ` : ''}
             <div class="info-row">
               <span class="info-label">โรงแรม:</span>
               <span class="info-value">${bookingData.hotelName}</span>
@@ -107,6 +113,12 @@ export const BookingApprovalTemplates = {
               <span class="info-label">ประเภทห้อง:</span>
               <span class="info-value">${bookingData.roomTypeName}</span>
             </div>
+            ${bookingData.bedType ? `
+            <div class="info-row">
+              <span class="info-label">ประเภทเตียง:</span>
+              <span class="info-value">${bookingData.bedType}</span>
+            </div>
+            ` : ''}
             <div class="info-row">
               <span class="info-label">วันเข้าพัก:</span>
               <span class="info-value">${new Date(bookingData.checkInDate).toLocaleDateString('th-TH')}</span>
@@ -115,14 +127,32 @@ export const BookingApprovalTemplates = {
               <span class="info-label">วันออก:</span>
               <span class="info-value">${new Date(bookingData.checkOutDate).toLocaleDateString('th-TH')}</span>
             </div>
+            ${bookingData.nights ? `
+            <div class="info-row">
+              <span class="info-label">จำนวนคืน:</span>
+              <span class="info-value">${bookingData.nights} คืน</span>
+            </div>
+            ` : ''}
             <div class="info-row">
               <span class="info-label">จำนวนผู้เข้าพัก:</span>
-              <span class="info-value">${bookingData.guests} คน</span>
+              <span class="info-value">${bookingData.guests} คน${bookingData.maxGuests ? ` (สูงสุด ${bookingData.maxGuests} คน)` : ''}</span>
             </div>
+            ${bookingData.pricePerNight ? `
+            <div class="info-row">
+              <span class="info-label">ราคาต่อคืน:</span>
+              <span class="info-value">${bookingData.pricePerNight?.toLocaleString()} บาท</span>
+            </div>
+            ` : ''}
             <div class="info-row">
               <span class="info-label">ราคารวม:</span>
               <span class="info-value" style="font-weight: bold; font-size: 18px;">${bookingData.totalPrice?.toLocaleString()} บาท</span>
             </div>
+            ${bookingData.specialRequests ? `
+            <div class="info-row">
+              <span class="info-label">ความต้องการพิเศษ:</span>
+              <span class="info-value">${bookingData.specialRequests}</span>
+            </div>
+            ` : ''}
             <div class="info-row">
               <span class="info-label">สถานะ:</span>
               <span class="info-value" style="color: #10b981; font-weight: bold;">อนุมัติแล้ว ✅</span>
@@ -268,6 +298,12 @@ export const BookingApprovalTemplates = {
               <span class="info-label">รหัสการจอง:</span>
               <span class="info-value">${bookingData.bookingReference}</span>
             </div>
+            ${bookingData.roomNumber ? `
+            <div class="info-row">
+              <span class="info-label">หมายเลขห้อง:</span>
+              <span class="info-value">ห้อง ${bookingData.roomNumber}${bookingData.floor ? ` ชั้น ${bookingData.floor}` : ''}</span>
+            </div>
+            ` : ''}
             <div class="info-row">
               <span class="info-label">โรงแรม:</span>
               <span class="info-value">${bookingData.hotelName}</span>
@@ -405,6 +441,7 @@ export const BookingApprovalTemplates = {
           <div class="request-info">
             <h3>📋 การจองของคุณ</h3>
             <p><strong>รหัสการจอง:</strong> ${bookingData.bookingReference}</p>
+            ${bookingData.roomNumber ? `<p><strong>หมายเลขห้อง:</strong> ห้อง ${bookingData.roomNumber}${bookingData.floor ? ` ชั้น ${bookingData.floor}` : ''}</p>` : ''}
             <p><strong>โรงแรม:</strong> ${bookingData.hotelName}</p>
             <p><strong>วันเข้าพัก:</strong> ${new Date(bookingData.checkInDate).toLocaleDateString('th-TH')}</p>
           </div>

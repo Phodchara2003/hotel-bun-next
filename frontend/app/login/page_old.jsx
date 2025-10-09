@@ -70,7 +70,6 @@ export default function LoginPage() {
       );
       
       if (result.success) {
-        toast.success('เข้าสู่ระบบสำเร็จ!');
         // Redirect based on user role
         if (result.user?.role === 'manager') {
           router.push('/manager');

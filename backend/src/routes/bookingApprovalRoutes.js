@@ -103,7 +103,10 @@ export const bookingApprovalRoutes = new Elysia({ prefix: '/api/bookings' })
           u.first_name,
           u.last_name,
           h.name as hotel_name,
-          rt.name as room_type_name
+          rt.name as room_type_name,
+          rt.bed_type,
+          rt.price_per_night,
+          rt.max_guests
         FROM bookings b
         JOIN users u ON b.user_id = u.id
         LEFT JOIN room_types rt ON b.room_type_id = rt.id
@@ -131,15 +134,24 @@ export const bookingApprovalRoutes = new Elysia({ prefix: '/api/bookings' })
       `;
 
       // เตรียมข้อมูลสำหรับส่งอีเมล
+      const checkInDate = new Date(bookingData.check_in_date);
+      const checkOutDate = new Date(bookingData.check_out_date);
+      const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
+      
       const emailData = {
         bookingId: bookingData.id,
         bookingReference: bookingData.booking_reference,
         hotelName: bookingData.hotel_name,
         roomTypeName: bookingData.room_type_name,
+        bedType: bookingData.bed_type,
+        pricePerNight: bookingData.price_per_night,
+        nights: nights,
+        maxGuests: bookingData.max_guests,
         checkInDate: bookingData.check_in_date,
         checkOutDate: bookingData.check_out_date,
         guests: bookingData.guests,
-        totalPrice: parseFloat(bookingData.total_price)
+        totalPrice: parseFloat(bookingData.total_price),
+        specialRequests: bookingData.special_requests
       };
 
       const customerName = `${bookingData.first_name || ''} ${bookingData.last_name || ''}`.trim();

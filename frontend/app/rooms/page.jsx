@@ -24,9 +24,21 @@ function RoomsContent() {
     fetchRooms();
   }, [searchParams]);
 
-  const fetchRooms = async () => {
+  const fetchRooms = async (forceRefresh = false) => {
     try {
       setIsLoading(true);
+      
+      if (forceRefresh) {
+        console.log('🔄 FORCE REFRESH: Clearing all caches...');
+        // Clear browser cache for this domain
+        if ('caches' in window) {
+          const cacheNames = await caches.keys();
+          await Promise.all(
+            cacheNames.map(cacheName => caches.delete(cacheName))
+          );
+        }
+      }
+      
       console.log('🚀 fetchRooms started');
       console.log('🔍 searchCriteria:', searchCriteria);
       
@@ -198,7 +210,7 @@ function RoomsContent() {
                     <div>
                       <div className="text-sm text-slate-500 uppercase tracking-wide mb-1">BED</div>
                       <div className="text-xl font-light text-slate-800 italic">
-                        1 {room.bed_type} 
+                        1 {room.bed_type === 'single' ? 'เตียงเดี่ยว' : room.bed_type === 'double' ? 'เตียงคู่' : room.bed_type} 
                       </div>
                     </div>
                   </div>
