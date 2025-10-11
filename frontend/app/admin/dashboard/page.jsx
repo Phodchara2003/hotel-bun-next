@@ -10,6 +10,17 @@ export default function AdminDashboard() {
   const [recentBookings, setRecentBookings] = useState([]);
   const [bookingsLoading, setBookingsLoading] = useState(true);
   
+  // Function to get role display name in Thai
+  const getRoleDisplayName = (role) => {
+    const roleNames = {
+      'admin': 'ผู้ดูแลระบบ',
+      'manager': 'ผู้บริหาร',
+      'staff': 'พนักงาน',
+      'guest': 'ผู้เข้าพัก'
+    };
+    return roleNames[role] || role;
+  };
+  
   // Calendar states
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [dateBookings, setDateBookings] = useState([]);
@@ -645,6 +656,11 @@ export default function AdminDashboard() {
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900">แดชบอร์ดแอดมิน</h1>
                   <p className="text-gray-600 mt-1">ภาพรวมระบบจัดการโรงแรม</p>
+                  {user && (
+                    <p className="text-sm text-blue-600 mt-2">
+                      ยินดีต้อนรับ, {user.first_name} {user.last_name} ({getRoleDisplayName(user.role)})
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center space-x-4">
                   {/* Notification Bell */}
@@ -1467,77 +1483,6 @@ export default function AdminDashboard() {
                 ไม่มีการจองล่าสุด
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Customer Reviews Section */}
-        <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-semibold text-gray-900">รีวิวลูกค้าล่าสุด</h3>
-            <button className="text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors">ดูทั้งหมด</button>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Sample Reviews */}
-            {[
-              {
-                id: 1,
-                name: 'อัญชลี วงศ์ประเสริฐ',
-                initials: 'อว',
-                rating: 5,
-                date: '2 วันที่แล้ว',
-                review: 'บริการดีมาก ห้องพักสะอาด พนักงานดูแลดี อาหารอร่อย จะกลับมาพักอีกแน่นอน แนะนำให้เพื่อนๆ'
-              },
-              {
-                id: 2,
-                name: 'วิชาย ชัยสุข',
-                initials: 'วช',
-                rating: 4,
-                date: '5 วันที่แล้ว',
-                review: 'โรงแรมสวยมาก ทำเลดี ใกล้แหล่งท่องเที่ยว ห้องพักกว้างขวาง แต่อาหารเช้าอาจจะปรับปรุงได้อีก'
-              },
-              {
-                id: 3,
-                name: 'สุภาพร เกตุแก้ว',
-                initials: 'สก',
-                rating: 5,
-                date: '1 สัปดาห์ที่แล้ว',
-                review: 'ประทับใจมากค่ะ พนักงานใส่ใจดูแลดี สระว่ายน้ำสวย วิวดี คุ้มค่ากับราคาเลยค่ะ'
-              }
-            ].map((review) => (
-              <div key={review.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                    <span className="text-blue-600 font-semibold">
-                      {review.initials}
-                    </span>
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900">{review.name}</h4>
-                    <div className="flex items-center gap-1 mt-1">
-                      {[...Array(5)].map((_, i) => (
-                        <svg
-                          key={i}
-                          className={`w-4 h-4 ${
-                            i < review.rating ? 'text-yellow-400' : 'text-gray-300'
-                          }`}
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <p className="text-gray-700 text-sm mb-3 leading-relaxed">
-                  {review.review}
-                </p>
-                <p className="text-gray-500 text-xs">
-                  {review.date}
-                </p>
-              </div>
-            ))}
           </div>
         </div>
           </div>

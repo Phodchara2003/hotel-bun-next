@@ -611,9 +611,10 @@ export const AuthProvider = ({ children }) => {
     isGuest: () => user?.role === 'guest',
     
     // Permission checking functions
-    canManageUsers: () => ['admin', 'manager'].includes(user?.role), // Allow both admin and manager to access user management
+    canManageUsers: () => user?.role === 'admin', // Only admin can manage users
     canViewReports: () => ['admin', 'manager'].includes(user?.role),
     canManageRooms: () => ['admin', 'staff'].includes(user?.role),
+    canManageSettings: () => user?.role === 'admin', // Only admin can manage settings
     canViewDashboard: () => ['admin', 'manager', 'staff'].includes(user?.role),
     hasReadOnlyAccess: () => user?.role === 'manager'
   };

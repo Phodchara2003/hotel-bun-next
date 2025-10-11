@@ -100,42 +100,21 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }) {
     }
   ];
 
-  // Manager Menu Items
+  // Manager Menu Items (ใช้ admin routes เดียวกัน)
   const managerMenuItems = [
     {
       key: 'dashboard',
       label: 'แดชบอร์ด',
       icon: BarChart3,
-      href: '/manager/dashboard',
+      href: '/admin/dashboard',
       color: 'text-emerald-400'
-    },
-    {
-      key: 'rooms',
-      label: 'จัดการห้องพัก',
-      icon: Bed,
-      href: '/manager/rooms',
-      color: 'text-amber-400'
-    },
-    {
-      key: 'bookings',
-      label: 'จัดการการจอง',
-      icon: Calendar,
-      href: '/manager/bookings',
-      color: 'text-blue-400'
     },
     {
       key: 'reports',
       label: 'รายงาน',
       icon: FileText,
-      href: '/manager/reports',
+      href: '/admin/reports',
       color: 'text-green-400'
-    },
-    {
-      key: 'staff',
-      label: 'จัดการพนักงาน',
-      icon: Users,
-      href: '/manager/staff',
-      color: 'text-purple-400'
     }
   ];
 

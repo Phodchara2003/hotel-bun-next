@@ -22,7 +22,7 @@ import {
 
 export default function AdminSettingsPage() {
   const router = useRouter();
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading, canManageSettings } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showQRPreview, setShowQRPreview] = useState(false);
@@ -43,9 +43,9 @@ export default function AdminSettingsPage() {
   // Check authentication
   useEffect(() => {
     if (!authLoading) {
-      if (!isAuthenticated || !user || user.role !== 'admin') {
-        toast.error('คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
-        router.push('/admin/login');
+      if (!isAuthenticated || !canManageSettings()) {
+        toast.error('คุณไม่มีสิทธิ์เข้าถึงหน้านี้ (เฉพาะ Admin เท่านั้น)');
+        router.push('/admin/dashboard');
         return;
       }
       fetchPaymentSettings();

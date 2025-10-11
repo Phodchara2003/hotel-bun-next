@@ -40,13 +40,10 @@ export default function TopNavigation() {
     { name: 'ข้อมูลแขก', href: '/staff/guests', icon: Users },
   ];
 
-  // Manager Navigation Items
+  // Manager Navigation Items (ใช้ admin routes เดียวกัน)
   const managerNavigation = [
-    { name: 'แดชบอร์ด', href: '/manager/dashboard', icon: BarChart3 },
-    { name: 'จัดการห้องพัก', href: '/manager/rooms', icon: Bed },
-    { name: 'จัดการการจอง', href: '/manager/bookings', icon: Calendar },
-    { name: 'รายงาน', href: '/manager/reports', icon: FileText },
-    { name: 'จัดการพนักงาน', href: '/manager/staff', icon: Users },
+    { name: 'แดชบอร์ด', href: '/admin/dashboard', icon: BarChart3 },
+    { name: 'รายงาน', href: '/admin/reports', icon: FileText },
   ];
 
   // Admin Navigation Items

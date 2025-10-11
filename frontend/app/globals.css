@@ -26,6 +26,86 @@
   margin: 0;
 }
 
+/* Prevent unwanted text cursor and selection */
+*,
+*::before,
+*::after {
+  cursor: default !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+/* Only allow text cursor on specific elements */
+input, 
+textarea, 
+[contenteditable="true"],
+.text-input,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="tel"],
+input[type="url"],
+input[type="number"] {
+  cursor: text !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+}
+
+/* Buttons and interactive elements should have pointer cursor */
+button,
+.btn,
+a,
+[role="button"],
+select,
+option,
+.cursor-pointer {
+  cursor: pointer !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+/* Prevent text selection on ALL UI elements */
+body,
+html,
+div,
+span,
+h1, h2, h3, h4, h5, h6,
+p,
+img,
+svg,
+.logo,
+.navigation,
+nav,
+header,
+main,
+section,
+article,
+aside,
+footer {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  cursor: default !important;
+}
+
+/* Only specific text content that should be selectable */
+.selectable-text,
+.content-text {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  cursor: text !important;
+}
+
 html,
 body {
   max-width: 100vw;
@@ -34,6 +114,23 @@ body {
   font-family: var(--font-noto-sans-thai);
   background-color: #ffffff;
   color: #1f2937;
+  cursor: default !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+/* Force disable text cursor everywhere */
+* {
+  caret-color: transparent !important;
+}
+
+/* Re-enable caret only for inputs */
+input, 
+textarea, 
+[contenteditable="true"] {
+  caret-color: auto !important;
 }
 
 /* Remove problematic background styles and force light theme */

@@ -413,29 +413,19 @@ function HomePageContent() {
   }
 
   return (
-    <div className="min-h-screen pt-16">
-      {/* Refresh Button - Fixed position */}
-      <div className="fixed top-20 right-4 z-50">
-        <button
-          onClick={() => fetchData(true)}
-          disabled={isLoading}
-          className="bg-amber-600 hover:bg-amber-700 disabled:bg-amber-400 text-white px-4 py-2 rounded-full shadow-lg transition-all duration-300 flex items-center gap-2 text-sm font-medium"
-          title="รีเฟรชข้อมูลห้องพัก"
-        >
-          <svg 
-            className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          {isLoading ? 'กำลังโหลด...' : 'รีเฟรช'}
-        </button>
+    <div className="min-h-screen pt-16 select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none', cursor: 'default', caretColor: 'transparent' }}>
+      {/* Logo in Top Left Corner - aligned with navigation bar */}
+      <div className="fixed top-2 left-4 z-50 flex items-center h-12 select-none" style={{ userSelect: 'none', cursor: 'default' }}>
+        <img 
+          src="/assets/ตราสัญลักษณ์มหาวิทยาลัยราชภัฏมหาสารคาม.png" 
+          alt="Logo มหาวิทยาลัยราชภัฏมหาสารคาม" 
+          className="w-12 h-12 object-contain drop-shadow-lg hover:scale-105 transition-transform duration-300 select-none pointer-events-none"
+          style={{ userSelect: 'none', cursor: 'default' }}
+        />
       </div>
 
       {/* Hero Section - แบบ Gregori Hotel */}
-      <section className="relative h-screen">
+      <section className="relative h-screen select-none" style={{ userSelect: 'none', cursor: 'default' }}>
         {/* Background Image */}
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
@@ -449,9 +439,9 @@ function HomePageContent() {
 
 
         {/* Hero Content with Booking Form */}
-        <div className="relative z-10 flex flex-col items-center justify-center h-full text-center text-white px-6 pt-8">
+        <div className="relative z-10 flex flex-col items-center justify-center h-full text-center text-white px-6 pt-8 select-none" style={{ userSelect: 'none', cursor: 'default', caretColor: 'transparent' }}>
           <FadeInUp delay={300}>
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-light mb-8 leading-tight font-thai-header">
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-light mb-8 leading-tight font-thai-header select-none" style={{ userSelect: 'none', cursor: 'default' }}>
               ยินดีต้อนรับสู่<br />
               <span className="font-medium text-amber-300">โรงแรมวรุณภัฏ</span>
             </h1>
@@ -460,8 +450,8 @@ function HomePageContent() {
           {/* Booking Form - Moved up and integrated with hero content */}
           <div className="w-full max-w-7xl px-4 lg:px-8 mt-6">
           <FadeInUp delay={800}>
-            <div className="backdrop-blur-lg rounded-3xl p-8 lg:p-12 border-2 border-white/20 relative z-30 shadow-2xl" style={{ background: 'linear-gradient(135deg, rgba(18, 43, 41, 0.95) 0%, rgba(15, 38, 35, 0.98) 50%, rgba(13, 31, 29, 0.95) 100%)' }}>
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 text-white" style={{ position: 'relative', zIndex: 100 }}>
+            <div className="backdrop-blur-lg rounded-3xl p-8 lg:p-12 border-2 border-white/20 relative z-30 shadow-2xl select-none" style={{ background: 'linear-gradient(135deg, rgba(18, 43, 41, 0.95) 0%, rgba(15, 38, 35, 0.98) 50%, rgba(13, 31, 29, 0.95) 100%)', userSelect: 'none', cursor: 'default' }}>
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 text-white" style={{ position: 'relative', zIndex: 100, userSelect: 'none', cursor: 'default' }}>
                 <div style={{ position: 'relative', zIndex: 101 }}>
                   <ModernDatePicker
                     selectedDate={checkInDate}
@@ -586,18 +576,11 @@ function HomePageContent() {
       {/* Room Types Section */}
       <section className="py-20 bg-slate-100">
         <div className="container mx-auto px-6">
-          {/* Data Update Indicator */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-4 py-2 rounded-full text-sm">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              ข้อมูลห้องพักล่าสุด (อัปเดต: {new Date().toLocaleTimeString('th-TH')})
-            </div>
-          </div>
           
           {roomTypes.slice(0, 3).map((roomType, index) => (
             <div 
               key={roomType.id} 
-              className="relative min-h-screen"
+              className="relative min-h-screen select-none"
               style={{ backgroundColor: index % 2 === 0 ? '#082220' : '#0a2b28' }}
             >
               <div className="grid grid-cols-1 lg:grid-cols-2 min-h-screen">
@@ -607,14 +590,14 @@ function HomePageContent() {
                     <img
                       src={getRoomImageUrl(roomType.image_url) || getRoomPlaceholder(roomType.bed_type) || getPlaceholderImageUrl()}
                       alt={roomType.name}
-                      className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+                      className="w-full h-full object-cover transition-transform duration-500 hover:scale-105 select-none pointer-events-none"
                       onError={(e) => {
                         // Fallback ตามประเภทห้อง
                         e.target.src = getRoomPlaceholder(roomType.bed_type);
                       }}
                     />
                     {/* Overlay สำหรับข้อมูลเพิ่มเติม */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 flex items-end p-8">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 flex items-end p-8 select-none">
                       <div className="text-white">
                         <p className="text-sm font-thai">ดูรูปเพิ่มเติม</p>
                         <p className="text-xs text-amber-200 font-thai">
@@ -637,9 +620,6 @@ function HomePageContent() {
                       <div className="flex items-center text-amber-200 text-sm mb-8 space-x-4 font-thai">
                         <span>👥 {roomType.max_occupancy} ผู้เข้าพัก</span>
                         <span>🛏️ {roomType.bed_type === 'single' ? 'เตียงเดี่ยว (Single)' : roomType.bed_type === 'double' ? 'เตียงคู่ (Double)' : roomType.bed_type || '1 King Size Bed'}</span>
-                        <span className="bg-amber-500/20 px-2 py-1 rounded text-xs">
-                          ID: {roomType.id}
-                        </span>
                       </div>
                     </FadeInUp>
                     <FadeInUp delay={700}>

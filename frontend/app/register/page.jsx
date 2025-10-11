@@ -82,6 +82,9 @@ export default function RegisterPage() {
       backgroundPosition: 'center',
       backgroundRepeat: 'no-repeat'
     }}>
+      {/* Dark Overlay for better text visibility */}
+      <div className="absolute inset-0 bg-black/40 z-0"></div>
+      
       {/* Animated Background Elements */}
       <div className="absolute inset-0">
         <div className="absolute top-10 left-10 w-72 h-72 bg-white/5 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
@@ -95,13 +98,17 @@ export default function RegisterPage() {
           
           {/* Header Section */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-emerald-600 to-green-600 rounded-2xl mb-6 shadow-lg transform hover:scale-105 transition-all duration-300">
-              <Hotel className="w-8 h-8 text-white" />
+            <div className="inline-flex items-center justify-center w-20 h-20 mb-6 transform hover:scale-105 transition-all duration-300">
+              <img 
+                src="/assets/ตราสัญลักษณ์มหาวิทยาลัยราชภัฏมหาสารคาม.png" 
+                alt="Logo มหาวิทยาลัยราชภัฏมหาสารคาม" 
+                className="w-full h-full object-contain"
+              />
             </div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-emerald-900 to-green-900 bg-clip-text text-transparent mb-3">
+            <h1 className="text-4xl font-bold text-white mb-3 drop-shadow-lg">
               เริ่มต้นกับเรา
             </h1>
-            <p className="text-gray-600 text-lg">
+            <p className="text-gray-200 text-lg drop-shadow-md">
               สร้างบัญชีใหม่เพื่อเข้าสู่โลกของการจองโรงแรม
             </p>
           </div>
@@ -109,7 +116,7 @@ export default function RegisterPage() {
           {/* Register Form */}
           <div className="relative">
             {/* Glass Card Background */}
-            <div className="absolute inset-0 bg-white/70 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/40"></div>
+            <div className="absolute inset-0 bg-white/85 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50"></div>
             
             <div className="relative p-8">
               <form onSubmit={handleSubmit} className="space-y-5">
@@ -321,11 +328,11 @@ export default function RegisterPage() {
 
               {/* Login Link */}
               <div className="text-center">
-                <p className="text-gray-600 text-base">
+                <p className="text-gray-700 text-base font-medium">
                   มีบัญชีอยู่แล้ว?{' '}
                   <Link 
                     href="/login" 
-                    className="font-semibold text-emerald-600 hover:text-green-600 transition-colors duration-200 hover:underline"
+                    className="font-semibold text-emerald-700 hover:text-green-700 transition-colors duration-200 hover:underline"
                   >
                     เข้าสู่ระบบที่นี่
                   </Link>

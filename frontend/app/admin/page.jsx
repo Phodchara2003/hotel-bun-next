@@ -36,6 +36,17 @@ function AdminPageContent() {
   const [checkOutDate, setCheckOutDate] = useState('');
   const [guests, setGuests] = useState(1);
 
+  // Function to get role display name in Thai
+  const getRoleDisplayName = (role) => {
+    const roleNames = {
+      'admin': 'ผู้ดูแลระบบ',
+      'manager': 'ผู้บริหาร',
+      'staff': 'พนักงาน',
+      'guest': 'ผู้เข้าพัก'
+    };
+    return roleNames[role] || role;
+  };
+
   // Check authentication and role
   useEffect(() => {
     if (!loading) {
@@ -148,6 +159,7 @@ function AdminPageContent() {
           <div className="flex items-center space-x-3">
             <Settings className="w-5 h-5" />
             <span className="font-semibold">โหมดแอดมิน - {user?.first_name} {user?.last_name}</span>
+            <span className="ml-2 text-xs bg-white/20 px-2 py-1 rounded">({getRoleDisplayName(user?.role)})</span>
           </div>
           <div className="flex items-center space-x-4">
             <Link 

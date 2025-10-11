@@ -122,6 +122,9 @@ export default function LoginPageClient() {
       backgroundPosition: 'center',
       backgroundRepeat: 'no-repeat'
     }}>
+      {/* Dark Overlay for better text visibility */}
+      <div className="absolute inset-0 bg-black/40 z-0"></div>
+      
       {/* Animated Background Elements */}
       <div className="absolute inset-0">
         <div className="absolute top-10 left-10 w-72 h-72 bg-white/5 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
@@ -135,19 +138,23 @@ export default function LoginPageClient() {
           
           {/* Header Section */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-emerald-600 to-green-600 rounded-2xl mb-6 shadow-lg transform hover:scale-105 transition-all duration-300">
-              <Hotel className="w-8 h-8 text-white" />
+            <div className="inline-flex items-center justify-center w-20 h-20 mb-6 transform hover:scale-105 transition-all duration-300">
+              <img 
+                src="/assets/ตราสัญลักษณ์มหาวิทยาลัยราชภัฏมหาสารคาม.png" 
+                alt="Logo มหาวิทยาลัยราชภัฏมหาสารคาม" 
+                className="w-full h-full object-contain"
+              />
             </div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-emerald-900 to-green-900 bg-clip-text text-transparent mb-3">
+            <h1 className="text-4xl font-bold text-white mb-3 drop-shadow-lg">
               ยินดีต้อนรับกลับ
             </h1>
-            <p className="text-gray-600 text-lg">
+            <p className="text-gray-200 text-lg drop-shadow-md">
               เข้าสู่ระบบเพื่อจองโรงแรมกับเรา
             </p>
           </div>
 
           {/* Login Form Card */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 p-8 transform hover:scale-[1.02] transition-all duration-300">
+          <div className="bg-white/85 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/30 p-8 transform hover:scale-[1.02] transition-all duration-300">
             <form onSubmit={handleSubmit} className="space-y-6">
               
               {/* Email Field */}
@@ -253,11 +260,11 @@ export default function LoginPageClient() {
 
               {/* Sign Up Link */}
               <div className="text-center pt-4">
-                <p className="text-gray-600">
+                <p className="text-gray-700 font-medium">
                   ยังไม่มีบัญชี?{' '}
                   <Link 
                     href="/register" 
-                    className="font-bold text-emerald-600 hover:text-emerald-700 transition-colors hover:underline"
+                    className="font-bold text-emerald-700 hover:text-emerald-800 transition-colors hover:underline"
                   >
                     สมัครสมาชิก
                   </Link>

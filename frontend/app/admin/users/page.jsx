@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { usersAPI } from '../../../lib/api';
-import { isStaffOrAdmin } from '../../../lib/roles';
 import Cookies from 'js-cookie';
 import Link from 'next/link';
 import { 
@@ -23,7 +22,7 @@ import {
 import toast from 'react-hot-toast';
 
 export default function UsersManagementPage() {
-  const { user: currentUser, isAuthenticated } = useAuth();
+  const { user: currentUser, isAuthenticated, canManageUsers } = useAuth();
   const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -36,6 +35,7 @@ export default function UsersManagementPage() {
     newUsersThisMonth: 0,
     activeUsers: 0,
     adminUsers: 0,
+    managerUsers: 0,
     staffUsers: 0,
     guestUsers: 0,
     regularUsers: 0
@@ -70,6 +70,7 @@ export default function UsersManagementPage() {
         // Calculate user statistics
         const totalUsers = processedUsers.length;
         const adminUsers = processedUsers.filter(u => u.role === 'admin' || u.role === 'super_admin').length;
+        const managerUsers = processedUsers.filter(u => u.role === 'manager').length;
         const staffUsers = processedUsers.filter(u => u.role === 'staff').length;
         const guestUsers = processedUsers.filter(u => u.role === 'guest').length;
         const regularUsers = processedUsers.filter(u => u.role === 'user' || !u.role).length;
@@ -85,6 +86,7 @@ export default function UsersManagementPage() {
           newUsersThisMonth,
           activeUsers: totalUsers,
           adminUsers,
+          managerUsers,
           staffUsers,
           guestUsers,
           regularUsers
@@ -102,10 +104,10 @@ export default function UsersManagementPage() {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated && isStaffOrAdmin(currentUser)) {
+    if (isAuthenticated && canManageUsers()) {
       fetchUsers();
     }
-  }, [isAuthenticated, currentUser]); // Remove fetchUsers from dependency array
+  }, [isAuthenticated, canManageUsers]); // Remove fetchUsers from dependency array
 
   // CRUD Functions
   const handleCreateUser = async (userData) => {
@@ -192,6 +194,8 @@ export default function UsersManagementPage() {
       case 'admin':
       case 'super_admin':
         return { text: 'ผู้ดูแลระบบ', color: 'bg-red-100 text-red-800' };
+      case 'manager':
+        return { text: 'ผู้บริหาร', color: 'bg-purple-100 text-purple-800' };
       case 'staff':
         return { text: 'พนักงาน', color: 'bg-blue-100 text-blue-800' };
       case 'guest':
@@ -202,12 +206,12 @@ export default function UsersManagementPage() {
     }
   };
 
-  if (!isAuthenticated || !isStaffOrAdmin(currentUser)) {
+  if (!isAuthenticated || !canManageUsers()) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">ไม่มีสิทธิ์เข้าถึง</h1>
-          <p className="text-gray-600 mb-4">คุณต้องเป็น Admin หรือ Staff เท่านั้น</p>
+          <p className="text-gray-600 mb-4">คุณต้องเป็น Admin เท่านั้น</p>
           <Link href="/login" className="text-blue-600 hover:text-blue-700">
             เข้าสู่ระบบ
           </Link>
@@ -246,22 +250,13 @@ export default function UsersManagementPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <div className="bg-white p-6 rounded-lg shadow">
             <div className="flex items-center">
               <Users className="h-8 w-8 text-blue-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">ผู้ใช้ทั้งหมด</p>
                 <p className="text-2xl font-bold text-gray-900">{userStats.totalUsers}</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex items-center">
-              <Users className="h-8 w-8 text-green-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">ลูกค้า</p>
-                <p className="text-2xl font-bold text-gray-900">{userStats.guestUsers}</p>
               </div>
             </div>
           </div>
@@ -276,10 +271,28 @@ export default function UsersManagementPage() {
           </div>
           <div className="bg-white p-6 rounded-lg shadow">
             <div className="flex items-center">
-              <Activity className="h-8 w-8 text-purple-600" />
+              <Users className="h-8 w-8 text-purple-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">ผู้บริหาร</p>
+                <p className="text-2xl font-bold text-gray-900">{userStats.managerUsers}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="flex items-center">
+              <Activity className="h-8 w-8 text-blue-500" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">พนักงาน</p>
                 <p className="text-2xl font-bold text-gray-900">{userStats.staffUsers}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="flex items-center">
+              <Users className="h-8 w-8 text-green-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">ลูกค้า</p>
+                <p className="text-2xl font-bold text-gray-900">{userStats.guestUsers}</p>
               </div>
             </div>
           </div>
@@ -312,6 +325,7 @@ export default function UsersManagementPage() {
                   <option value="guest">ลูกค้า</option>
                   <option value="user">ผู้ใช้ทั่วไป</option>
                   <option value="staff">พนักงาน</option>
+                  <option value="manager">ผู้บริหาร</option>
                   <option value="admin">ผู้ดูแลระบบ</option>
                   <option value="super_admin">ผู้ดูแลระบบสูงสุด</option>
                 </select>
@@ -326,7 +340,7 @@ export default function UsersManagementPage() {
                 <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                 รีเฟรช
               </button>
-              {isStaffOrAdmin(currentUser) && (
+              {canManageUsers() && (
                 <button 
                   onClick={() => setShowCreateModal(true)}
                   className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center"
@@ -428,7 +442,7 @@ export default function UsersManagementPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex gap-2">
-                            {isStaffOrAdmin(currentUser) && (
+                            {canManageUsers() && (
                               <button
                                 onClick={() => handleEditUser(user)}
                                 className="text-blue-600 hover:text-blue-900 p-1 hover:bg-blue-50 rounded"
@@ -437,7 +451,7 @@ export default function UsersManagementPage() {
                                 <Edit className="h-4 w-4" />
                               </button>
                             )}
-                            {isStaffOrAdmin(currentUser) && (
+                            {canManageUsers() && (
                               <button
                                 onClick={() => handleDeleteUser(user.id, user.name)}
                                 className="text-red-600 hover:text-red-900 p-1 hover:bg-red-50 rounded"
@@ -634,6 +648,7 @@ function UserModal({ isOpen, onClose, user = null, onSave, title }) {
               <option value="guest">ลูกค้า</option>
               <option value="user">ผู้ใช้ทั่วไป</option>
               <option value="staff">พนักงาน</option>
+              <option value="manager">ผู้บริหาร</option>
               <option value="admin">ผู้ดูแลระบบ</option>
             </select>
           </div>
