@@ -3,7 +3,23 @@ import { cors } from '@elysiajs/cors';
 
 // Simple server for testing without dotenv
 const app = new Elysia()
-  .use(cors())
+  .use(cors({
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type', 
+      'Authorization', 
+      'Accept', 
+      'Origin', 
+      'X-Requested-With',
+      'Cache-Control',
+      'Pragma',
+      'Expires',
+      'If-Modified-Since',
+      'If-None-Match'
+    ]
+  }))
   .get('/', () => ({
     message: 'Hotel Booking Backend API',
     status: 'running',

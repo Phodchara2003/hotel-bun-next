@@ -185,7 +185,7 @@ async function connectToDatabase() {
 const setCorsHeaders = (res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cache-Control, Pragma, Expires');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cache-Control, Pragma, Expires, If-Modified-Since, If-None-Match');
 };
 
 // Send JSON response
@@ -7665,6 +7665,154 @@ const server = createServer(async (req, res) => {
                 });
               }
             });
+            break;
+          }
+          
+          // Handle booking cancellation endpoint
+          const cancelMatch = normalizedPathname.match(/^\/api\/bookings\/(\d+)\/cancel$/);
+          if (cancelMatch && req.method === 'PUT') {
+            const bookingId = cancelMatch[1];
+            console.log(`🚫 PUT /api/bookings/${bookingId}/cancel - Cancel booking request`);
+            
+            try {
+              // Get authentication token
+              const authHeader = req.headers.authorization;
+              if (!authHeader || !authHeader.startsWith('Bearer ')) {
+                setCorsHeaders(res);
+                sendJSON(res, 401, {
+                  success: false,
+                  message: 'Authentication required'
+                });
+                return;
+              }
+              
+              const token = authHeader.split(' ')[1];
+              const decoded = jwt.verify(token, process.env.JWT_SECRET);
+              const userId = decoded.id;
+              
+              // Check if booking exists and belongs to user
+              console.log(`🔍 Checking booking ${bookingId} for user ${userId}`);
+              const [bookingRows] = await connection.execute(
+                `SELECT b.*, h.name as hotel_name, rt.name as room_type_name
+                 FROM bookings b
+                 LEFT JOIN room_types rt ON b.room_type_id = rt.id
+                 LEFT JOIN hotels h ON rt.hotel_id = h.id
+                 WHERE b.id = ? AND b.user_id = ?`,
+                [parseInt(bookingId), userId]
+              );
+              
+              if (bookingRows.length === 0) {
+                setCorsHeaders(res);
+                sendJSON(res, 404, {
+                  success: false,
+                  message: 'Booking not found'
+                });
+                return;
+              }
+              
+              const booking = bookingRows[0];
+              
+              if (booking.status === 'cancelled') {
+                setCorsHeaders(res);
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'Booking is already cancelled'
+                });
+                return;
+              }
+              
+              if (booking.status === 'completed') {
+                setCorsHeaders(res);
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'Cannot cancel completed booking'
+                });
+                return;
+              }
+              
+              // Create cancellation request instead of directly cancelling
+              console.log(`� Creating cancellation request for booking ${bookingId}`);
+              
+              // Check if there's already a pending cancellation request
+              const [existingRequests] = await connection.execute(
+                'SELECT * FROM cancellation_requests WHERE booking_id = ? AND status = ?',
+                [parseInt(bookingId), 'pending']
+              );
+              
+              if (existingRequests.length > 0) {
+                setCorsHeaders(res);
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'มีคำขอยกเลิกการจองนี้อยู่แล้ว กรุณารอการอนุมัติจากแอดมิน'
+                });
+                return;
+              }
+              
+              // Create cancellation request
+              const [insertResult] = await connection.execute(
+                `INSERT INTO cancellation_requests (booking_id, user_id, reason, status, requested_at) 
+                 VALUES (?, ?, ?, 'pending', NOW())`,
+                [parseInt(bookingId), userId, 'ผู้ใช้ขอยกเลิกการจอง']
+              );
+              
+              if (insertResult.affectedRows === 0) {
+                setCorsHeaders(res);
+                sendJSON(res, 500, {
+                  success: false,
+                  message: 'ไม่สามารถสร้างคำขอยกเลิกได้'
+                });
+                return;
+              }
+              
+              // Create notification for admin
+              try {
+                await connection.execute(
+                  `INSERT INTO notifications (user_id, title, message, type, created_at) 
+                   VALUES (1, ?, ?, 'cancellation_request', NOW())`,
+                  [
+                    'คำขอยกเลิกการจองใหม่',
+                    `มีคำขอยกเลิกการจองหมายเลข #${bookingId} รอการอนุมัติ`
+                  ]
+                );
+              } catch (notificationError) {
+                console.log('⚠️ Could not create admin notification:', notificationError.message);
+              }
+              
+              // Create notification for user
+              try {
+                await connection.execute(
+                  `INSERT INTO notifications (user_id, title, message, type, created_at) 
+                   VALUES (?, ?, ?, 'cancellation_submitted', NOW())`,
+                  [
+                    userId,
+                    'ส่งคำขอยกเลิกการจองแล้ว',
+                    `คำขอยกเลิกการจองหมายเลข #${bookingId} ได้ถูกส่งไปยังแอดมินเรียบร้อยแล้ว กรุณารอการอนุมัติ`
+                  ]
+                );
+              } catch (notificationError) {
+                console.log('⚠️ Could not create user notification:', notificationError.message);
+              }
+              
+              setCorsHeaders(res);
+              sendJSON(res, 200, {
+                success: true,
+                message: 'ส่งคำขอยกเลิกการจองเรียบร้อยแล้ว กรุณารอการอนุมัติจากแอดมิน',
+                cancellationRequest: {
+                  id: insertResult.insertId,
+                  bookingId: parseInt(bookingId),
+                  status: 'pending',
+                  requestedAt: new Date()
+                }
+              });
+              
+            } catch (error) {
+              console.error('❌ Cancel booking error:', error);
+              setCorsHeaders(res);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'Internal server error'
+              });
+            }
             break;
           }
           

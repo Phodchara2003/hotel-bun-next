@@ -62,7 +62,18 @@ const app = new Elysia()
     origin: true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With']
+    allowedHeaders: [
+      'Content-Type', 
+      'Authorization', 
+      'Accept', 
+      'Origin', 
+      'X-Requested-With',
+      'Cache-Control',
+      'Pragma',
+      'Expires',
+      'If-Modified-Since',
+      'If-None-Match'
+    ]
   }))
   .use(swagger({
     documentation: {

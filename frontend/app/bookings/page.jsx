@@ -68,12 +68,17 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, pending, confirmed, cancelled
+  const [cancellationRequests, setCancellationRequests] = useState([]); // เก็บข้อมูล cancellation requests
   const [cancelModal, setCancelModal] = useState({ 
     isOpen: false, 
     bookingId: null, 
     bookingRef: '', 
     roomName: '', 
-    hotelName: '' 
+    hotelName: '',
+    checkInDate: '',
+    checkOutDate: '',
+    totalPrice: 0,
+    nights: 0
   });
   const [editDateModal, setEditDateModal] = useState({
     isOpen: false,
@@ -135,11 +140,36 @@ export default function BookingsPage() {
       
       console.log('📋 Setting bookings data:', bookingsData);
       setBookings(bookingsData);
+      
+      // Fetch cancellation requests
+      await fetchCancellationRequests();
     } catch (error) {
       console.error('Error fetching bookings:', error);
       toast.error('ไม่สามารถโหลดข้อมูลการจองได้');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCancellationRequests = async () => {
+    try {
+      console.log('📋 Fetching cancellation requests...');
+      const response = await bookingAPI.getCancellationRequests();
+      
+      let cancellationData = [];
+      if (response.success && response.data) {
+        cancellationData = response.data;
+      } else if (response.cancellationRequests) {
+        cancellationData = response.cancellationRequests;
+      } else if (Array.isArray(response)) {
+        cancellationData = response;
+      }
+      
+      console.log('📋 Cancellation requests data:', cancellationData);
+      setCancellationRequests(cancellationData);
+    } catch (error) {
+      console.error('Error fetching cancellation requests:', error);
+      // Don't show error toast for this as it's not critical
     }
   };
 
@@ -159,17 +189,117 @@ export default function BookingsPage() {
   const handleCancelBooking = async (bookingId) => {
     try {
       await bookingAPI.cancelBooking(bookingId);
-      toast.success('ยกเลิกการจองสำเร็จ');
-      fetchBookings(); // Refresh list
-      setCancelModal({ isOpen: false, bookingId: null, bookingRef: '', roomName: '', hotelName: '' });
+      toast.success('ส่งคำขอยกเลิกการจองเรียบร้อยแล้ว รอการอนุมัติจากแอดมิน', {
+        duration: 5000
+      });
+      await fetchBookings(); // Refresh list
+      await fetchCancellationRequests(); // Refresh cancellation requests
+      setCancelModal({ 
+        isOpen: false, 
+        bookingId: null, 
+        bookingRef: '', 
+        roomName: '', 
+        hotelName: '',
+        checkInDate: '',
+        checkOutDate: '',
+        totalPrice: 0,
+        nights: 0
+      });
     } catch (error) {
-      const message = error.response?.data?.error || 'ไม่สามารถยกเลิกการจองได้';
+      const message = error.response?.data?.message || error.response?.data?.error || 'ไม่สามารถส่งคำขอยกเลิกการจองได้';
       toast.error(message);
     }
   };
 
-  const openCancelModal = (bookingId, bookingRef, roomName, hotelName) => {
-    setCancelModal({ isOpen: true, bookingId, bookingRef, roomName, hotelName });
+  const openCancelModal = async (booking) => {
+    try {
+      console.log('🔍 Fetching fresh booking data for ID:', booking.id);
+      
+      // Fetch fresh booking data from database by ID
+      const response = await bookingAPI.getBookingById(booking.id);
+      let freshBookingData = null;
+      
+      if (response.success && response.data) {
+        freshBookingData = response.data;
+      } else if (response.booking) {
+        freshBookingData = response.booking;
+      } else {
+        freshBookingData = response;
+      }
+      
+      if (!freshBookingData) {
+        console.log('❌ Could not find fresh booking data, using existing data');
+        freshBookingData = booking;
+      }
+      
+      console.log('🔍 Fresh booking data from database:', freshBookingData);
+      console.log('🔍 Fresh booking keys:', Object.keys(freshBookingData));
+      
+      // Format dates properly
+      const formatDate = (dateString) => {
+        if (!dateString) return 'ไม่ระบุ';
+        try {
+          const date = new Date(dateString);
+          return date.toLocaleDateString('th-TH', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          });
+        } catch (error) {
+          console.log('❌ Date format error:', error);
+          return dateString;
+        }
+      };
+      
+      const modalData = { 
+        isOpen: true, 
+        bookingId: freshBookingData.id,
+        bookingRef: freshBookingData.bookingReference || freshBookingData.booking_reference || freshBookingData.bookingRef || `#${freshBookingData.id}`,
+        roomName: freshBookingData.roomTypeName || freshBookingData.room_type_name || freshBookingData.roomName || freshBookingData.room_name || 'ไม่ระบุ',
+        hotelName: freshBookingData.hotelName || freshBookingData.hotel_name || freshBookingData.hotelname || 'โรงแรมวรุณภัฏ',
+        checkInDate: formatDate(freshBookingData.checkInDate || freshBookingData.check_in_date || freshBookingData.checkin_date || freshBookingData.checkIn),
+        checkOutDate: formatDate(freshBookingData.checkOutDate || freshBookingData.check_out_date || freshBookingData.checkout_date || freshBookingData.checkOut),
+        totalPrice: freshBookingData.totalPrice || freshBookingData.total_price || freshBookingData.price || freshBookingData.totalAmount || 0,
+        nights: freshBookingData.nights || freshBookingData.total_nights || freshBookingData.totalNights || 1
+      };
+      
+      console.log('🔍 Modal data being set from fresh data:', modalData);
+      setCancelModal(modalData);
+      
+    } catch (error) {
+      console.error('❌ Error fetching fresh booking data:', error);
+      toast.error('ไม่สามารถโหลดข้อมูลการจองได้');
+      
+      // Fallback to existing data if API call fails
+      console.log('🔄 Falling back to existing booking data:', booking);
+      const formatDate = (dateString) => {
+        if (!dateString) return 'ไม่ระบุ';
+        try {
+          const date = new Date(dateString);
+          return date.toLocaleDateString('th-TH', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          });
+        } catch (error) {
+          return dateString;
+        }
+      };
+      
+      const modalData = { 
+        isOpen: true, 
+        bookingId: booking.id,
+        bookingRef: booking.bookingReference || booking.booking_reference || `#${booking.id}`,
+        roomName: booking.roomTypeName || booking.room_type_name || booking.roomName || 'ไม่ระบุ',
+        hotelName: booking.hotelName || booking.hotel_name || 'โรงแรมวรุณภัฏ',
+        checkInDate: formatDate(booking.checkInDate || booking.check_in_date || booking.checkin_date),
+        checkOutDate: formatDate(booking.checkOutDate || booking.check_out_date || booking.checkout_date),
+        totalPrice: booking.totalPrice || booking.total_price || booking.price || 0,
+        nights: booking.nights || booking.total_nights || 1
+      };
+      
+      setCancelModal(modalData);
+    }
   };
 
   const openEditDateModal = (booking) => {
@@ -284,7 +414,24 @@ export default function BookingsPage() {
   };
 
   const closeCancelModal = () => {
-    setCancelModal({ isOpen: false, bookingId: null, bookingRef: '', roomName: '', hotelName: '' });
+    setCancelModal({ 
+      isOpen: false, 
+      bookingId: null, 
+      bookingRef: '', 
+      roomName: '', 
+      hotelName: '',
+      checkInDate: '',
+      checkOutDate: '',
+      totalPrice: 0,
+      nights: 0
+    });
+  };
+
+  // Check if booking has pending cancellation request
+  const hasPendingCancellationRequest = (bookingId) => {
+    return cancellationRequests.some(
+      request => request.booking_id === bookingId && request.status === 'pending'
+    );
   };
 
   // Check if booking can be cancelled (check-in date hasn't passed)
@@ -542,7 +689,15 @@ export default function BookingsPage() {
                   </div>
 
                   {/* Status Info */}
-                  {booking.status === 'pending' && (
+                  {hasPendingCancellationRequest(booking.id) && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
+                        <p className="text-orange-800 text-sm font-medium">⏳ คำขอยกเลิกการจองรอการอนุมัติ</p>
+                        <p className="text-orange-600 text-xs mt-1">ส่งคำขอยกเลิกแล้ว กรุณารอการตอบกลับจากแอดมิน</p>
+                      </div>
+                    </div>
+                  )}
+                  {booking.status === 'pending' && !hasPendingCancellationRequest(booking.id) && (
                     <div className="mt-4 pt-4 border-t border-gray-200">
                       <div className="bg-yellow-50 p-3 rounded-lg">
                         <p className="text-yellow-800 text-sm font-medium">⏳ รอการยืนยันจากผู้ดูแลระบบ</p>
@@ -614,20 +769,27 @@ export default function BookingsPage() {
                           )}
                           
                           {/* Cancel Booking Button */}
-                          <button
-                            onClick={() => openCancelModal(
-                              booking.id, 
-                              booking.bookingReference, 
-                              booking.roomTypeName, 
-                              booking.hotelName
-                            )}
-                            className="flex items-center gap-2 px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 hover:border-red-400 transition-all duration-200"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                            ยกเลิกการจอง
-                          </button>
+                          {hasPendingCancellationRequest(booking.id) ? (
+                            <button
+                              disabled
+                              className="flex items-center gap-2 px-4 py-2 border border-orange-300 text-orange-700 bg-orange-50 rounded-lg cursor-not-allowed opacity-75"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              รอการอนุมัติ
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => openCancelModal(booking)}
+                              className="flex items-center gap-2 px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 hover:border-red-400 transition-all duration-200"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                              ยกเลิกการจอง
+                            </button>
+                          )}
                         </div>
                       ) : (
                         <div className="bg-orange-50 p-3 rounded-lg">
@@ -657,17 +819,70 @@ export default function BookingsPage() {
           onConfirm={() => handleCancelBooking(cancelModal.bookingId)}
           title="ยกเลิกการจอง"
           message={
-            <div className="space-y-2">
-              <p>คุณต้องการยกเลิกการจองนี้หรือไม่?</p>
-              <div className="bg-gray-50 p-3 rounded-lg text-sm">
-                <div><strong>โรงแรม:</strong> {cancelModal.hotelName}</div>
-                <div><strong>ห้องพัก:</strong> {cancelModal.roomName}</div>
-                <div><strong>รหัสการจอง:</strong> {cancelModal.bookingRef}</div>
+            <div className="space-y-4">
+              <p className="text-gray-800 text-base font-medium">คุณต้องการส่งคำขอยกเลิกการจองนี้หรือไม่?</p>
+              
+              <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                <h4 className="text-blue-800 font-semibold mb-3">รายละเอียดการจอง</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 font-medium">โรงแรม:</span>
+                    <span className="text-gray-800 font-semibold">{cancelModal.hotelName || 'ไม่ระบุ'}</span>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 font-medium">ห้องพัก:</span>
+                    <span className="text-gray-800 font-semibold">{cancelModal.roomName || 'ไม่ระบุ'}</span>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 font-medium">รหัสการจอง:</span>
+                    <span className="text-blue-700 font-bold">{cancelModal.bookingRef || 'ไม่ระบุ'}</span>
+                  </div>
+                  
+                  <hr className="border-blue-200"/>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 font-medium">วันเช็คอิน:</span>
+                    <span className="text-gray-800 font-semibold">{cancelModal.checkInDate || 'ไม่ระบุ'}</span>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 font-medium">วันเช็คเอาท์:</span>
+                    <span className="text-gray-800 font-semibold">{cancelModal.checkOutDate || 'ไม่ระบุ'}</span>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 font-medium">จำนวนคืน:</span>
+                    <span className="text-gray-800 font-semibold">{cancelModal.nights || 0} คืน</span>
+                  </div>
+                  
+                  <hr className="border-blue-200"/>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 font-medium">ราคารวม:</span>
+                    <span className="text-green-600 font-bold text-lg">
+                      {cancelModal.totalPrice ? `${cancelModal.totalPrice.toLocaleString()} บาท` : 'ไม่ระบุ'}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <p className="text-red-600 text-sm font-medium">⚠️ การยกเลิกนี้ไม่สามารถย้อนกลับได้</p>
+              
+              <div className="bg-yellow-50 border border-yellow-300 p-3 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <span className="text-yellow-600 text-lg">📋</span>
+                  <div>
+                    <p className="text-yellow-800 font-semibold text-sm">หมายเหตุ:</p>
+                    <p className="text-yellow-700 text-sm mt-1">
+                      คำขอยกเลิกจะถูกส่งไปยังแอดมินเพื่อพิจารณาอนุมัติ<br/>
+                      ท่านจะได้รับการแจ้งเตือนเมื่อมีการตอบกลับ
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           }
-          confirmText="ยกเลิกการจอง"
+          confirmText="ส่งคำขอยกเลิก"
           cancelText="กลับ"
           type="danger"
         />

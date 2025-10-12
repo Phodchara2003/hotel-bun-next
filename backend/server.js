@@ -8,7 +8,23 @@ const pool = new Pool({
 });
 
 const app = new Elysia()
-  .use(cors())
+  .use(cors({
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type', 
+      'Authorization', 
+      'Accept', 
+      'Origin', 
+      'X-Requested-With',
+      'Cache-Control',
+      'Pragma',
+      'Expires',
+      'If-Modified-Since',
+      'If-None-Match'
+    ]
+  }))
   .get('/', () => {
     return {
       message: 'Hotel Booking Backend API',

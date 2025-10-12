@@ -110,10 +110,8 @@ export const getRoomsData = async (forceRefresh = false) => {
       method: 'GET',
       cache: 'no-store',
       headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-        'If-Modified-Since': 'Mon, 26 Jul 1997 05:00:00 GMT'
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
       }
     });
     const result = await response.json();

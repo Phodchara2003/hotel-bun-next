@@ -437,6 +437,12 @@ export const bookingAPI = {
     return response.data;
   },
 
+  // Get cancellation requests for current user
+  getCancellationRequests: async () => {
+    const response = await api.get('/cancellation-requests');
+    return response.data;
+  },
+
   // Admin APIs
   getAdminBookings: async (params = {}) => {
     return retryRequest(async () => {

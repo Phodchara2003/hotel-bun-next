@@ -253,7 +253,7 @@ function RoomsContent() {
                 <div className="lg:w-1/2 relative group">
                   <div className="h-64 lg:h-full min-h-[400px] relative overflow-hidden">
                     <img
-                      src={getRoomImageUrl(room.image_url) || getRoomPlaceholder(room.bed_type)}
+                      src={room.image_url || getRoomPlaceholder(room.bed_type)}
                       alt={room.name}
                       className="w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-110"
                       onError={(e) => {
