@@ -5,6 +5,7 @@ import { bookingSchema } from '../schemas/validation.js';
 import { generateBookingReference } from '../utils/auth.js';
 import { createNotification, NotificationTemplates } from './notifications.js';
 import { automaticEmailNotifications } from '../utils/automaticEmailService.js';
+import { automaticAdminEmailNotifications } from '../utils/adminEmailService.js';
 import { notificationService } from '../utils/notificationService.js';
 import { sendBookingUpdateEmail } from '../utils/mockEmailService.js';
 
@@ -672,10 +673,16 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
           last_name: user.last_name || user.lastName
         };
         
-        // ระบบส่งอีเมลอัตโนมัติ (ไม่รอผลลัพธ์)
+        // ระบบส่งอีเมลอัตโนมัติสำหรับลูกค้า (ไม่รอผลลัพธ์)
         automaticEmailNotifications.onBookingCreated(bookingEmailData, userData)
           .catch((emailError) => {
             console.error('❌ [SYSTEM] Background email sending failed:', emailError);
+          });
+
+        // 🚨 ส่งแจ้งเตือนอีเมลแอดมินเกี่ยวกับการจองใหม่
+        automaticAdminEmailNotifications.onNewBooking(bookingEmailData, userData)
+          .catch((emailError) => {
+            console.error('❌ [ADMIN-EMAIL] Admin notification email failed:', emailError);
           });
 
         // ส่งการแจ้งเตือน Real-time พร้อมกับอีเมล
@@ -882,10 +889,27 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
       // Update booking with payment receipt URL
       const updatedBooking = await sql`
         UPDATE bookings 
-        SET payment_receipt_url = ${receiptUrl}, updated_at = NOW()
+        SET payment_receipt_url = ${receiptUrl}, payment_status = 'slip_uploaded', updated_at = NOW()
         WHERE id = ${id}
         RETURNING *
       `;
+      
+      // 🚨 ส่งแจ้งเตือนอีเมลแอดมินเกี่ยวกับการอัปโหลดสลิปการชำระเงิน
+      try {
+        const bookingData = booking[0];
+        const userData = {
+          first_name: user.first_name || user.firstName,
+          last_name: user.last_name || user.lastName,
+          email: user.email
+        };
+        
+        automaticAdminEmailNotifications.onPaymentReceived(bookingData, userData)
+          .catch((emailError) => {
+            console.error('❌ [ADMIN-EMAIL] Payment notification failed:', emailError);
+          });
+      } catch (error) {
+        console.error('❌ Error preparing admin payment notification:', error);
+      }
       
       return {
         message: 'Payment receipt uploaded successfully',
@@ -1248,6 +1272,22 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
         WHERE id = ${bookingId}
         RETURNING *
       `;
+
+      // 🚨 ส่งแจ้งเตือนอีเมลแอดมินเกี่ยวกับการยกเลิกจากลูกค้า
+      try {
+        const userData = {
+          first_name: user.first_name || user.firstName,
+          last_name: user.last_name || user.lastName,
+          email: user.email
+        };
+        
+        automaticAdminEmailNotifications.onBookingCancelled(bookingData, userData, 'ยกเลิกโดยลูกค้า')
+          .catch((emailError) => {
+            console.error('❌ [ADMIN-EMAIL] Admin cancellation notification failed:', emailError);
+          });
+      } catch (error) {
+        console.error('❌ Error preparing admin cancellation notification:', error);
+      }
 
       return {
         message: 'Booking cancelled successfully',

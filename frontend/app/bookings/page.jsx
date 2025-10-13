@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useTranslation } from '../../translations';
+import { useRouter } from 'next/navigation';
 import api, { bookingAPI } from '../../lib/api';
-import { Calendar, Users, CreditCard, X, Check, Clock } from 'lucide-react';
+import { Calendar, Users, CreditCard, X, Check, Clock, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ConfirmModal from '../../components/ConfirmModal';
 
@@ -65,6 +66,7 @@ export default function BookingsPage() {
   const { isAuthenticated, loading: authLoading, user } = useAuth();
   const { language } = useLanguage();
   const { t } = useTranslation(language);
+  const router = useRouter();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, pending, confirmed, cancelled
@@ -90,6 +92,7 @@ export default function BookingsPage() {
   });
 
   const fetchBookings = async () => {
+    setLoading(true); // เริ่ม loading
     try {
       console.log('🔍 Fetching user bookings for user ID:', user?.id);
       
@@ -146,8 +149,9 @@ export default function BookingsPage() {
     } catch (error) {
       console.error('Error fetching bookings:', error);
       toast.error('ไม่สามารถโหลดข้อมูลการจองได้');
+      setBookings([]); // ตั้งค่าเป็น array ว่างในกรณี error
     } finally {
-      setLoading(false);
+      setLoading(false); // หยุด loading ในทุกกรณี
     }
   };
 
@@ -475,18 +479,16 @@ export default function BookingsPage() {
   const getStatusText = (status, paymentStatus) => {
     switch (status) {
       case 'pending':
+        if (paymentStatus === 'slip_uploaded') {
+          return 'รอการอนุมัติ (ส่งสลิปแล้ว)';
+        }
         return 'รอการยืนยัน';
       case 'confirmed':
-        if (paymentStatus === 'slip_uploaded') {
-          return 'ยืนยันแล้ว (ส่งสลิปแล้ว รอตรวจสอบ)';
-        } else if (paymentStatus === 'verified') {
-          return 'ชำระเงินแล้ว';
-        }
-        return 'ยืนยันแล้ว (รอการชำระเงิน)';
+        return 'จองสำเร็จ'; // เมื่อแอดมินอนุมัติแล้ว = การจองสำเร็จ
       case 'cancelled':
         return 'ยกเลิกแล้ว';
       case 'completed':
-        return 'สำเร็จแล้ว';
+        return 'เสร็จสิ้น';
       default:
         return status;
     }
@@ -705,45 +707,47 @@ export default function BookingsPage() {
                       </div>
                     </div>
                   )}
-                  {booking.status === 'confirmed' && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <div className="bg-blue-50 p-3 rounded-lg">
-                        <p className="text-blue-800 text-sm font-medium">📋 ยืนยันแล้ว กรุณาชำระเงิน</p>
-                        <p className="text-blue-600 text-xs mt-1">หลังจากชำระเงินและกรอกข้อมูลผู้เข้าพัก ต้องรอการอนุมัติจากผู้ดูแลระบบ</p>
-                      </div>
-                    </div>
-                  )}
+                  {/* Removed confirmation message as requested */}
 
                   {/* Actions */}
                   {(booking.status === 'pending' || booking.status === 'confirmed') ? (
                     <div className="mt-4 pt-4 border-t border-gray-200">
+                      {booking.status === 'pending' && (
+                        <div className="flex justify-end space-x-3 mb-3">
+                          {/* แสดงปุ่มชำระเงินและอัพโหลดสลิปสำหรับ pending bookings */}
+                          {!booking.paymentStatus || booking.paymentStatus === 'pending' ? (
+                            <>
+                              <button
+                                onClick={() => window.open(`/payment/${booking.id}`, '_blank')}
+                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
+                              >
+                                <CreditCard className="h-4 w-4 mr-2" />
+                                ดู QR Code
+                              </button>
+                              <button
+                                onClick={() => window.open(`/payment/${booking.id}/slip`, '_blank')}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+                              >
+                                📸 อัพโหลดสลิป
+                              </button>
+                            </>
+                          ) : booking.paymentStatus === 'slip_uploaded' ? (
+                            <span className="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-lg text-sm">
+                              ✅ ส่งสลิปแล้ว รอการอนุมัติ
+                            </span>
+                          ) : (
+                            <span className="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-lg text-sm">
+                              ⏳ รอการอนุมัติจากแอดมิน
+                            </span>
+                          )}
+                        </div>
+                      )}
                       {booking.status === 'confirmed' && (
                         <div className="flex justify-end space-x-3 mb-3">
-                          <button
-                            onClick={() => window.open(`/payment/${booking.id}`, '_blank')}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
-                          >
-                            <CreditCard className="h-4 w-4 mr-2" />
-                            ดู QR Code
-                          </button>
-                          {booking.paymentStatus !== 'slip_uploaded' && booking.paymentStatus !== 'verified' && (
-                            <button
-                              onClick={() => window.open(`/payment/${booking.id}/slip`, '_blank')}
-                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
-                            >
-                              📸 อัพโหลดสลิป
-                            </button>
-                          )}
-                          {booking.paymentStatus === 'slip_uploaded' && (
-                            <span className="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-lg text-sm">
-                              ✅ ส่งสลิปแล้ว รอตรวจสอบ
-                            </span>
-                          )}
-                          {booking.paymentStatus === 'verified' && (
-                            <span className="px-4 py-2 bg-green-100 text-green-800 rounded-lg text-sm">
-                              ✅ ชำระเงินแล้ว
-                            </span>
-                          )}
+                          {/* การจองสำเร็จแล้ว - แสดงข้อความยืนยัน */}
+                          <span className="px-4 py-2 bg-green-100 text-green-800 rounded-lg text-sm">
+                            🎉 การจองสำเร็จแล้ว
+                          </span>
                         </div>
                       )}
                       
@@ -800,12 +804,60 @@ export default function BookingsPage() {
                     </div>
                   ) : booking.status === 'completed' ? (
                     <div className="mt-4 pt-4 border-t border-gray-200">
-                      <div className="bg-green-50 p-3 rounded-lg">
+                      <div className="bg-green-50 p-3 rounded-lg mb-3">
                         <p className="text-green-800 text-sm font-medium">✅ การจองสำเร็จแล้ว</p>
                         <p className="text-green-600 text-xs mt-1">การจองได้รับการอนุมัติจากผู้ดูแลระบบแล้ว</p>
                       </div>
+                      
+                      {/* Review Button - Show only if check-out date has passed */}
+                      {(() => {
+                        const checkOutDate = new Date(booking.check_out_date || booking.checkOutDate);
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0); // Reset time to start of day
+                        checkOutDate.setHours(23, 59, 59, 999); // Set to end of check-out day
+                        
+                        return checkOutDate < today;
+                      })() && (
+                        <div className="flex justify-end">
+                          <button
+                            onClick={() => router.push(`/bookings/${booking.id}/review`)}
+                            className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
+                          >
+                            <Star className="h-4 w-4" />
+                            เขียนรีวิว
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ) : null}
+
+                  {/* Review Button for Confirmed Bookings */}
+                  {booking.status === 'confirmed' && (() => {
+                    const checkInDate = new Date(booking.check_in_date || booking.checkInDate);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    checkInDate.setHours(0, 0, 0, 0);
+                    
+                    // Allow review from check-in date onwards
+                    return today >= checkInDate;
+                  })() && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <div className="bg-amber-50 p-3 rounded-lg mb-3">
+                        <p className="text-amber-800 text-sm font-medium">⭐ สามารถเขียนรีวิวได้แล้ว</p>
+                        <p className="text-amber-600 text-xs mt-1">แบ่งปันประสบการณ์การเข้าพักของคุณ</p>
+                      </div>
+                      
+                      <div className="flex justify-end">
+                        <button
+                          onClick={() => router.push(`/bookings/${booking.id}/review`)}
+                          className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
+                        >
+                          <Star className="h-4 w-4" />
+                          เขียนรีวิว
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

@@ -573,6 +573,19 @@ export const bookingAPI = {
     }
   },
 
+  // Update payment status (Admin)
+  updatePaymentStatus: async (id, paymentStatus) => {
+    console.log('📞 Updating payment status:', { id, paymentStatus });
+    try {
+      const response = await api.put(`/bookings/${id}/payment-status`, { payment_status: paymentStatus });
+      console.log('✅ Update payment status response:', response.data);
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error('❌ Update payment status error:', error);
+      throw error;
+    }
+  },
+
   // Delete booking (Admin only)
   delete: async (id) => {
     try {
@@ -632,6 +645,66 @@ export const bookingAPI = {
       throw error;
     }
   },
+};
+
+// Reviews API
+export const reviewAPI = {
+  // Create a new review
+  createReview: async (reviewData) => {
+    try {
+      console.log('🔄 reviewAPI.createReview called with:', reviewData);
+      const response = await api.post('/reviews', reviewData);
+      console.log('✅ reviewAPI.createReview success:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ reviewAPI.createReview error:', error);
+      throw error;
+    }
+  },
+
+  // Get reviews for a hotel
+  getHotelReviews: async (hotelId, params = {}) => {
+    try {
+      const response = await api.get(`/reviews/hotel/${hotelId}`, { params });
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error fetching hotel reviews:', error);
+      throw error;
+    }
+  },
+
+  // Get reviews by user
+  getUserReviews: async (userId) => {
+    try {
+      const response = await api.get(`/reviews/user/${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error fetching user reviews:', error);
+      throw error;
+    }
+  },
+
+  // Update a review
+  updateReview: async (reviewId, reviewData) => {
+    try {
+      const response = await api.put(`/reviews/${reviewId}`, reviewData);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error updating review:', error);
+      throw error;
+    }
+  },
+
+  // Delete a review
+  deleteReview: async (reviewId) => {
+    try {
+      const response = await api.delete(`/reviews/${reviewId}`);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error deleting review:', error);
+      throw error;
+    }
+  }
 };
 
 // Rooms Management API (Admin)

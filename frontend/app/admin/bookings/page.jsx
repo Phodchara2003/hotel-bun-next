@@ -455,6 +455,35 @@ function BookingManagementContent() {
     }
   };
 
+  const handlePaymentStatusUpdate = async (bookingId, newPaymentStatus) => {
+    try {
+      setActionLoading(true);
+      console.log('🔄 Updating payment status:', { bookingId, newPaymentStatus });
+      
+      const response = await bookingAPI.updatePaymentStatus(bookingId, newPaymentStatus);
+      console.log('📝 Payment status update response:', response);
+      
+      if (response.success) {
+        const statusText = newPaymentStatus === 'verified' ? 'อนุมัติ' : 'ปฏิเสธ';
+        toast.success(`สถานะการชำระเงินถูกเปลี่ยนเป็น${statusText}แล้ว`);
+        
+        // Force refresh the bookings data
+        console.log('🔄 Refreshing bookings data...');
+        await fetchBookings();
+        
+        console.log('✅ Payment status update completed');
+      } else {
+        throw new Error(response.message || 'Payment status update failed');
+      }
+    } catch (error) {
+      console.error('❌ Error updating payment status:', error);
+      toast.error('เกิดข้อผิดพลาดในการอัปเดตสถานะการชำระเงิน');
+    } finally {
+      setActionLoading(false);
+      setShowConfirmModal(false);
+    }
+  };
+
   const handleDeleteBooking = async (bookingId) => {
     try {
       setActionLoading(true);
@@ -1473,6 +1502,40 @@ function BookingManagementContent() {
                               </button>
                             </>
                           )}
+
+                          {/* Payment Approval Buttons */}
+                          {canManageBookings(user) && booking.payment_status === 'slip_uploaded' && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setConfirmAction(() => () => handlePaymentStatusUpdate(booking.id, 'verified'));
+                                  setConfirmActionType('success');
+                                  setShowConfirmModal(true);
+                                }}
+                                className="group relative p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:hover:bg-emerald-800/40 text-emerald-600 dark:text-emerald-400 transition-all duration-200 hover:scale-105"
+                                title="อนุมัติการชำระเงิน"
+                              >
+                                <Receipt className="h-4 w-4" />
+                                <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-neutral-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                                  อนุมัติการชำระ
+                                </div>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setConfirmAction(() => () => handlePaymentStatusUpdate(booking.id, 'rejected'));
+                                  setConfirmActionType('warning');
+                                  setShowConfirmModal(true);
+                                }}
+                                className="group relative p-2 rounded-xl bg-orange-50 hover:bg-orange-100 dark:bg-orange-900/30 dark:hover:bg-orange-800/40 text-orange-600 dark:text-orange-400 transition-all duration-200 hover:scale-105"
+                                title="ปฏิเสธการชำระเงิน"
+                              >
+                                <Ban className="h-4 w-4" />
+                                <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-neutral-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                                  ปฏิเสธการชำระ
+                                </div>
+                              </button>
+                            </>
+                          )}
                           
                           {canDeleteBookings(user).all && (
                             <button
@@ -2222,6 +2285,71 @@ function BookingManagementContent() {
                       <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-2 truncate">
                         ชื่อไฟล์: {selectedBooking.receipt_filename}
                       </p>
+                    )}
+
+                    {/* Payment Approval Buttons */}
+                    {selectedBooking.payment_receipt_url && selectedBooking.payment_status === 'slip_uploaded' && (
+                      <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                        <h5 className="font-medium text-amber-800 dark:text-amber-200 mb-3 flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4" />
+                          รอการตรวจสอบการชำระเงิน
+                        </h5>
+                        <p className="text-sm text-amber-700 dark:text-amber-300 mb-4">
+                          ลูกค้าได้อัปโหลดหลักฐานการชำระเงินแล้ว กรุณาตรวจสอบและอนุมัติ/ปฏิเสธการชำระเงิน
+                        </p>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => {
+                              setConfirmAction(() => () => handlePaymentStatusUpdate(selectedBooking.id, 'verified'));
+                              setConfirmActionType('success');
+                              setShowConfirmModal(true);
+                            }}
+                            disabled={actionLoading}
+                            className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                            อนุมัติการชำระเงิน
+                          </button>
+                          <button
+                            onClick={() => {
+                              setConfirmAction(() => () => handlePaymentStatusUpdate(selectedBooking.id, 'rejected'));
+                              setConfirmActionType('warning');
+                              setShowConfirmModal(true);
+                            }}
+                            disabled={actionLoading}
+                            className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                          >
+                            <XCircle className="h-4 w-4" />
+                            ปฏิเสธการชำระเงิน
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Payment Status Confirmed */}
+                    {selectedBooking.payment_status === 'verified' && (
+                      <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                        <h5 className="font-medium text-green-800 dark:text-green-200 mb-2 flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4" />
+                          การชำระเงินได้รับการอนุมัติแล้ว
+                        </h5>
+                        <p className="text-sm text-green-700 dark:text-green-300">
+                          หลักฐานการชำระเงินได้รับการตรวจสอบและอนุมัติเรียบร้อยแล้ว
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Payment Status Rejected */}
+                    {selectedBooking.payment_status === 'rejected' && (
+                      <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                        <h5 className="font-medium text-red-800 dark:text-red-200 mb-2 flex items-center gap-2">
+                          <XCircle className="h-4 w-4" />
+                          การชำระเงินถูกปฏิเสธ
+                        </h5>
+                        <p className="text-sm text-red-700 dark:text-red-300">
+                          หลักฐานการชำระเงินไม่ถูกต้องหรือไม่สมบูรณ์ กรุณาติดต่อลูกค้าเพื่อขอหลักฐานใหม่
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>

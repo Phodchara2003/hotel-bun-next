@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Calendar, MapPin, Users, Wifi, Car, Coffee, Tv, Wind, Phone, Mail, Star, ArrowRight, CheckCircle, Settings, BarChart3, Home } from 'lucide-react';
+import { Calendar, MapPin, Users, Wifi, Car, Coffee, Tv, Wind, Phone, Mail, Star, ArrowRight, CheckCircle, Settings, BarChart3, Home, MessageSquare } from 'lucide-react';
 import { hotelAPI } from '../../lib/api';
 import { getRoomImageUrl, getFallbackRoomImages, getPlaceholderImageUrl, getRoomPlaceholder } from '../../lib/roomImageUtils';
 import { getRoomsData, getFeaturedRooms } from '../../lib/roomsData';
@@ -187,7 +187,7 @@ function AdminPageContent() {
             <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">เมนูจัดการระบบ</h2>
           </FadeInUp>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
             <FadeInUp delay={300}>
               <Link href="/admin/dashboard" className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow border border-gray-200 group">
                 <div className="flex items-center justify-between mb-4">
@@ -233,6 +233,18 @@ function AdminPageContent() {
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">จัดการผู้ใช้</h3>
                 <p className="text-gray-600 text-sm">จัดการบัญชีผู้ใช้งาน</p>
+              </Link>
+            </FadeInUp>
+
+            <FadeInUp delay={700}>
+              <Link href="/admin/reviews" className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow border border-gray-200 group">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center group-hover:bg-yellow-200 transition-colors">
+                    <MessageSquare className="w-6 h-6 text-yellow-600" />
+                  </div>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">จัดการรีวิว</h3>
+                <p className="text-gray-600 text-sm">ดูและจัดการรีวิวจากลูกค้า</p>
               </Link>
             </FadeInUp>
           </div>

@@ -27,15 +27,7 @@
 }
 
 /* Prevent unwanted text cursor and selection */
-*,
-*::before,
-*::after {
-  cursor: default !important;
-  user-select: none !important;
-  -webkit-user-select: none !important;
-  -moz-user-select: none !important;
-  -ms-user-select: none !important;
-}
+/* Removed global user-select: none to allow text selection */
 
 /* Only allow text cursor on specific elements */
 input, 
@@ -65,36 +57,9 @@ select,
 option,
 .cursor-pointer {
   cursor: pointer !important;
-  user-select: none !important;
-  -webkit-user-select: none !important;
-  -moz-user-select: none !important;
-  -ms-user-select: none !important;
 }
 
-/* Prevent text selection on ALL UI elements */
-body,
-html,
-div,
-span,
-h1, h2, h3, h4, h5, h6,
-p,
-img,
-svg,
-.logo,
-.navigation,
-nav,
-header,
-main,
-section,
-article,
-aside,
-footer {
-  user-select: none !important;
-  -webkit-user-select: none !important;
-  -moz-user-select: none !important;
-  -ms-user-select: none !important;
-  cursor: default !important;
-}
+/* Allow normal text selection for content elements */
 
 /* Only specific text content that should be selectable */
 .selectable-text,
@@ -114,19 +79,9 @@ body {
   font-family: var(--font-noto-sans-thai);
   background-color: #ffffff;
   color: #1f2937;
-  cursor: default !important;
-  user-select: none !important;
-  -webkit-user-select: none !important;
-  -moz-user-select: none !important;
-  -ms-user-select: none !important;
 }
 
-/* Force disable text cursor everywhere */
-* {
-  caret-color: transparent !important;
-}
-
-/* Re-enable caret only for inputs */
+/* Allow normal caret behavior */
 input, 
 textarea, 
 [contenteditable="true"] {

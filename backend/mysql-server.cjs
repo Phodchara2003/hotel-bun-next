@@ -33,6 +33,9 @@ const {
 // Import mock email service สำหรับ development
 const { sendBookingUpdateEmail, sendAdminNotificationEmail: sendAdminNotificationEmailMock } = require('./src/utils/mockEmailService.cjs');
 
+// Import ระบบแจ้งเตือนอีเมลแอดมิน
+const nodemailer = require('nodemailer');
+
 const PORT = process.env.PORT || 3001;
 
 // Multer configuration for file uploads
@@ -1056,6 +1059,27 @@ async function createBooking(bookingData) {
 
     if (bookingRows.length > 0) {
       console.log('✅ Returning booking data:', bookingRows[0]);
+      
+      // 🚨 ส่งแจ้งเตือนอีเมลแอดมินเกี่ยวกับการจองใหม่
+      try {
+        const bookingData = bookingRows[0];
+        const userData = {
+          first_name: guest_name ? guest_name.split(' ')[0] : 'ลูกค้า',
+          last_name: guest_name ? guest_name.split(' ').slice(1).join(' ') : '',
+          email: guest_email
+        };
+        
+        // ส่งอีเมลแจ้งเตือนแอดมินแบบไม่รอผลลัพธ์
+        automaticAdminEmailNotifications.onNewBooking(bookingData, userData)
+          .catch((emailError) => {
+            console.error('❌ [ADMIN-EMAIL] Admin notification email failed:', emailError);
+          });
+          
+        console.log('📧 [ADMIN-EMAIL] New booking notification triggered for booking:', bookingId);
+      } catch (error) {
+        console.error('❌ Error preparing admin notification:', error);
+      }
+      
       return bookingRows[0];
     } else {
       console.error('❌ No booking found after creation');
@@ -1277,6 +1301,19 @@ async function cancelBooking(bookingId, userId) {
     
     console.log(`✅ Booking ${bookingId} cancelled successfully`);
     
+    // Send admin email notification for booking cancellation
+    try {
+      await automaticAdminEmailNotifications.onBookingCancelled({
+        booking_id: bookingId,
+        user_id: userId,
+        cancellation_type: 'direct'
+      });
+      console.log('✅ Admin email notification sent for booking cancellation');
+    } catch (emailError) {
+      console.error('⚠️ Failed to send admin email notification:', emailError);
+      // Don't fail the cancellation if email fails
+    }
+    
     // Return updated booking data
     const updatedBooking = await getBookingById(bookingId);
     return { 
@@ -1334,6 +1371,21 @@ async function createCancellationRequest(bookingId, userId, reason) {
     `, [bookingId, userId, reason || 'ไม่ระบุเหตุผล']);
     
     console.log(`✅ Cancellation request ${result.insertId} created successfully`);
+    
+    // Send admin email notification for cancellation request
+    try {
+      await automaticAdminEmailNotifications.onBookingCancelled({
+        booking_id: bookingId,
+        user_id: userId,
+        reason: reason || 'ไม่ระบุเหตุผล',
+        cancellation_type: 'request',
+        request_id: result.insertId
+      });
+      console.log('✅ Admin email notification sent for cancellation request');
+    } catch (emailError) {
+      console.error('⚠️ Failed to send admin email notification:', emailError);
+      // Don't fail the request if email fails
+    }
     
     return { 
       success: true, 
@@ -1395,6 +1447,719 @@ async function getCancellationRequests(userId = null) {
     return [];
   }
 }
+
+// =========================================
+// 📧 ระบบแจ้งเตือนอีเมลแอดมิน
+// =========================================
+
+// กำหนดค่า SMTP สำหรับ Gmail
+const createTransporter = () => {
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: 'hotelsystem.rmu.ac.th@gmail.com',
+      pass: 'omqi tddz vubp wakz' // รหัสผ่านจริงจากไฟล์ .env
+    }
+  });
+};
+
+// เทมเพลตอีเมลแจ้งเตือนการจองใหม่
+const getNewBookingEmailTemplate = (bookingData) => {
+  return {
+    subject: `🆕 มีการจองใหม่ - ${bookingData.bookingReference}`,
+    html: `
+      <!DOCTYPE html>
+      <html lang="th">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>การจองใหม่</title>
+        <style>
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8fafc;
+          }
+          .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            margin: 20px 0;
+          }
+          .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 30px;
+          }
+          .booking-info {
+            background: #f8f9ff;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+          }
+          .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+          }
+          .info-label {
+            font-weight: bold;
+            color: #4a5568;
+          }
+          .info-value {
+            color: #2d3748;
+          }
+          .action-buttons {
+            text-align: center;
+            margin: 30px 0;
+          }
+          .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            margin: 0 10px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+            text-align: center;
+            transition: all 0.3s ease;
+          }
+          .btn-approve {
+            background-color: #10b981;
+            color: white;
+          }
+          .btn-view {
+            background-color: #3b82f6;
+            color: white;
+          }
+          .urgent {
+            background-color: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 15px 0;
+            text-align: center;
+            font-weight: bold;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🆕 การจองใหม่!</h1>
+            <p>มีลูกค้าจองห้องพักใหม่</p>
+          </div>
+          
+          <div class="booking-info">
+            <h3>📋 รายละเอียดการจอง</h3>
+            <div class="info-row">
+              <span class="info-label">รหัสการจอง:</span>
+              <span class="info-value">${bookingData.bookingReference}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">ชื่อลูกค้า:</span>
+              <span class="info-value">${bookingData.customerName}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">อีเมล:</span>
+              <span class="info-value">${bookingData.customerEmail}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">โทรศัพท์:</span>
+              <span class="info-value">${bookingData.customerPhone || 'ไม่ระบุ'}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">โรงแรม:</span>
+              <span class="info-value">${bookingData.hotelName}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">ประเภทห้อง:</span>
+              <span class="info-value">${bookingData.roomTypeName}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">วันเช็คอิน:</span>
+              <span class="info-value">${new Date(bookingData.checkInDate).toLocaleDateString('th-TH')}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">วันเช็คเอาท์:</span>
+              <span class="info-value">${new Date(bookingData.checkOutDate).toLocaleDateString('th-TH')}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">จำนวนผู้เข้าพัก:</span>
+              <span class="info-value">${bookingData.guests} คน</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">ราคารวม:</span>
+              <span class="info-value" style="font-size: 1.2em; color: #10b981; font-weight: bold;">฿${bookingData.totalPrice.toLocaleString()}</span>
+            </div>
+            ${bookingData.specialRequests ? `
+            <div class="info-row">
+              <span class="info-label">คำขอพิเศษ:</span>
+              <span class="info-value">${bookingData.specialRequests}</span>
+            </div>
+            ` : ''}
+          </div>
+          
+          <div class="urgent">
+            ⚡ ต้องการการดำเนินการ: กรุณาตรวจสอบและอนุมัติการจองนี้
+          </div>
+          
+          <div class="action-buttons">
+            <a href="http://localhost:3000/admin/bookings" class="btn btn-view">
+              👁️ ดูรายการจอง
+            </a>
+            <a href="http://localhost:3000/admin/bookings/${bookingData.bookingId}" class="btn btn-approve">
+              ✅ อนุมัติเลย
+            </a>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+            <p><strong>ระบบจองโรงแรม - แอดมิน</strong></p>
+            <p style="color: #666; font-size: 12px;">
+              © 2025 Hotel Booking System. สงวนลิขสิทธิ์.
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+  };
+};
+
+// เทมเพลตอีเมลแจ้งเตือนการชำระเงิน
+const getPaymentReceivedEmailTemplate = (bookingData) => {
+  return {
+    subject: `💳 มีการอัปโหลดสลิปการชำระเงิน - ${bookingData.bookingReference}`,
+    html: `
+      <!DOCTYPE html>
+      <html lang="th">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>การชำระเงิน</title>
+        <style>
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8fafc;
+          }
+          .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            margin: 20px 0;
+          }
+          .header {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 30px;
+          }
+          .payment-info {
+            background: #f0fdf4;
+            border-left: 4px solid #10b981;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+          }
+          .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+          }
+          .info-label {
+            font-weight: bold;
+            color: #4a5568;
+          }
+          .info-value {
+            color: #2d3748;
+          }
+          .urgent {
+            background-color: #fef3c7;
+            border: 1px solid #fcd34d;
+            color: #92400e;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            text-align: center;
+            font-weight: bold;
+          }
+          .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            margin: 0 10px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+            text-align: center;
+            background-color: #10b981;
+            color: white;
+          }
+          .action-buttons {
+            text-align: center;
+            margin: 30px 0;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>💳 การชำระเงิน!</h1>
+            <p>ลูกค้าอัปโหลดสลิปการชำระเงินแล้ว</p>
+          </div>
+          
+          <div class="payment-info">
+            <h3>💰 รายละเอียดการชำระเงิน</h3>
+            <div class="info-row">
+              <span class="info-label">รหัสการจอง:</span>
+              <span class="info-value">${bookingData.bookingReference}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">ชื่อลูกค้า:</span>
+              <span class="info-value">${bookingData.customerName}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">จำนวนเงิน:</span>
+              <span class="info-value" style="font-size: 1.3em; color: #10b981; font-weight: bold;">฿${bookingData.totalPrice.toLocaleString()}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">วันที่อัปโหลด:</span>
+              <span class="info-value">${new Date().toLocaleDateString('th-TH')}</span>
+            </div>
+          </div>
+          
+          <div class="urgent">
+            🔍 ต้องการการตรวจสอบ: กรุณาตรวจสอบสลิปการชำระเงินและอนุมัติการจอง
+          </div>
+          
+          <div class="action-buttons">
+            <a href="http://localhost:3000/admin/payments" class="btn">
+              💳 ตรวจสอบการชำระเงิน
+            </a>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+            <p><strong>ระบบจองโรงแรม - แอดมิน</strong></p>
+            <p style="color: #666; font-size: 12px;">
+              © 2025 Hotel Booking System. สงวนลิขสิทธิ์.
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+  };
+};
+
+// เทมเพลตอีเมลแจ้งเตือนการยกเลิก
+const getCancellationEmailTemplate = (bookingData) => {
+  return {
+    subject: `❌ มีการยกเลิกการจอง - ${bookingData.bookingReference}`,
+    html: `
+      <!DOCTYPE html>
+      <html lang="th">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>การยกเลิกการจอง</title>
+        <style>
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8fafc;
+          }
+          .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            margin: 20px 0;
+          }
+          .header {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 30px;
+          }
+          .cancellation-info {
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+          }
+          .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+          }
+          .info-label {
+            font-weight: bold;
+            color: #4a5568;
+          }
+          .info-value {
+            color: #2d3748;
+          }
+          .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            margin: 0 10px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+            text-align: center;
+            background-color: #ef4444;
+            color: white;
+          }
+          .action-buttons {
+            text-align: center;
+            margin: 30px 0;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>❌ การยกเลิกการจอง</h1>
+            <p>มีการยกเลิกการจองจากลูกค้า</p>
+          </div>
+          
+          <div class="cancellation-info">
+            <h3>📋 รายละเอียดการยกเลิก</h3>
+            <div class="info-row">
+              <span class="info-label">รหัสการจอง:</span>
+              <span class="info-value">${bookingData.bookingReference}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">ชื่อลูกค้า:</span>
+              <span class="info-value">${bookingData.customerName}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">มูลค่าการจอง:</span>
+              <span class="info-value">฿${bookingData.totalPrice.toLocaleString()}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">เหตุผล:</span>
+              <span class="info-value">${bookingData.reason}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">วันที่ยกเลิก:</span>
+              <span class="info-value">${new Date().toLocaleDateString('th-TH')}</span>
+            </div>
+          </div>
+          
+          <div class="action-buttons">
+            <a href="http://localhost:3000/admin/bookings" class="btn">
+              📋 ดูรายการจอง
+            </a>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+            <p><strong>ระบบจองโรงแรม - แอดมิน</strong></p>
+            <p style="color: #666; font-size: 12px;">
+              © 2025 Hotel Booking System. สงวนลิขสิทธิ์.
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+  };
+};
+
+// ส่งอีเมลแจ้งเตือนการจองใหม่แก่แอดมิน
+async function sendNewBookingAdminEmail(adminEmail, bookingData) {
+  try {
+    const transporter = createTransporter();
+    const template = getNewBookingEmailTemplate(bookingData);
+    
+    const mailOptions = {
+      from: {
+        name: 'Hotel Booking System - Admin Notifications',
+        address: process.env.GMAIL_USER
+      },
+      to: adminEmail,
+      subject: template.subject,
+      html: template.html
+    };
+
+    const result = await transporter.sendMail(mailOptions);
+    console.log(`✅ Admin notification email sent to ${adminEmail}:`, result.messageId);
+    return { success: true, messageId: result.messageId };
+  } catch (error) {
+    console.error('❌ Error sending admin notification email:', error);
+    throw error;
+  }
+}
+
+// ส่งอีเมลแจ้งเตือนการชำระเงินแก่แอดมิน
+async function sendPaymentReceivedAdminEmail(adminEmail, bookingData) {
+  try {
+    const transporter = createTransporter();
+    const template = getPaymentReceivedEmailTemplate(bookingData);
+    
+    const mailOptions = {
+      from: {
+        name: 'Hotel Booking System - Admin Notifications',
+        address: process.env.GMAIL_USER
+      },
+      to: adminEmail,
+      subject: template.subject,
+      html: template.html
+    };
+
+    const result = await transporter.sendMail(mailOptions);
+    console.log(`✅ Payment notification email sent to ${adminEmail}:`, result.messageId);
+    return { success: true, messageId: result.messageId };
+  } catch (error) {
+    console.error('❌ Error sending payment notification email:', error);
+    throw error;
+  }
+}
+
+// ส่งอีเมลแจ้งเตือนการยกเลิกแก่แอดมิน
+async function sendCancellationAdminEmail(adminEmail, bookingData) {
+  try {
+    const transporter = createTransporter();
+    const template = getCancellationEmailTemplate(bookingData);
+    
+    const mailOptions = {
+      from: {
+        name: 'Hotel Booking System - Admin Notifications',
+        address: process.env.GMAIL_USER
+      },
+      to: adminEmail,
+      subject: template.subject,
+      html: template.html
+    };
+
+    const result = await transporter.sendMail(mailOptions);
+    console.log(`✅ Cancellation notification email sent to ${adminEmail}:`, result.messageId);
+    return { success: true, messageId: result.messageId };
+  } catch (error) {
+    console.error('❌ Error sending cancellation notification email:', error);
+    throw error;
+  }
+}
+
+// ระบบส่งอีเมลแจ้งเตือนแอดมินอัตโนมัติ
+const automaticAdminEmailNotifications = {
+  // ดึงรายชื่อแอดมินทั้งหมด
+  async getAdminEmails() {
+    try {
+      const [admins] = await connection.execute(`
+        SELECT email, first_name, last_name 
+        FROM users 
+        WHERE role IN ('admin', 'manager') AND email IS NOT NULL
+      `);
+      
+      // เพิ่มอีเมลหลักของระบบเป็นผู้รับหลัก
+      const systemEmail = 'hotelsystem.rmu.ac.th@gmail.com';
+      const hasSystemEmail = admins.some(admin => admin.email === systemEmail);
+      
+      if (!hasSystemEmail) {
+        admins.unshift({
+          email: systemEmail,
+          first_name: 'Hotel',
+          last_name: 'System Admin'
+        });
+      }
+      
+      console.log(`📧 Found ${admins.length} admin recipients (including system email)`);
+      return admins;
+    } catch (error) {
+      console.error('❌ Failed to get admin emails:', error);
+      // ถ้าเกิดข้อผิดพลาดในการดึงจากฐานข้อมูล ให้ส่งไปยังอีเมลระบบอย่างน้อย
+      return [{
+        email: 'hotelsystem.rmu.ac.th@gmail.com',
+        first_name: 'Hotel',
+        last_name: 'System Admin'
+      }];
+    }
+  },
+
+  // ส่งแจ้งเตือนการจองใหม่
+  async onNewBooking(bookingData, userData = {}) {
+    try {
+      console.log('🔄 [ADMIN-EMAIL] Processing new booking notification...');
+      console.log('📥 Raw booking data:', JSON.stringify(bookingData, null, 2));
+      console.log('📥 Raw user data:', JSON.stringify(userData, null, 2));
+      
+      // ดึงรายชื่อแอดมินทั้งหมด
+      const admins = await this.getAdminEmails();
+      if (admins.length === 0) {
+        console.log('⚠️ No admin users found to send notifications');
+        return;
+      }
+
+      // เตรียมข้อมูลสำหรับอีเมลแบบครอบคลุม
+      const bookingInfo = {
+        bookingId: bookingData.id || bookingData.booking_id,
+        bookingReference: bookingData.booking_reference || `BK${bookingData.id || bookingData.booking_id}`,
+        customerName: bookingData.guest_name || `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'ไม่ระบุชื่อ',
+        customerEmail: bookingData.guest_email || userData.email || 'ไม่ระบุอีเมล',
+        customerPhone: bookingData.guest_phone || userData.phone || 'ไม่ระบุเบอร์โทร',
+        hotelName: bookingData.hotel_name || 'โรงแรมวรุณภัฏมหาวิทยาลัยราชภัฏมหาสารคาม',
+        roomTypeName: bookingData.room_type_name || 'ไม่ระบุประเภทห้อง',
+        checkInDate: bookingData.check_in_date,
+        checkOutDate: bookingData.check_out_date,
+        guests: bookingData.guests || 1,
+        totalPrice: bookingData.total_price || 0,
+        specialRequests: bookingData.special_requests || 'ไม่มี'
+      };
+
+      console.log('📋 Final booking info for email:', JSON.stringify(bookingInfo, null, 2));
+
+      // สร้าง transporter
+      const transporter = createTransporter();
+      const emailTemplate = getNewBookingEmailTemplate(bookingInfo);
+
+      console.log('📧 Email template subject:', emailTemplate.subject);
+
+      // ส่งอีเมลให้แอดมินทุกคน
+      let successCount = 0;
+      let failCount = 0;
+      
+      for (const admin of admins) {
+        try {
+          const mailResult = await transporter.sendMail({
+            from: 'hotelsystem.rmu.ac.th@gmail.com',
+            to: admin.email,
+            subject: emailTemplate.subject,
+            html: emailTemplate.html
+          });
+          console.log(`✅ [ADMIN-EMAIL] New booking notification sent to: ${admin.email} (Message ID: ${mailResult.messageId})`);
+          successCount++;
+        } catch (emailError) {
+          console.error(`❌ [ADMIN-EMAIL] Failed to send to ${admin.email}:`, emailError.message);
+          console.error('❌ [ADMIN-EMAIL] Full error:', emailError);
+          failCount++;
+        }
+      }
+      
+      console.log(`📊 [ADMIN-EMAIL] Email summary - Success: ${successCount}, Failed: ${failCount}`);
+    } catch (error) {
+      console.error('❌ [ADMIN-EMAIL] Failed to send new booking notifications:', error);
+      console.error('❌ [ADMIN-EMAIL] Full error stack:', error.stack);
+    }
+  },
+
+  // ส่งแจ้งเตือนการชำระเงิน
+  async onPaymentReceived(paymentData) {
+    try {
+      console.log('🔄 [ADMIN-EMAIL] Processing payment received notification...');
+      
+      const admins = await this.getAdminEmails();
+      if (admins.length === 0) {
+        console.log('⚠️ No admin users found to send payment notifications');
+        return;
+      }
+
+      // เตรียมข้อมูลสำหรับอีเมล
+      const paymentInfo = {
+        booking_id: paymentData.booking_id,
+        user_id: paymentData.user_id,
+        amount: paymentData.amount,
+        payment_slip_id: paymentData.payment_slip_id,
+        file_name: paymentData.file_name,
+        created_at: new Date().toLocaleString('th-TH')
+      };
+
+      // สร้าง transporter
+      const transporter = createTransporter();
+      const emailTemplate = getPaymentReceivedEmailTemplate(paymentInfo);
+
+      // ส่งอีเมลให้แอดมินทุกคน
+      for (const admin of admins) {
+        try {
+          await transporter.sendMail({
+            from: 'hotelsystem.rmu.ac.th@gmail.com',
+            to: admin.email,
+            subject: emailTemplate.subject,
+            html: emailTemplate.html
+          });
+          console.log(`✅ [ADMIN-EMAIL] Payment notification sent to: ${admin.email}`);
+        } catch (emailError) {
+          console.error(`❌ [ADMIN-EMAIL] Failed to send to ${admin.email}:`, emailError.message);
+        }
+      }
+    } catch (error) {
+      console.error('❌ [ADMIN-EMAIL] Failed to send payment notifications:', error);
+    }
+  },
+
+  // ส่งแจ้งเตือนการยกเลิก
+  async onBookingCancelled(cancellationData) {
+    try {
+      console.log('🔄 [ADMIN-EMAIL] Processing booking cancellation notification...');
+      
+      const admins = await this.getAdminEmails();
+      if (admins.length === 0) {
+        console.log('⚠️ No admin users found to send cancellation notifications');
+        return;
+      }
+
+      // เตรียมข้อมูลสำหรับอีเมล
+      const cancellationInfo = {
+        booking_id: cancellationData.booking_id,
+        user_id: cancellationData.user_id,
+        reason: cancellationData.reason || 'ไม่ระบุเหตุผล',
+        cancellation_type: cancellationData.cancellation_type || 'direct',
+        request_id: cancellationData.request_id,
+        created_at: new Date().toLocaleString('th-TH')
+      };
+
+      // สร้าง transporter
+      const transporter = createTransporter();
+      const emailTemplate = getCancellationEmailTemplate(cancellationInfo);
+
+      // ส่งอีเมลให้แอดมินทุกคน
+      for (const admin of admins) {
+        try {
+          await transporter.sendMail({
+            from: 'hotelsystem.rmu.ac.th@gmail.com',
+            to: admin.email,
+            subject: emailTemplate.subject,
+            html: emailTemplate.html
+          });
+          console.log(`✅ [ADMIN-EMAIL] Cancellation notification sent to: ${admin.email}`);
+        } catch (emailError) {
+          console.error(`❌ [ADMIN-EMAIL] Failed to send to ${admin.email}:`, emailError.message);
+        }
+      }
+    } catch (error) {
+      console.error('❌ [ADMIN-EMAIL] Failed to send cancellation notifications:', error);
+    }
+  }
+};
 
 async function getDashboardStats(startDate, endDate) {
   try {
@@ -2605,6 +3370,141 @@ const server = createServer(async (req, res) => {
 
   try {
 
+    // Special handling for dynamic routes
+    if (normalizedPathname.startsWith('/api/reviews/hotel/')) {
+      const hotelId = parseInt(normalizedPathname.split('/')[4]);
+      if (req.method === 'GET') {
+        try {
+          console.log('🔍 Getting reviews for hotel:', hotelId);
+          
+          // ดึงรีวิวของโรงแรม
+          const reviewsQuery = `
+            SELECT 
+              r.id, r.rating, r.comment, r.is_verified_stay,
+              r.created_at, r.updated_at,
+              u.first_name, u.last_name, u.email
+            FROM reviews r
+            LEFT JOIN users u ON r.user_id = u.id
+            WHERE r.hotel_id = ? AND r.is_approved = true
+            ORDER BY r.created_at DESC
+            LIMIT 10
+          `;
+          
+          const [reviews] = await connection.execute(reviewsQuery, [hotelId]);
+          
+          // คำนวณสถิติรีวิว
+          const statsQuery = `
+            SELECT 
+              AVG(rating) as average_rating,
+              COUNT(*) as total_reviews,
+              COUNT(CASE WHEN rating = 5 THEN 1 END) as five_star,
+              COUNT(CASE WHEN rating = 4 THEN 1 END) as four_star,
+              COUNT(CASE WHEN rating = 3 THEN 1 END) as three_star,
+              COUNT(CASE WHEN rating = 2 THEN 1 END) as two_star,
+              COUNT(CASE WHEN rating = 1 THEN 1 END) as one_star
+            FROM reviews 
+            WHERE hotel_id = ? AND is_approved = true
+          `;
+          
+          const [stats] = await connection.execute(statsQuery, [hotelId]);
+          
+          const formattedReviews = reviews.map(review => ({
+            id: review.id,
+            rating: review.rating,
+            comment: review.comment,
+            isVerifiedStay: review.is_verified_stay,
+            createdAt: review.created_at,
+            updatedAt: review.updated_at,
+            reviewer: {
+              firstName: review.first_name,
+              lastName: review.last_name,
+              email: review.email
+            }
+          }));
+          
+          sendJSON(res, 200, {
+            success: true,
+            data: {
+              reviews: formattedReviews,
+              statistics: {
+                averageRating: parseFloat(stats[0].average_rating || 0).toFixed(2),
+                totalReviews: stats[0].total_reviews,
+                breakdown: {
+                  5: stats[0].five_star,
+                  4: stats[0].four_star,
+                  3: stats[0].three_star,
+                  2: stats[0].two_star,
+                  1: stats[0].one_star
+                }
+              }
+            }
+          });
+          
+        } catch (error) {
+          console.error('❌ Error getting hotel reviews:', error);
+          sendJSON(res, 500, {
+            success: false,
+            message: 'เกิดข้อผิดพลาดในการดึงรีวิว'
+          });
+        }
+      } else {
+        sendJSON(res, 405, { success: false, message: 'Method not allowed' });
+      }
+      return; // Exit early after handling
+    }
+
+    // Special handling for user reviews
+    if (normalizedPathname.startsWith('/api/reviews/user/')) {
+      const userId = parseInt(normalizedPathname.split('/')[4]);
+      if (req.method === 'GET') {
+        try {
+          console.log('🔍 Getting reviews for user:', userId);
+          
+          // ดึงรีวิวของผู้ใช้
+          const userReviewsQuery = `
+            SELECT 
+              r.id, r.rating, r.comment, r.is_verified_stay,
+              r.created_at, r.updated_at, r.hotel_id,
+              h.name as hotel_name, h.address as hotel_address
+            FROM reviews r
+            LEFT JOIN hotels h ON r.hotel_id = h.id
+            WHERE r.user_id = ?
+            ORDER BY r.created_at DESC
+          `;
+          
+          const [userReviews] = await connection.execute(userReviewsQuery, [userId]);
+          
+          const formattedUserReviews = userReviews.map(review => ({
+            id: review.id,
+            rating: review.rating,
+            comment: review.comment,
+            isVerifiedStay: review.is_verified_stay,
+            createdAt: review.created_at,
+            updatedAt: review.updated_at,
+            hotel: {
+              id: review.hotel_id,
+              name: review.hotel_name,
+              address: review.hotel_address
+            }
+          }));
+          
+          sendJSON(res, 200, {
+            success: true,
+            data: formattedUserReviews
+          });
+          
+        } catch (error) {
+          console.error('❌ Error getting user reviews:', error);
+          sendJSON(res, 500, {
+            success: false,
+            message: 'เกิดข้อผิดพลาดในการดึงรีวิวของผู้ใช้'
+          });
+        }
+      } else {
+        sendJSON(res, 405, { success: false, message: 'Method not allowed' });
+      }
+      return; // Exit early after handling
+    }
 
     // Routes
     switch (normalizedPathname) {
@@ -3383,6 +4283,248 @@ const server = createServer(async (req, res) => {
           });
         }
         break;
+
+      // ==================== REVIEW API ====================
+      case '/api/reviews/hotel':
+        if (pathname.startsWith('/api/reviews/hotel/')) {
+          const hotelId = parseInt(pathname.split('/')[4]);
+          if (req.method === 'GET') {
+            try {
+              console.log('🔍 Getting reviews for hotel:', hotelId);
+              
+              // ดึงรีวิวของโรงแรม
+              const reviewsQuery = `
+                SELECT 
+                  r.id, r.rating, r.comment, r.is_verified_stay,
+                  r.created_at, r.updated_at,
+                  u.first_name, u.last_name, u.email
+                FROM reviews r
+                LEFT JOIN users u ON r.user_id = u.id
+                WHERE r.hotel_id = ? AND r.is_approved = true
+                ORDER BY r.created_at DESC
+                LIMIT 10
+              `;
+              
+              const [reviews] = await connection.execute(reviewsQuery, [hotelId]);
+              
+              // คำนวณสถิติรีวิว
+              const statsQuery = `
+                SELECT 
+                  AVG(rating) as average_rating,
+                  COUNT(*) as total_reviews,
+                  COUNT(CASE WHEN rating = 5 THEN 1 END) as five_star,
+                  COUNT(CASE WHEN rating = 4 THEN 1 END) as four_star,
+                  COUNT(CASE WHEN rating = 3 THEN 1 END) as three_star,
+                  COUNT(CASE WHEN rating = 2 THEN 1 END) as two_star,
+                  COUNT(CASE WHEN rating = 1 THEN 1 END) as one_star
+                FROM reviews 
+                WHERE hotel_id = ? AND is_approved = true
+              `;
+              
+              const [stats] = await connection.execute(statsQuery, [hotelId]);
+              
+              const formattedReviews = reviews.map(review => ({
+                id: review.id,
+                rating: review.rating,
+                comment: review.comment,
+                isVerifiedStay: review.is_verified_stay,
+                createdAt: review.created_at,
+                updatedAt: review.updated_at,
+                reviewer: {
+                  firstName: review.first_name,
+                  lastName: review.last_name,
+                  email: review.email
+                }
+              }));
+              
+              sendJSON(res, 200, {
+                success: true,
+                data: {
+                  reviews: formattedReviews,
+                  statistics: {
+                    averageRating: parseFloat(stats[0].average_rating || 0).toFixed(2),
+                    totalReviews: stats[0].total_reviews,
+                    breakdown: {
+                      5: stats[0].five_star,
+                      4: stats[0].four_star,
+                      3: stats[0].three_star,
+                      2: stats[0].two_star,
+                      1: stats[0].one_star
+                    }
+                  }
+                }
+              });
+              
+            } catch (error) {
+              console.error('❌ Error getting hotel reviews:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในการดึงรีวิว'
+              });
+            }
+          } else {
+            sendJSON(res, 405, { success: false, message: 'Method not allowed' });
+          }
+        }
+        break;
+
+      case '/api/reviews/user':
+        if (pathname.startsWith('/api/reviews/user/')) {
+          const userId = parseInt(pathname.split('/')[4]);
+          if (req.method === 'GET') {
+            try {
+              console.log('🔍 Getting reviews for user:', userId);
+              
+              // ดึงรีวิวของผู้ใช้
+              const userReviewsQuery = `
+                SELECT 
+                  r.id, r.rating, r.comment, r.is_verified_stay,
+                  r.created_at, r.updated_at, r.hotel_id,
+                  h.name as hotel_name, h.address as hotel_address
+                FROM reviews r
+                LEFT JOIN hotels h ON r.hotel_id = h.id
+                WHERE r.user_id = ?
+                ORDER BY r.created_at DESC
+              `;
+              
+              const [userReviews] = await connection.execute(userReviewsQuery, [userId]);
+              
+              const formattedUserReviews = userReviews.map(review => ({
+                id: review.id,
+                rating: review.rating,
+                comment: review.comment,
+                isVerifiedStay: review.is_verified_stay,
+                createdAt: review.created_at,
+                updatedAt: review.updated_at,
+                hotel: {
+                  id: review.hotel_id,
+                  name: review.hotel_name,
+                  address: review.hotel_address
+                }
+              }));
+              
+              sendJSON(res, 200, {
+                success: true,
+                data: formattedUserReviews
+              });
+              
+            } catch (error) {
+              console.error('❌ Error getting user reviews:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในการดึงรีวิวของผู้ใช้'
+              });
+            }
+          } else {
+            sendJSON(res, 405, { success: false, message: 'Method not allowed' });
+          }
+        }
+        break;
+
+      case '/api/reviews':
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => {
+            body += chunk.toString();
+          });
+          
+          req.on('end', async () => {
+            try {
+              console.log('📝 Creating new review...');
+              // console.log('📦 Request body:', body);
+              
+              // ตรวจสอบ authentication (ข้ามไปก่อนสำหรับการทดสอบ)
+              const authHeader = req.headers.authorization;
+              let userId = 2; // Default สำหรับการทดสอบ - ใช้ user ID ที่มีอยู่จริง
+              
+              if (authHeader && authHeader.startsWith('Bearer ')) {
+                try {
+                  const token = authHeader.substring(7);
+                  const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+                  userId = decoded.userId;
+                } catch (tokenError) {
+                  console.log('Token verification failed, using default user ID');
+                }
+              }
+              
+              const { hotelId, rating, comment, photos = [], bookingId } = JSON.parse(body);
+              console.log('🔍 Parsed data:', { hotelId, rating, comment, bookingId });
+              console.log('👤 Using userId:', userId);
+            
+            // Validation
+            if (!hotelId || !rating) {
+              sendJSON(res, 400, {
+                success: false,
+                message: 'ต้องระบุ hotelId และ rating'
+              });
+              return;
+            }
+            
+            if (rating < 1 || rating > 5) {
+              sendJSON(res, 400, {
+                success: false,
+                message: 'คะแนนต้องอยู่ระหว่าง 1-5'
+              });
+              return;
+            }
+            
+            // ตรวจสอบว่าโรงแรมมีอยู่จริง
+            const [hotelCheck] = await connection.execute('SELECT id FROM hotels WHERE id = ?', [hotelId]);
+            if (hotelCheck.length === 0) {
+              sendJSON(res, 404, {
+                success: false,
+                message: 'ไม่พบโรงแรมที่ระบุ'
+              });
+              return;
+            }
+            
+            // สร้างรีวิว
+            const insertQuery = `
+              INSERT INTO reviews (
+                user_id, hotel_id, booking_id, rating, comment, 
+                photos, is_verified_stay, created_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+            `;
+            
+            const photosJson = JSON.stringify(photos);
+            const isVerifiedStay = bookingId ? true : false;
+            
+            const [result] = await connection.execute(insertQuery, [
+              userId, hotelId, bookingId || null, rating, 
+              comment || '', photosJson, isVerifiedStay
+            ]);
+            
+            console.log('✅ Review created with ID:', result.insertId);
+            
+            sendJSON(res, 201, {
+              success: true,
+              message: 'สร้างรีวิวสำเร็จ',
+              data: {
+                id: result.insertId,
+                rating,
+                comment: comment || '',
+                isVerifiedStay,
+                createdAt: new Date()
+              }
+            });
+            
+          } catch (error) {
+            console.error('❌ Error creating review:', error);
+            console.error('❌ Error message:', error.message);
+            if (error.sqlState) console.error('❌ SQL State:', error.sqlState);
+            console.error('❌ Stack trace:', error.stack);
+            sendJSON(res, 500, {
+              success: false,
+              message: 'ไม่สามารถสร้างรีวิวได้: ' + error.message
+            });
+          }
+          });
+        } else {
+          sendJSON(res, 405, { success: false, message: 'Method not allowed' });
+        }
+        break;
+
+      // ==================== END REVIEW API ====================
 
       case '/api/check-room-availability':
         console.log('🔍 Checking room availability...');
@@ -6006,6 +7148,21 @@ const server = createServer(async (req, res) => {
 
                 console.log(`✅ Payment slip saved to database with ID: ${result.insertId}`);
 
+                // Send admin email notification for payment received
+                try {
+                  await automaticAdminEmailNotifications.onPaymentReceived({
+                    booking_id: fields.booking_id || fields.bookingId,
+                    user_id: fields.user_id,
+                    amount: fields.amount,
+                    payment_slip_id: result.insertId,
+                    file_name: originalName
+                  });
+                  console.log('✅ Admin email notification sent for payment received');
+                } catch (emailError) {
+                  console.error('⚠️ Failed to send admin email notification:', emailError);
+                  // Don't fail the upload if email fails
+                }
+
                 sendJSON(res, 200, {
                   success: true,
                   message: 'Payment slip uploaded successfully',
@@ -6304,6 +7461,178 @@ const server = createServer(async (req, res) => {
         }
         break;
 
+      // ========================================
+      // 📧 Admin Email Notification API Routes
+      // ========================================
+      
+      case '/api/admin/email-notifications/test-notification':
+        setCorsHeaders(res);
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => {
+            body += chunk.toString();
+          });
+          
+          req.on('end', async () => {
+            try {
+              const { type } = JSON.parse(body);
+              
+              if (!type || !['new_booking', 'payment_received', 'booking_cancelled'].includes(type)) {
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'Invalid notification type. Use: new_booking, payment_received, or booking_cancelled'
+                });
+                return;
+              }
+
+              // สร้างข้อมูลทดสอบ
+              const testBookingData = {
+                id: 'TEST-123',
+                bookingReference: 'BK-TEST-123',
+                hotel_name: 'โรงแรมทดสอบ',
+                room_type_name: 'ห้องทดสอบ',
+                check_in_date: new Date().toISOString(),
+                check_out_date: new Date(Date.now() + 86400000).toISOString(),
+                guests: 2,
+                total_price: 1500
+              };
+
+              const testUserData = {
+                first_name: 'ลูกค้า',
+                last_name: 'ทดสอบ',
+                email: 'customer@test.com'
+              };
+
+              let result;
+              switch (type) {
+                case 'new_booking':
+                  await automaticAdminEmailNotifications.onNewBooking(testBookingData, testUserData);
+                  break;
+                case 'payment_received':
+                  await automaticAdminEmailNotifications.onPaymentReceived(testBookingData, testUserData);
+                  break;
+                case 'booking_cancelled':
+                  await automaticAdminEmailNotifications.onBookingCancelled(testBookingData, testUserData, 'ทดสอบระบบ');
+                  break;
+              }
+
+              sendJSON(res, 200, {
+                success: true,
+                message: `Test ${type} notification sent successfully`
+              });
+              
+            } catch (error) {
+              console.error('❌ Error sending test notification:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'Failed to send test notification',
+                details: error.message
+              });
+            }
+          });
+        } else {
+          sendJSON(res, 405, { success: false, message: 'Method not allowed' });
+        }
+        break;
+
+      case '/api/admin/email-notifications/admin-list':
+        setCorsHeaders(res);
+        if (req.method === 'GET') {
+          try {
+            const [admins] = await connection.execute(`
+              SELECT id, email, first_name, last_name, created_at
+              FROM users 
+              WHERE role = 'admin' AND email IS NOT NULL
+              ORDER BY created_at DESC
+            `);
+
+            sendJSON(res, 200, {
+              success: true,
+              admins: admins.map(admin => ({
+                id: admin.id,
+                email: admin.email,
+                name: `${admin.first_name || ''} ${admin.last_name || ''}`.trim() || 'ไม่ระบุชื่อ',
+                createdAt: admin.created_at
+              })),
+              total: admins.length
+            });
+          } catch (error) {
+            console.error('❌ Error fetching admin list:', error);
+            sendJSON(res, 500, {
+              success: false,
+              message: 'Failed to fetch admin list',
+              details: error.message
+            });
+          }
+        } else {
+          sendJSON(res, 405, { success: false, message: 'Method not allowed' });
+        }
+        break;
+
+      case '/api/admin/email-notifications/statistics':
+        setCorsHeaders(res);
+        if (req.method === 'GET') {
+          try {
+            const days = parseInt(query.days) || 7;
+            const daysAgo = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+            console.log(`📊 Email statistics request for last ${days} days`);
+
+            // สถิติการจองในช่วงที่เลือก
+            const [bookingStats] = await connection.execute(`
+              SELECT 
+                COUNT(*) as total_bookings,
+                COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_bookings,
+                COUNT(CASE WHEN status = 'confirmed' THEN 1 END) as confirmed_bookings,
+                COUNT(CASE WHEN status = 'cancelled' THEN 1 END) as cancelled_bookings,
+                COUNT(CASE WHEN payment_receipt_url IS NOT NULL THEN 1 END) as bookings_with_payment,
+                COALESCE(SUM(CASE WHEN status = 'confirmed' THEN total_price END), 0) as total_revenue
+              FROM bookings 
+              WHERE created_at >= ?
+            `, [daysAgo.toISOString().split('T')[0]]);
+
+            // จำนวนแอดมินในระบบ
+            const [adminCount] = await connection.execute(`
+              SELECT COUNT(*) as count
+              FROM users 
+              WHERE role = 'admin' AND email IS NOT NULL
+            `);
+
+            const stats = {
+              period: `${days} วันที่ผ่านมา`,
+              adminCount: parseInt(adminCount[0].count),
+              bookings: {
+                total: parseInt(bookingStats[0].total_bookings),
+                pending: parseInt(bookingStats[0].pending_bookings),
+                confirmed: parseInt(bookingStats[0].confirmed_bookings),
+                cancelled: parseInt(bookingStats[0].cancelled_bookings),
+                withPayment: parseInt(bookingStats[0].bookings_with_payment)
+              },
+              revenue: parseFloat(bookingStats[0].total_revenue),
+              estimatedEmailsSent: {
+                newBookingNotifications: parseInt(bookingStats[0].total_bookings) * parseInt(adminCount[0].count),
+                paymentNotifications: parseInt(bookingStats[0].bookings_with_payment) * parseInt(adminCount[0].count),
+                cancellationNotifications: parseInt(bookingStats[0].cancelled_bookings) * parseInt(adminCount[0].count)
+              }
+            };
+
+            sendJSON(res, 200, {
+              success: true,
+              statistics: stats
+            });
+          } catch (error) {
+            console.error('❌ Error fetching email statistics:', error);
+            sendJSON(res, 500, {
+              success: false,
+              message: 'Failed to fetch statistics',
+              details: error.message
+            });
+          }
+        } else {
+          sendJSON(res, 405, { success: false, message: 'Method not allowed' });
+        }
+        break;
+
       default:
         // Handle dynamic routes
         // Handle booking date updates (PUT /api/bookings/{id})
@@ -6590,6 +7919,194 @@ const server = createServer(async (req, res) => {
             });
           }
           return; // ป้องกันไม่ให้รันต่อไปยัง default 404
+
+        // PUT /api/bookings/:id/payment-status - อัปเดตสถานะการชำระเงิน (Admin only)
+        } else if (normalizedPathname.match(/^\/api\/bookings\/\d+\/payment-status$/)) {
+          console.log(`🎯 Matching payment status route: ${req.method} ${normalizedPathname}`);
+          
+          const pathParts = normalizedPathname.split('/');
+          const bookingId = parseInt(pathParts[3]);
+          
+          setCorsHeaders(res);
+          
+          if (req.method === 'OPTIONS') {
+            res.writeHead(200);
+            res.end();
+            return;
+          }
+          
+          if (req.method === 'PUT') {
+            let body = '';
+            
+            const processRequest = new Promise((resolve, reject) => {
+              req.on('data', chunk => {
+                body += chunk.toString();
+              });
+              
+              req.on('end', () => {
+                resolve(body);
+              });
+              
+              req.on('error', (error) => {
+                reject(error);
+              });
+            });
+            
+            processRequest.then(async (body) => {
+              let responseSent = false;
+              
+              try {
+                console.log('🔄 PUT /api/bookings/:id/payment-status - Start processing');
+                console.log('📝 Booking ID:', bookingId);
+                console.log('📝 Raw request body:', JSON.stringify(body));
+                
+                if (!body || body.trim() === '') {
+                  console.log('❌ Empty request body detected - SENDING 400');
+                  if (!responseSent) {
+                    responseSent = true;
+                    sendJSON(res, 400, {
+                      success: false,
+                      message: 'Request body is empty'
+                    });
+                  }
+                  return;
+                }
+                
+                let requestData;
+                try {
+                  requestData = JSON.parse(body);
+                  console.log('✅ Parsed request data:', JSON.stringify(requestData, null, 2));
+                } catch (parseError) {
+                  console.error('❌ JSON parse error - SENDING 400:', parseError.message);
+                  if (!responseSent) {
+                    responseSent = true;
+                    sendJSON(res, 400, {
+                      success: false,
+                      message: 'รูปแบบข้อมูลไม่ถูกต้อง: ' + parseError.message
+                    });
+                  }
+                  return;
+                }
+                
+                const { payment_status } = requestData;
+                console.log('🔄 Extracted payment_status:', payment_status);
+                
+                if (!payment_status) {
+                  console.log('❌ No payment_status provided in request - SENDING 400');
+                  if (!responseSent) {
+                    responseSent = true;
+                    sendJSON(res, 400, {
+                      success: false,
+                      message: 'กรุณาระบุสถานะการชำระเงินที่ต้องการอัปเดต'
+                    });
+                  }
+                  return;
+                }
+                
+                // ตรวจสอบว่าค่า payment_status ที่ได้รับถูกต้องหรือไม่
+                const validStatuses = ['verified', 'rejected', 'slip_uploaded', 'pending'];
+                if (!validStatuses.includes(payment_status)) {
+                  console.log('❌ Invalid payment_status provided - SENDING 400');
+                  if (!responseSent) {
+                    responseSent = true;
+                    sendJSON(res, 400, {
+                      success: false,
+                      message: 'สถานะการชำระเงินไม่ถูกต้อง: ' + payment_status
+                    });
+                  }
+                  return;
+                }
+                
+                console.log(`🔄 Attempting to update booking ${bookingId} to payment_status: ${payment_status}`);
+                
+                // อัปเดตสถานะการชำระเงินในฐานข้อมูล
+                const [result] = await connection.execute(
+                  'UPDATE bookings SET payment_status = ?, updated_at = NOW() WHERE id = ?',
+                  [payment_status, bookingId]
+                );
+                
+                console.log('🔄 Update result:', { 
+                  affectedRows: result.affectedRows,
+                  changedRows: result.changedRows,
+                  insertId: result.insertId
+                });
+                
+                if (result.affectedRows === 0) {
+                  console.log(`❌ No booking found with ID: ${bookingId}`);
+                  if (!responseSent) {
+                    responseSent = true;
+                    sendJSON(res, 404, {
+                      success: false,
+                      message: 'ไม่พบการจองที่ระบุ'
+                    });
+                  }
+                  return;
+                }
+                
+                console.log(`✅ Booking ${bookingId} payment_status updated successfully to: ${payment_status}`);
+                
+                // ดึงข้อมูลการจองที่อัปเดตแล้ว
+                console.log('🔄 Fetching updated booking data...');
+                const [updatedBooking] = await connection.execute(
+                  `SELECT b.*, u.first_name, u.last_name, h.name as hotel_name, rt.name as room_type_name
+                   FROM bookings b
+                   LEFT JOIN users u ON b.user_id = u.id
+                   LEFT JOIN hotels h ON b.hotel_id = h.id
+                   LEFT JOIN room_types rt ON b.room_type_id = rt.id
+                   WHERE b.id = ?`,
+                  [bookingId]
+                );
+                
+                console.log('🔄 Updated booking data:', updatedBooking[0] ? 'Found' : 'Not found');
+                
+                // ส่ง response เพียงครั้งเดียว
+                if (!responseSent) {
+                  responseSent = true;
+                  console.log('📤 Sending success response to client');
+                  try {
+                    sendJSON(res, 200, {
+                      success: true,
+                      message: 'อัปเดตสถานะการชำระเงินเรียบร้อยแล้ว',
+                      data: updatedBooking[0]
+                    });
+                  } catch (responseError) {
+                    console.error('❌ Error sending response:', responseError.message);
+                  }
+                }
+                
+              } catch (error) {
+                console.error('❌ Error updating payment status:', error);
+                console.error('❌ Error stack:', error.stack);
+                if (!responseSent) {
+                  responseSent = true;
+                  console.log('📤 Sending error response to client');
+                  try {
+                    sendJSON(res, 500, {
+                      success: false,
+                      message: 'เกิดข้อผิดพลาดในการอัปเดตสถานะการชำระเงิน: ' + error.message
+                    });
+                  } catch (responseError) {
+                    console.error('❌ Error sending error response:', responseError.message);
+                  }
+                }
+              }
+            }).catch((error) => {
+              console.error('❌ Error processing request:', error);
+              if (!res.headersSent) {
+                sendJSON(res, 500, {
+                  success: false,
+                  message: 'เกิดข้อผิดพลาดในการประมวลผลคำขอ'
+                });
+              }
+            });
+          } else {
+            sendJSON(res, 405, {
+              success: false,
+              message: 'Method not allowed'
+            });
+          }
+          return; // ป้องกันไม่ให้รันต่อไปยัง default 404
+
         } else if (normalizedPathname.startsWith('/api/admin/rooms/')) {
           console.log(`🎯 Matching admin rooms route: ${req.method} ${normalizedPathname}`);
           const pathParts = normalizedPathname.split('/');
@@ -7622,7 +9139,7 @@ const server = createServer(async (req, res) => {
                      receipt_file_size = ?,
                      updated_at = NOW() 
                    WHERE id = ?`,
-                  [receiptUrl, 'paid', filename || null, fileSize || null, parseInt(bookingId)]
+                  [receiptUrl, 'slip_uploaded', filename || null, fileSize || null, parseInt(bookingId)]
                 );
                 
                 if (result.affectedRows === 0) {

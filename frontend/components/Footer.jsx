@@ -15,7 +15,7 @@ export default function Footer() {
           
           {/* Copyright */}
           <p className="text-gray-400 text-sm">
-            © {currentYear} พัฒนาโดย นาย พชร มีหา
+            © {currentYear} พัฒนาโดย นาย พชร มีหา และนาย ภคพงษ์ สิงคาม
           </p>
         </div>
       </div>

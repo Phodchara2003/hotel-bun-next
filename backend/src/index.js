@@ -30,6 +30,7 @@ import forgotPasswordRoutes from './routes/forgotPassword.js';
 import userEmailRoutes from './routes/userEmailSettings.js';
 import changeEmailRoutes from './routes/changeEmail.js';
 import { passwordResetRoutes } from './routes/password-reset.js';
+import { adminEmailRoutes } from './routes/adminEmailRoutes.js';
 // import './db/create-user-email-table.js'; // Create user email settings table
 // import './db/create-payment-settings-table.js'; // Create payment settings table
 // import './db/add-payment-slip-columns.js'; // Add payment slip columns
@@ -200,6 +201,7 @@ const app = new Elysia()
       .use(passwordResetRoutes)
       .use(paymentSlipRoutes)
       .use(qrPaymentRoutes)
+      .use(adminEmailRoutes)
   )
   
   // Admin payment settings routes (outside /api group)
@@ -244,7 +246,14 @@ const app = new Elysia()
 
 // เริ่มต้นระบบ Notification Scheduler
 import { notificationScheduler } from './utils/notificationScheduler.js';
+import { adminEmailScheduler } from './utils/adminEmailScheduler.js';
+
 notificationScheduler.startAll();
+
+// เริ่มต้นระบบส่งอีเมลแอดมินอัตโนมัติ
+console.log('📧 [ADMIN-EMAIL] Initializing admin email notification system...');
+const adminEmailIntervals = adminEmailScheduler.startScheduledTasks();
+console.log('✅ [ADMIN-EMAIL] Admin email notification system started');
 
 console.log(`🚀 Hotel Booking API is running at 0.0.0.0:3001`);
 console.log(`📚 API Documentation available at http://localhost:3001/swagger`);

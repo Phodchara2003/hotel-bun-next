@@ -11,6 +11,7 @@ export const reviewRoutes = new Elysia({ prefix: '/reviews' })
   // ดึงรีวิวของโรงแรม (ไม่ต้องการ auth)
   .get('/hotel/:hotelId', async ({ params, query, set }) => {
     try {
+      console.log('🔍 Review route hit - hotel reviews request for hotelId:', params.hotelId);
       const hotelId = parseInt(params.hotelId);
       const page = parseInt(query.page) || 1;
       const limit = parseInt(query.limit) || 10;

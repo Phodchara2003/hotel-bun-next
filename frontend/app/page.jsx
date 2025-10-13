@@ -413,19 +413,18 @@ function HomePageContent() {
   }
 
   return (
-    <div className="min-h-screen pt-16 select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none', cursor: 'default', caretColor: 'transparent' }}>
+    <div className="min-h-screen pt-16">
       {/* Logo in Top Left Corner - aligned with navigation bar */}
-      <div className="fixed top-2 left-4 z-50 flex items-center h-12 select-none" style={{ userSelect: 'none', cursor: 'default' }}>
+      <div className="fixed top-2 left-4 z-50 flex items-center h-12">
         <img 
           src="/assets/ตราสัญลักษณ์มหาวิทยาลัยราชภัฏมหาสารคาม.png" 
           alt="Logo มหาวิทยาลัยราชภัฏมหาสารคาม" 
           className="w-12 h-12 object-contain drop-shadow-lg hover:scale-105 transition-transform duration-300 select-none pointer-events-none"
-          style={{ userSelect: 'none', cursor: 'default' }}
         />
       </div>
 
       {/* Hero Section - แบบ Gregori Hotel */}
-      <section className="relative h-screen select-none" style={{ userSelect: 'none', cursor: 'default' }}>
+      <section className="relative h-screen">
         {/* Background Image */}
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
@@ -439,9 +438,9 @@ function HomePageContent() {
 
 
         {/* Hero Content with Booking Form */}
-        <div className="relative z-10 flex flex-col items-center justify-center h-full text-center text-white px-6 pt-8 select-none" style={{ userSelect: 'none', cursor: 'default', caretColor: 'transparent' }}>
+        <div className="relative z-10 flex flex-col items-center justify-center h-full text-center text-white px-6 pt-8">
           <FadeInUp delay={300}>
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-light mb-8 leading-tight font-thai-header select-none" style={{ userSelect: 'none', cursor: 'default' }}>
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-light mb-8 leading-tight font-thai-header">
               ยินดีต้อนรับสู่<br />
               <span className="font-medium text-amber-300">โรงแรมวรุณภัฏ</span>
             </h1>
@@ -450,8 +449,8 @@ function HomePageContent() {
           {/* Booking Form - Moved up and integrated with hero content */}
           <div className="w-full max-w-7xl px-4 lg:px-8 mt-6">
           <FadeInUp delay={800}>
-            <div className="backdrop-blur-lg rounded-3xl p-8 lg:p-12 border-2 border-white/20 relative z-30 shadow-2xl select-none" style={{ background: 'linear-gradient(135deg, rgba(18, 43, 41, 0.95) 0%, rgba(15, 38, 35, 0.98) 50%, rgba(13, 31, 29, 0.95) 100%)', userSelect: 'none', cursor: 'default' }}>
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 text-white" style={{ position: 'relative', zIndex: 100, userSelect: 'none', cursor: 'default' }}>
+            <div className="backdrop-blur-lg rounded-3xl p-8 lg:p-12 border-2 border-white/20 relative z-30 shadow-2xl" style={{ background: 'linear-gradient(135deg, rgba(18, 43, 41, 0.95) 0%, rgba(15, 38, 35, 0.98) 50%, rgba(13, 31, 29, 0.95) 100%)' }}>
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 text-white" style={{ position: 'relative', zIndex: 100 }}>
                 <div style={{ position: 'relative', zIndex: 101 }}>
                   <ModernDatePicker
                     selectedDate={checkInDate}
@@ -580,7 +579,7 @@ function HomePageContent() {
           {roomTypes.slice(0, 3).map((roomType, index) => (
             <div 
               key={roomType.id} 
-              className="relative min-h-screen select-none"
+              className="relative min-h-screen"
               style={{ backgroundColor: index % 2 === 0 ? '#082220' : '#0a2b28' }}
             >
               <div className="grid grid-cols-1 lg:grid-cols-2 min-h-screen">
@@ -597,7 +596,7 @@ function HomePageContent() {
                       }}
                     />
                     {/* Overlay สำหรับข้อมูลเพิ่มเติม */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 flex items-end p-8 select-none">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 flex items-end p-8">
                       <div className="text-white">
                         <p className="text-sm font-thai">ดูรูปเพิ่มเติม</p>
                         <p className="text-xs text-amber-200 font-thai">

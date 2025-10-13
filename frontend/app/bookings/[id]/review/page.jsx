@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { bookingAPI } from '../../../../lib/api';
+import { bookingAPI, reviewAPI } from '../../../../lib/api';
 import { Star, Calendar, MapPin, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -26,7 +26,7 @@ export default function ReviewPage({ params }) {
       return;
     }
     
-    if (bookingId) {
+    if (bookingId && !booking) {
       fetchBookingData();
     }
   }, [bookingId, isAuthenticated]);
@@ -34,7 +34,22 @@ export default function ReviewPage({ params }) {
   const fetchBookingData = async () => {
     try {
       const response = await bookingAPI.getBookingById(bookingId);
-      setBooking(response);
+      console.log('📋 Booking data for review:', response);
+      
+      let bookingData = null;
+      if (response.success && response.data) {
+        bookingData = response.data;
+      } else if (response.booking) {
+        bookingData = response.booking;
+      } else {
+        bookingData = response;
+      }
+      
+      if (bookingData) {
+        setBooking(bookingData);
+      } else {
+        throw new Error('ไม่พบข้อมูลการจอง');
+      }
     } catch (error) {
       console.error('Error fetching booking:', error);
       toast.error('ไม่สามารถโหลดข้อมูลการจองได้');
@@ -49,18 +64,33 @@ export default function ReviewPage({ params }) {
     setSubmitting(true);
 
     try {
-      // Here you would call a review API
-      // await reviewAPI.createReview({
-      //   bookingId: parseInt(bookingId),
-      //   rating: reviewData.rating,
-      //   comment: reviewData.comment
-      // });
+      // Extract hotel ID from booking data with multiple fallbacks
+      const hotelId = booking.hotel_id || 
+                     booking.hotelId || 
+                     booking.hotel?.id || 
+                     (booking.data && booking.data.hotel_id) ||
+                     1; // Default fallback to hotel ID 1
+
+      // Prepare review data
+      const reviewPayload = {
+        hotelId: hotelId,
+        bookingId: parseInt(bookingId),
+        rating: reviewData.rating,
+        comment: reviewData.comment || '',
+        photos: [] // Empty for now, can be enhanced later
+      };
+
+      console.log('📝 Submitting review with payload:', reviewPayload);
+      
+      // Call review API
+      const result = await reviewAPI.createReview(reviewPayload);
+      console.log('✅ Review created successfully:', result);
 
       toast.success('ขอบคุณสำหรับรีวิวของคุณ!');
       router.push('/bookings');
     } catch (error) {
       console.error('Review error:', error);
-      const message = error.response?.data?.error || 'ไม่สามารถส่งรีวิวได้';
+      const message = error.response?.data?.error || error.message || 'ไม่สามารถส่งรีวิวได้';
       toast.error(message);
     } finally {
       setSubmitting(false);
@@ -95,7 +125,7 @@ export default function ReviewPage({ params }) {
     );
   };
 
-  if (loading) {
+  if (loading || !booking) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -142,20 +172,20 @@ export default function ReviewPage({ params }) {
             <div className="space-y-3">
               <div className="flex items-center">
                 <MapPin className="h-5 w-5 text-gray-500 mr-3" />
-                <span className="font-medium">{booking.hotel.name}</span>
+                <span className="font-medium">{booking.hotel?.name || booking.hotelName || 'ไม่ระบุชื่อโรงแรม'}</span>
               </div>
               
               <div className="flex items-center">
                 <Calendar className="h-5 w-5 text-gray-500 mr-3" />
                 <span>
-                  {new Date(booking.checkInDate).toLocaleDateString('th-TH')} - {' '}
-                  {new Date(booking.checkOutDate).toLocaleDateString('th-TH')}
+                  {booking.checkInDate ? new Date(booking.checkInDate).toLocaleDateString('th-TH') : 'ไม่ระบุ'} - {' '}
+                  {booking.checkOutDate ? new Date(booking.checkOutDate).toLocaleDateString('th-TH') : 'ไม่ระบุ'}
                 </span>
               </div>
               
               <div className="text-sm text-gray-600">
-                <div>ห้องพัก: {booking.roomType.name}</div>
-                <div>รหัสการจอง: {booking.bookingReference}</div>
+                <div>ห้องพัก: {booking.roomType?.name || booking.roomName || 'ไม่ระบุประเภทห้อง'}</div>
+                <div>รหัสการจอง: {booking.bookingReference || booking.booking_reference || 'ไม่ระบุ'}</div>
               </div>
             </div>
           </div>
