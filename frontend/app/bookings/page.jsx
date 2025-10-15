@@ -88,7 +88,10 @@ export default function BookingsPage() {
     currentCheckIn: '',
     currentCheckOut: '',
     newCheckIn: '',
-    newCheckOut: ''
+    newCheckOut: '',
+    roomPrice: 0,
+    currentNights: 0,
+    currentTotalPrice: 0
   });
 
   const fetchBookings = async () => {
@@ -117,11 +120,38 @@ export default function BookingsPage() {
       
       console.log('✅ Processed bookings data:', bookingsData);
       
+      // Fix price calculation for each booking
+      const fixedBookingsData = bookingsData.map(booking => {
+        // Check if we need to recalculate price
+        const checkIn = booking.check_in_date || booking.checkInDate || booking.checkin_date;
+        const checkOut = booking.check_out_date || booking.checkOutDate || booking.checkout_date;
+        
+        if (checkIn && checkOut) {
+          const checkInDate = new Date(checkIn);
+          const checkOutDate = new Date(checkOut);
+          const calculatedNights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
+          const roomPrice = parseFloat(booking.room_price || 600); // Default to 600 if not set
+          const calculatedTotalPrice = calculatedNights * roomPrice;
+          
+          // Update booking with correct calculations
+          return {
+            ...booking,
+            nights: calculatedNights,
+            room_price: roomPrice,
+            total_price: calculatedTotalPrice,
+            // Keep existing totalPrice as fallback
+            totalPrice: calculatedTotalPrice
+          };
+        }
+        
+        return booking;
+      });
+      
       // Filter out bookings where check-in date has passed
       const currentDate = new Date();
       currentDate.setHours(0, 0, 0, 0); // Set to start of day for comparison
       
-      const activeBookings = bookingsData.filter(booking => {
+      const activeBookings = fixedBookingsData.filter(booking => {
         // Only filter if booking is not completed or cancelled
         if (booking.status === 'completed' || booking.status === 'cancelled') {
           return true; // Show completed/cancelled bookings for history
@@ -137,12 +167,12 @@ export default function BookingsPage() {
         checkInDate.setHours(0, 0, 0, 0);
         
         // Show all bookings for now - don't filter by date
-        console.log('📋 Setting bookings data:', bookingsData);
+        console.log('📋 Setting bookings data:', fixedBookingsData);
         return true;
       });
       
-      console.log('📋 Setting bookings data:', bookingsData);
-      setBookings(bookingsData);
+      console.log('📋 Setting fixed bookings data:', fixedBookingsData);
+      setBookings(fixedBookingsData);
       
       // Fetch cancellation requests
       await fetchCancellationRequests();
@@ -310,13 +340,43 @@ export default function BookingsPage() {
     const checkIn = booking.check_in_date || booking.checkInDate || booking.checkin_date;
     const checkOut = booking.check_out_date || booking.checkOutDate || booking.checkout_date;
     
+    console.log('📝 Opening edit modal for booking:', booking);
+    console.log('📊 Booking price fields:', {
+      room_price: booking.room_price,
+      roomPrice: booking.roomPrice,
+      price_per_night: booking.price_per_night,
+      total_price: booking.total_price,
+      totalPrice: booking.totalPrice,
+      nights: booking.nights
+    });
+    
+    // Try to get room price from multiple fields
+    const roomPrice = parseFloat(
+      booking.room_price || 
+      booking.roomPrice || 
+      booking.price_per_night ||
+      (booking.total_price && booking.nights ? booking.total_price / booking.nights : 0) ||
+      (booking.totalPrice && booking.nights ? booking.totalPrice / booking.nights : 0) ||
+      300 // Default fallback price
+    );
+    
+    const currentNights = parseInt(booking.nights || 0);
+    const currentTotalPrice = parseFloat(booking.total_price || booking.totalPrice || 0);
+    
+    console.log('💰 Calculated room price:', roomPrice);
+    console.log('🏨 Current nights:', currentNights);
+    console.log('💵 Current total price:', currentTotalPrice);
+    
     setEditDateModal({
       isOpen: true,
       bookingId: booking.id,
       currentCheckIn: checkIn ? formatDateInputSafe(checkIn) : '',
       currentCheckOut: checkOut ? formatDateInputSafe(checkOut) : '',
       newCheckIn: checkIn ? formatDateInputSafe(checkIn) : '',
-      newCheckOut: checkOut ? formatDateInputSafe(checkOut) : ''
+      newCheckOut: checkOut ? formatDateInputSafe(checkOut) : '',
+      roomPrice: roomPrice,
+      currentNights: currentNights,
+      currentTotalPrice: currentTotalPrice
     });
   };
 
@@ -327,9 +387,36 @@ export default function BookingsPage() {
       currentCheckIn: '',
       currentCheckOut: '',
       newCheckIn: '',
-      newCheckOut: ''
+      newCheckOut: '',
+      roomPrice: 0,
+      currentNights: 0,
+      currentTotalPrice: 0
     });
   };
+
+  // Calculate new price based on new dates
+  const calculateNewPrice = () => {
+    if (!editDateModal.newCheckIn || !editDateModal.newCheckOut || editDateModal.roomPrice <= 0) {
+      return { nights: 0, totalPrice: 0 };
+    }
+    
+    const checkInDate = new Date(editDateModal.newCheckIn);
+    const checkOutDate = new Date(editDateModal.newCheckOut);
+    
+    if (checkOutDate <= checkInDate) {
+      return { nights: 0, totalPrice: 0 };
+    }
+    
+    const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
+    const totalPrice = nights * editDateModal.roomPrice;
+    
+    return { nights, totalPrice };
+  };
+
+  const newPriceCalculation = calculateNewPrice();
+  const hasDateChanged = editDateModal.newCheckIn !== editDateModal.currentCheckIn || 
+                        editDateModal.newCheckOut !== editDateModal.currentCheckOut;
+  const priceDifference = newPriceCalculation.totalPrice - editDateModal.currentTotalPrice;
 
   const handleUpdateDates = async () => {
     // ตรวจสอบข้อมูลเบื้องต้น
@@ -382,10 +469,36 @@ export default function BookingsPage() {
       console.log('📊 Update dates response:', response.data);
 
       if (response.data.success) {
-        toast.success('✅ แก้ไขวันที่เข้าพักสำเร็จ!', {
-          duration: 3000,
-          icon: '🎉'
-        });
+        const updatedData = response.data.data;
+        
+        // Update the booking in local state immediately
+        setBookings(prevBookings => 
+          prevBookings.map(booking => 
+            booking.id === editDateModal.bookingId 
+              ? {
+                  ...booking,
+                  check_in_date: updatedData.check_in_date,
+                  check_out_date: updatedData.check_out_date,
+                  nights: updatedData.nights,
+                  total_price: updatedData.total_price,
+                  updated_at: updatedData.updated_at
+                }
+              : booking
+          )
+        );
+        
+        toast.success(
+          `แก้ไขวันที่เข้าพักสำเร็จ!\n• จำนวนคืน: ${updatedData.nights} คืน\n• ราคารวมใหม่: ฿${updatedData.total_price.toLocaleString()}\n${priceDifference !== 0 ? `• ${priceDifference > 0 ? 'เพิ่มขึ้น' : 'ลดลง'}: ฿${Math.abs(priceDifference).toLocaleString()}` : ''}`,
+          {
+            duration: 4000,
+            icon: '✅',
+            style: {
+              background: '#f0fdf4',
+              color: '#15803d',
+              border: '1px solid #bbf7d0'
+            }
+          }
+        );
         
         // Refresh bookings data
         await fetchBookings();
@@ -975,6 +1088,15 @@ export default function BookingsPage() {
                         <div className="font-semibold text-blue-900">{formatDateSafe(editDateModal.currentCheckOut)}</div>
                       </div>
                     </div>
+                    <div className="mt-3 pt-3 border-t border-blue-200">
+                      <div className="flex justify-between items-center">
+                        <span className="text-blue-600 text-sm">ราคาปัจจุบัน:</span>
+                        <div className="text-right">
+                          <div className="text-blue-900 font-bold text-lg">฿{editDateModal.currentTotalPrice.toLocaleString()}</div>
+                          <div className="text-blue-600 text-xs">{editDateModal.currentNights} คืน × ฿{editDateModal.roomPrice.toLocaleString()}</div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   {/* New Dates Input */}
@@ -1006,24 +1128,55 @@ export default function BookingsPage() {
                     </div>
                   </div>
 
-                  {/* Info Alert */}
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="text-amber-600 mt-0.5">
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
+                  {/* New Price Calculation */}
+                  {hasDateChanged && newPriceCalculation.nights > 0 && (
+                    <div className={`border rounded-lg p-4 ${
+                      priceDifference > 0 ? 'bg-orange-50 border-orange-200' : 
+                      priceDifference < 0 ? 'bg-green-50 border-green-200' : 
+                      'bg-gray-50 border-gray-200'
+                    }`}>
+                      <div className="text-sm font-medium mb-2 flex items-center gap-2">
+                        {priceDifference > 0 ? (
+                          <>
+                            <span className="text-orange-600">📈</span>
+                            <span className="text-orange-800">ราคาใหม่ (เพิ่มขึ้น)</span>
+                          </>
+                        ) : priceDifference < 0 ? (
+                          <>
+                            <span className="text-green-600">📉</span>
+                            <span className="text-green-800">ราคาใหม่ (ลดลง)</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-gray-600">📊</span>
+                            <span className="text-gray-800">ราคาใหม่ (ไม่เปลี่ยนแปลง)</span>
+                          </>
+                        )}
                       </div>
-                      <div>
-                        <h4 className="text-sm font-medium text-amber-800 mb-1">ข้อมูลสำคัญ</h4>
-                        <ul className="text-sm text-amber-700 space-y-1">
-                          <li>• สามารถแก้ไขได้เฉพาะการจองที่ยังไม่ได้รับการยืนยัน</li>
-                          <li>• การเปลี่ยนแปลงจะมีผลทันทีหลังจากบันทึก</li>
-                          <li>• ระบบจะตรวจสอบความพร้อมของห้องในวันที่ใหม่</li>
-                        </ul>
+                      
+                      <div className="flex justify-between items-center">
+                        <div className="text-sm">
+                          <div className="text-gray-600">{newPriceCalculation.nights} คืน × ฿{editDateModal.roomPrice.toLocaleString()}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className={`font-bold text-lg ${
+                            priceDifference > 0 ? 'text-orange-700' : 
+                            priceDifference < 0 ? 'text-green-700' : 
+                            'text-gray-700'
+                          }`}>
+                            ฿{newPriceCalculation.totalPrice.toLocaleString()}
+                          </div>
+                          {priceDifference !== 0 && (
+                            <div className={`text-sm font-medium ${
+                              priceDifference > 0 ? 'text-orange-600' : 'text-green-600'
+                            }`}>
+                              {priceDifference > 0 ? '+' : ''}฿{priceDifference.toLocaleString()}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
 

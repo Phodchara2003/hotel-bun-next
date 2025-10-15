@@ -1713,10 +1713,13 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
           success: true, 
           message: 'อัพเดทวันที่เข้าพักสำเร็จ',
           data: {
+            booking_id: params.id,
             check_in_date,
             check_out_date,
             nights,
-            total_price: totalPrice
+            total_price: totalPrice,
+            room_price: parseFloat(booking.room_price),
+            updated_at: new Date().toISOString()
           }
         };
       }
