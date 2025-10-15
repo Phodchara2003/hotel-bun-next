@@ -499,7 +499,16 @@ export default function RoomDetailPage() {
                   <select
                     value={guests}
                     onChange={(e) => handleGuestsChange(parseInt(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 transition-colors"
+                    style={{ '--focus-ring-color': '#082220' }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#082220';
+                      e.target.style.boxShadow = '0 0 0 2px rgba(8, 34, 32, 0.2)';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#d1d5db';
+                      e.target.style.boxShadow = 'none';
+                    }}
                   >
                     {Array.from({ length: room.max_occupancy || 4 }, (_, i) => i + 1).map(num => (
                       <option key={num} value={num}>{num} คน</option>
@@ -512,7 +521,7 @@ export default function RoomDetailPage() {
 
               {/* Price Summary - Show when dates are selected */}
               {checkInDate && checkOutDate ? (
-                <div className="bg-amber-50 p-4 rounded-lg space-y-3">
+                <div className="p-4 rounded-lg space-y-3" style={{ backgroundColor: 'rgba(8, 34, 32, 0.1)' }}>
                   <div className="flex justify-between items-center text-sm text-gray-600">
                     <span>จำนวนคืน:</span>
                     <span className="font-medium">
@@ -523,7 +532,7 @@ export default function RoomDetailPage() {
                     <span>ราคาต่อคืน:</span>
                     <span className="font-medium">฿{room.price_per_night?.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between items-center text-lg font-bold text-amber-600 border-t pt-2">
+                  <div className="flex justify-between items-center text-lg font-bold border-t pt-2" style={{ color: '#082220' }}>
                     <span>ราคารวม:</span>
                     <span>
                       ฿{calculateTotal().toLocaleString()}
@@ -543,14 +552,28 @@ export default function RoomDetailPage() {
                   isBooking || 
                   !checkInDate || !checkOutDate
                 }
-                className="w-full mt-6 bg-amber-600 hover:bg-amber-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white py-4 rounded-lg font-semibold transition-colors duration-200 font-thai"
+                className="w-full mt-6 disabled:bg-slate-300 disabled:cursor-not-allowed text-white py-4 rounded-lg font-semibold transition-colors duration-200 font-thai"
+                style={{ 
+                  backgroundColor: isBooking || !checkInDate || !checkOutDate ? undefined : '#082220',
+                  '&:hover': { backgroundColor: '#0a2926' }
+                }}
+                onMouseEnter={(e) => {
+                  if (!e.target.disabled) {
+                    e.target.style.backgroundColor = '#0a2926';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!e.target.disabled) {
+                    e.target.style.backgroundColor = '#082220';
+                  }
+                }}
               >
                 {isBooking ? 'กำลังจอง...' : 'ดำเนินการต่อ'}
               </button>
 
               {!user && (
                 <p className="text-center text-sm text-slate-500 mt-2 font-thai">
-                  <Link href="/login" className="text-amber-600 hover:text-amber-700">
+                  <Link href="/login" style={{ color: '#082220' }} className="hover:opacity-75">
                     เข้าสู่ระบบ
                   </Link>
                   {' '}เพื่อทำการจอง

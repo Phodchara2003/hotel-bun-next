@@ -12,7 +12,7 @@
     0 25px 50px -12px rgba(0, 0, 0, 0.4),
     0 0 0 1px rgba(255, 255, 255, 0.05),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  background: linear-gradient(135deg, #122b29 0%, #0f2623 30%, #0d1f1d 70%, #0b1917 100%);
+  background: linear-gradient(135deg, #082220 0%, #0f2623 30%, #0d1f1d 70%, #0b1917 100%);
   backdrop-filter: blur(20px);
   overflow: hidden;
   width: 320px;
@@ -129,14 +129,14 @@
 }
 
 .modern-datepicker .react-datepicker__day--selected {
-  background: linear-gradient(135deg, #10b981, #059669) !important;
+  background: #082220 !important;
   color: white !important;
   font-weight: 700;
   transform: scale(1.15);
   box-shadow: 
-    0 8px 20px rgba(16, 185, 129, 0.4),
+    0 8px 20px rgba(8, 34, 32, 0.4),
     0 0 0 2px rgba(255, 255, 255, 0.2);
-  border-color: #10b981 !important;
+  border-color: #082220 !important;
 }
 
 .modern-datepicker .react-datepicker__day--selected::before {
@@ -145,10 +145,10 @@
 
 .modern-datepicker .react-datepicker__day--today {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
-  color: #10b981;
+  color: #082220;
   font-weight: 700;
-  border: 2px solid #10b981;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+  border: 2px solid #082220;
+  box-shadow: 0 4px 12px rgba(8, 34, 32, 0.2);
 }
 
 .modern-datepicker .react-datepicker__day--outside-month {
@@ -246,7 +246,7 @@
   inset: 0;
   border-radius: 12px;
   padding: 2px;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(5, 150, 105, 0.3));
+  background: linear-gradient(135deg, rgba(8, 34, 32, 0.3), rgba(8, 34, 32, 0.5));
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask-composite: xor;
   pointer-events: none;
@@ -258,28 +258,28 @@
   opacity: 1;
 }
 
-/* Force green theme for all date picker elements */
+/* Force #082220 theme for all date picker elements */
 .modern-datepicker .react-datepicker__day--keyboard-selected,
 .modern-datepicker .react-datepicker__day--in-range,
 .modern-datepicker .react-datepicker__day--in-selecting-range {
-  background: linear-gradient(135deg, #10b981, #059669) !important;
+  background: #082220 !important;
   color: white !important;
   font-weight: 700 !important;
   transform: scale(1.15) !important;
   box-shadow: 
-    0 8px 20px rgba(16, 185, 129, 0.4),
+    0 8px 20px rgba(8, 34, 32, 0.4),
     0 0 0 2px rgba(255, 255, 255, 0.2) !important;
-  border-color: #10b981 !important;
+  border-color: #082220 !important;
 }
 
-/* Override any blue colors with green */
+/* Override any blue colors with #082220 */
 .modern-datepicker .react-datepicker__day:focus,
 .modern-datepicker .react-datepicker__day:focus-visible {
-  background: linear-gradient(135deg, #10b981, #059669) !important;
+  background: #082220 !important;
   color: white !important;
   outline: none !important;
   box-shadow: 
-    0 8px 20px rgba(16, 185, 129, 0.4),
+    0 8px 20px rgba(8, 34, 32, 0.4),
     0 0 0 2px rgba(255, 255, 255, 0.2) !important;
 }
 
@@ -287,8 +287,8 @@
 .modern-datepicker input:focus,
 .modern-datepicker button:focus {
   outline: none !important;
-  border-color: #10b981 !important;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3) !important;
+  border-color: #082220 !important;
+  box-shadow: 0 0 0 3px rgba(8, 34, 32, 0.3) !important;
 }
 
 /* Remove any default blue focus/selection colors */
@@ -298,7 +298,7 @@
 
 .modern-datepicker .react-datepicker__day--range-start,
 .modern-datepicker .react-datepicker__day--range-end {
-  background: linear-gradient(135deg, #10b981, #059669) !important;
+  background: #082220 !important;
   color: white !important;
 }
 
@@ -306,26 +306,26 @@
 .modern-datepicker .react-datepicker__day:not(.react-datepicker__day--disabled):not(.react-datepicker__day--outside-month):hover,
 .modern-datepicker .react-datepicker__day:not(.react-datepicker__day--disabled):not(.react-datepicker__day--outside-month):focus,
 .modern-datepicker .react-datepicker__day:not(.react-datepicker__day--disabled):not(.react-datepicker__day--outside-month):active {
-  background: rgba(16, 185, 129, 0.2) !important;
+  background: rgba(8, 34, 32, 0.2) !important;
   color: white !important;
-  border-color: rgba(16, 185, 129, 0.4) !important;
+  border-color: rgba(8, 34, 32, 0.4) !important;
 }
 
-/* Ensure the input button also follows green theme */
+/* Ensure the input button also follows #082220 theme */
 .modern-datepicker button[type="button"]:focus,
 .modern-datepicker button[type="button"]:focus-visible {
-  border-color: #10b981 !important;
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3) !important;
+  border-color: #082220 !important;
+  box-shadow: 0 0 0 2px rgba(8, 34, 32, 0.3) !important;
 }
 
 /* Override react-datepicker default focus styles */
 .react-datepicker__input-container input:focus {
   outline: none !important;
-  border-color: #10b981 !important;
+  border-color: #082220 !important;
 }
 
-/* Make sure popper also follows green theme */
+/* Make sure popper also follows #082220 theme */
 .modern-datepicker-popper .react-datepicker__day--keyboard-selected {
-  background: linear-gradient(135deg, #10b981, #059669) !important;
+  background: #082220 !important;
   color: white !important;
 }

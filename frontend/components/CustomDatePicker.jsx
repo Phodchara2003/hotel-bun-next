@@ -22,7 +22,7 @@ const CustomInput = forwardRef(({ value, onClick, placeholder, label, required }
         placeholder={placeholder}
         readOnly
         required={required}
-        className="w-full px-3 py-2 pl-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer bg-white hover:border-blue-400 transition-colors"
+                className="w-full px-3 py-2 pl-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 cursor-pointer bg-white hover:border-gray-400 transition-colors" style={{ '--focus-color': '#082220' }}
       />
       <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
     </div>
@@ -33,11 +33,11 @@ CustomInput.displayName = 'CustomInput';
 
 // Custom header component
 const CustomHeader = ({ date, decreaseMonth, increaseMonth, prevMonthButtonDisabled, nextMonthButtonDisabled }) => (
-  <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-lg">
+  <div className="flex items-center justify-between px-4 py-3 text-white rounded-t-lg" style={{ background: '#082220' }}>
     <button
       onClick={decreaseMonth}
       disabled={prevMonthButtonDisabled}
-      className="p-1 hover:bg-blue-800 rounded-full transition-colors disabled:opacity-50"
+      className="p-1 hover:bg-white hover:bg-opacity-10 rounded-full transition-colors disabled:opacity-50"
       type="button"
     >
       <ChevronLeft className="h-5 w-5" />
@@ -50,7 +50,7 @@ const CustomHeader = ({ date, decreaseMonth, increaseMonth, prevMonthButtonDisab
     <button
       onClick={increaseMonth}
       disabled={nextMonthButtonDisabled}
-      className="p-1 hover:bg-blue-800 rounded-full transition-colors disabled:opacity-50"
+      className="p-1 hover:bg-white hover:bg-opacity-10 rounded-full transition-colors disabled:opacity-50"
       type="button"
     >
       <ChevronRight className="h-5 w-5" />
@@ -108,16 +108,16 @@ const CustomDatePicker = ({
           const isEndDate = endDate && date.toDateString() === endDate.toDateString();
           const isInRange = startDate && endDate && date > startDate && date < endDate;
           
-          let className = "text-sm rounded-lg hover:bg-blue-100 transition-all duration-200 transform hover:scale-105 ";
+          let className = "text-sm rounded-lg transition-all duration-200 transform hover:scale-105 ";
           
           if (isSelected || isStartDate || isEndDate) {
-            className += "bg-gradient-to-br from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 font-semibold shadow-md ";
+            className += "text-white font-semibold shadow-md ";
           } else if (isInRange) {
-            className += "bg-gradient-to-r from-blue-100 to-blue-200 text-blue-900 font-medium ";
+            className += "font-medium ";
           } else if (isToday) {
-            className += "bg-gradient-to-br from-emerald-100 to-emerald-200 text-emerald-800 font-semibold border-2 border-emerald-300 ";
+            className += "font-semibold border-2 ";
           } else {
-            className += "text-gray-700 hover:text-blue-600 ";
+            className += "text-gray-700 ";
           }
           
           return className;
@@ -190,6 +190,20 @@ const CustomDatePicker = ({
           font-weight: 500 !important;
         }
         
+        .react-datepicker__day--selected,
+        .react-datepicker__day--in-selecting-range,
+        .react-datepicker__day--in-range,
+        .react-datepicker__day--keyboard-selected {
+          background-color: #082220 !important;
+          color: white !important;
+        }
+        
+        .react-datepicker__day--today {
+          background-color: rgba(8, 34, 32, 0.1) !important;
+          color: #082220 !important;
+          border: 2px solid #082220 !important;
+        }
+        
         .react-datepicker__day--disabled {
           color: #cbd5e1 !important;
           cursor: not-allowed !important;
@@ -200,12 +214,17 @@ const CustomDatePicker = ({
         }
         
         .react-datepicker__day:hover:not(.react-datepicker__day--disabled) {
-          background-color: #dbeafe !important;
-          color: #1e40af !important;
+          background-color: rgba(8, 34, 32, 0.1) !important;
+          color: #082220 !important;
         }
         
         .react-datepicker__triangle {
           display: none !important;
+        }
+        
+        input:focus {
+          border-color: #082220 !important;
+          box-shadow: 0 0 0 2px rgba(8, 34, 32, 0.2) !important;
         }
       `}</style>
     </div>

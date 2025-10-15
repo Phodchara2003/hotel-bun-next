@@ -287,13 +287,33 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }) {
               <div className="space-y-2">
                 <Link
                   href="/login"
-                  className="flex items-center justify-center w-full px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors duration-200"
+                  className="flex items-center justify-center w-full px-4 py-2 text-white rounded-lg transition-colors duration-200"
+                  style={{ 
+                    backgroundColor: '#082220',
+                    '&:hover': { backgroundColor: '#0a2926' }
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.backgroundColor = '#0a2926';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = '#082220';
+                  }}
                 >
                   เข้าสู่ระบบ
                 </Link>
                 <Link
                   href="/register"
-                  className="flex items-center justify-center w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                  className="flex items-center justify-center w-full px-4 py-2 text-white rounded-lg transition-colors duration-200"
+                  style={{ 
+                    backgroundColor: '#082220',
+                    '&:hover': { backgroundColor: '#0a2926' }
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.backgroundColor = '#0a2926';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = '#082220';
+                  }}
                 >
                   สมัครสมาชิก
                 </Link>
@@ -370,14 +390,34 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }) {
                   <Link
                     href="/login"
                     onClick={onMobileClose}
-                    className="flex items-center justify-center w-full px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors duration-200"
+                    className="flex items-center justify-center w-full px-4 py-2 text-white rounded-lg transition-colors duration-200"
+                    style={{ 
+                      backgroundColor: '#082220',
+                      '&:hover': { backgroundColor: '#0a2926' }
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = '#0a2926';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = '#082220';
+                    }}
                   >
                     เข้าสู่ระบบ
                   </Link>
                   <Link
                     href="/register"
                     onClick={onMobileClose}
-                    className="flex items-center justify-center w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                    className="flex items-center justify-center w-full px-4 py-2 text-white rounded-lg transition-colors duration-200"
+                    style={{ 
+                      backgroundColor: '#082220',
+                      '&:hover': { backgroundColor: '#0a2926' }
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = '#0a2926';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = '#082220';
+                    }}
                   >
                     สมัครสมาชิก
                   </Link>

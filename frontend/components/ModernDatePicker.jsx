@@ -20,16 +20,41 @@ const CustomInput = forwardRef(({ value, onClick, placeholder, label, className 
       type="button"
       onClick={onClick}
       ref={ref}
-      className="w-full px-8 py-5 text-left border-2 rounded-xl transition-all duration-300 font-semibold shadow-lg bg-gradient-to-r from-white to-emerald-50 border-emerald-400 hover:border-emerald-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-300 hover:shadow-xl transform hover:scale-105 text-lg"
+      className="w-full px-8 py-5 text-left border-2 rounded-xl transition-all duration-300 font-semibold shadow-lg bg-gradient-to-r from-white to-gray-50 hover:shadow-xl transform hover:scale-105 text-lg"
+      style={{ 
+        borderColor: '#082220',
+        '--hover-border': '#0a2926',
+        '--focus-border': '#082220',
+        '--focus-ring': 'rgba(8, 34, 32, 0.3)'
+      }}
+      onFocus={(e) => {
+        e.target.style.borderColor = '#082220';
+        e.target.style.boxShadow = '0 0 0 2px rgba(8, 34, 32, 0.3)';
+      }}
+      onBlur={(e) => {
+        e.target.style.borderColor = '#082220';
+        e.target.style.boxShadow = 'none';
+      }}
+      onMouseEnter={(e) => {
+        if (e.target !== document.activeElement) {
+          e.target.style.borderColor = '#0a2926';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (e.target !== document.activeElement) {
+          e.target.style.borderColor = '#082220';
+        }
+      }}
     >
       <div className="flex items-center justify-between">
-        <span className={value ? 'text-emerald-900' : 'text-emerald-700'}>
+        <span className={value ? 'font-bold' : 'text-gray-600'} style={{ color: value ? '#082220' : '#6b7280' }}>
           {value || placeholder}
         </span>
         <div className="flex items-center space-x-2">
-          <Calendar className="w-5 h-5 text-emerald-600" />
+          <Calendar className="w-5 h-5" style={{ color: '#082220' }} />
           <svg 
-            className="w-5 h-5 text-emerald-600 transition-transform duration-300"
+            className="w-5 h-5 transition-transform duration-300"
+            style={{ color: '#082220' }}
             fill="none" 
             stroke="currentColor" 
             viewBox="0 0 24 24"

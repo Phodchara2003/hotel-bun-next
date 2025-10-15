@@ -173,13 +173,19 @@ export default function TopNavigation() {
                 <div className="flex items-center space-x-4">
                   <Link
                     href="/login"
-                    className="text-white hover:text-amber-400 transition-colors duration-200 text-sm font-medium"
+                    className="text-white transition-colors duration-200 text-sm font-medium"
+                    style={{ color: 'white' }}
+                    onMouseEnter={(e) => e.target.style.color = '#d1fae5'}
+                    onMouseLeave={(e) => e.target.style.color = 'white'}
                   >
                     เข้าสู่ระบบ
                   </Link>
                   <Link
                     href="/register"
-                    className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+                    className="text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+                    style={{ backgroundColor: '#082220' }}
+                    onMouseEnter={(e) => e.target.style.backgroundColor = '#0a2926'}
+                    onMouseLeave={(e) => e.target.style.backgroundColor = '#082220'}
                   >
                     สมัครสมาชิก
                   </Link>
@@ -271,8 +277,8 @@ export default function TopNavigation() {
                   <div className="space-y-2">
                     <Link
                       href="/login"
-                      className="flex items-center space-x-3 px-3 py-3 rounded-lg text-amber-100 hover:text-white transition-all duration-200 text-sm font-medium"
-                    onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(10, 43, 40, 0.7)'}
+                      className="flex items-center space-x-3 px-3 py-3 rounded-lg text-white transition-all duration-200 text-sm font-medium"
+                    onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(8, 34, 32, 0.2)'}
                     onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
                       onClick={() => setIsMenuOpen(false)}
                     >
@@ -281,7 +287,10 @@ export default function TopNavigation() {
                     </Link>
                     <Link
                       href="/register"
-                      className="flex items-center justify-center bg-amber-600 hover:bg-amber-700 text-white px-3 py-3 rounded-lg text-sm font-medium transition-colors duration-200 mx-3"
+                      className="flex items-center justify-center text-white px-3 py-3 rounded-lg text-sm font-medium transition-colors duration-200 mx-3"
+                      style={{ backgroundColor: '#082220' }}
+                      onMouseEnter={(e) => e.target.style.backgroundColor = '#0a2926'}
+                      onMouseLeave={(e) => e.target.style.backgroundColor = '#082220'}
                       onClick={() => setIsMenuOpen(false)}
                     >
                       สมัครสมาชิก

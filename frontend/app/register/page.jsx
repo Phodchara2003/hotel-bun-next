@@ -76,11 +76,13 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden" style={{
+    <div className="h-screen relative overflow-hidden flex items-center justify-center" style={{
       backgroundImage: 'url(/images/university-building.jpg), linear-gradient(135deg, #059669, #0891b2)',
       backgroundSize: 'cover',
       backgroundPosition: 'center',
-      backgroundRepeat: 'no-repeat'
+      backgroundRepeat: 'no-repeat',
+      backgroundAttachment: 'fixed',
+      minHeight: '100vh'
     }}>
       {/* Dark Overlay for better text visibility */}
       <div className="absolute inset-0 bg-black/40 z-0"></div>
@@ -93,43 +95,37 @@ export default function RegisterPage() {
       </div>
 
       {/* Main Content */}
-      <div className="relative z-10 min-h-screen flex items-center justify-center p-6">
-        <div className="w-full max-w-lg">
+      <div className="relative z-10 w-full max-w-lg mx-auto px-6">
+        <div className="w-full">
           
           {/* Header Section */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 mb-6 transform hover:scale-105 transition-all duration-300">
+          <div className="text-center mb-4">
+            <div className="inline-flex items-center justify-center w-12 h-12 mb-3 transform hover:scale-105 transition-all duration-300">
               <img 
                 src="/assets/ตราสัญลักษณ์มหาวิทยาลัยราชภัฏมหาสารคาม.png" 
                 alt="Logo มหาวิทยาลัยราชภัฏมหาสารคาม" 
                 className="w-full h-full object-contain"
               />
             </div>
-            <h1 className="text-4xl font-bold text-white mb-3 drop-shadow-lg">
-              เริ่มต้นกับเรา
-            </h1>
-            <p className="text-gray-200 text-lg drop-shadow-md">
-              สร้างบัญชีใหม่เพื่อเข้าสู่โลกของการจองโรงแรม
-            </p>
           </div>
 
           {/* Register Form */}
           <div className="relative">
-            {/* Glass Card Background */}
-            <div className="absolute inset-0 bg-white/85 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50"></div>
+            {/* Enhanced Glass Card Background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white/90 via-white/85 to-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/30 ring-1 ring-white/20"></div>
             
-            <div className="relative p-8">
-              <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="relative p-6">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 
                 {/* Name Fields */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label htmlFor="firstName" className="block text-sm font-semibold text-gray-700">
+                    <label htmlFor="firstName" className="block text-sm font-bold text-gray-800">
                       ชื่อ
                     </label>
                     <div className="relative group">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <User className="h-5 w-5 text-gray-400 group-focus-within:text-emerald-500 transition-colors duration-200" />
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <User className="h-4 w-4 text-emerald-500 group-focus-within:text-emerald-600 transition-colors duration-200" />
                       </div>
                       <input
                         id="firstName"
@@ -138,22 +134,22 @@ export default function RegisterPage() {
                         required
                         value={formData.firstName}
                         onChange={handleInputChange}
-                        className="block w-full pl-12 pr-4 py-3 bg-white/80 border-2 border-gray-200/60 rounded-xl 
+                        className="block w-full pl-10 pr-4 py-3 bg-gradient-to-r from-white to-emerald-50/50 border-2 border-emerald-200/60 rounded-xl 
                                  focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 
-                                 hover:border-gray-300 transition-all duration-200
-                                 text-gray-900 placeholder-gray-500 text-base"
+                                 hover:border-emerald-300 hover:shadow-md transition-all duration-200
+                                 text-gray-900 placeholder-gray-500 text-sm font-medium shadow-sm"
                         placeholder="ชื่อ"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <label htmlFor="lastName" className="block text-sm font-semibold text-gray-700">
+                    <label htmlFor="lastName" className="block text-sm font-bold text-gray-800">
                       นามสกุล
                     </label>
                     <div className="relative group">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <User className="h-5 w-5 text-gray-400 group-focus-within:text-emerald-500 transition-colors duration-200" />
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <User className="h-4 w-4 text-emerald-500 group-focus-within:text-emerald-600 transition-colors duration-200" />
                       </div>
                       <input
                         id="lastName"
@@ -162,10 +158,10 @@ export default function RegisterPage() {
                         required
                         value={formData.lastName}
                         onChange={handleInputChange}
-                        className="block w-full pl-12 pr-4 py-3 bg-white/80 border-2 border-gray-200/60 rounded-xl 
+                        className="block w-full pl-10 pr-4 py-3 bg-gradient-to-r from-white to-emerald-50/50 border-2 border-emerald-200/60 rounded-xl 
                                  focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 
-                                 hover:border-gray-300 transition-all duration-200
-                                 text-gray-900 placeholder-gray-500 text-base"
+                                 hover:border-emerald-300 hover:shadow-md transition-all duration-200
+                                 text-gray-900 placeholder-gray-500 text-sm font-medium shadow-sm"
                         placeholder="นามสกุล"
                       />
                     </div>
@@ -174,12 +170,12 @@ export default function RegisterPage() {
 
                 {/* Email Field */}
                 <div className="space-y-2">
-                  <label htmlFor="email" className="block text-sm font-semibold text-gray-700">
+                  <label htmlFor="email" className="block text-sm font-bold text-gray-800">
                     อีเมล
                   </label>
                   <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Mail className="h-5 w-5 text-gray-400 group-focus-within:text-emerald-500 transition-colors duration-200" />
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Mail className="h-4 w-4 text-emerald-500 group-focus-within:text-emerald-600 transition-colors duration-200" />
                     </div>
                     <input
                       id="email"
@@ -189,10 +185,10 @@ export default function RegisterPage() {
                       required
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="block w-full pl-12 pr-4 py-3 bg-white/80 border-2 border-gray-200/60 rounded-xl 
+                      className="block w-full pl-10 pr-4 py-3 bg-gradient-to-r from-white to-emerald-50/50 border-2 border-emerald-200/60 rounded-xl 
                                focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 
-                               hover:border-gray-300 transition-all duration-200
-                               text-gray-900 placeholder-gray-500 text-base"
+                               hover:border-emerald-300 hover:shadow-md transition-all duration-200
+                               text-gray-900 placeholder-gray-500 text-sm font-medium shadow-sm"
                       placeholder="example@email.com"
                     />
                   </div>
@@ -200,12 +196,12 @@ export default function RegisterPage() {
 
                 {/* Phone Field */}
                 <div className="space-y-2">
-                  <label htmlFor="phone" className="block text-sm font-semibold text-gray-700">
+                  <label htmlFor="phone" className="block text-sm font-bold text-gray-800">
                     เบอร์โทรศัพท์
                   </label>
                   <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Phone className="h-5 w-5 text-gray-400 group-focus-within:text-emerald-500 transition-colors duration-200" />
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Phone className="h-4 w-4 text-emerald-500 group-focus-within:text-emerald-600 transition-colors duration-200" />
                     </div>
                     <input
                       id="phone"
@@ -215,10 +211,10 @@ export default function RegisterPage() {
                       required
                       value={formData.phone}
                       onChange={handleInputChange}
-                      className="block w-full pl-12 pr-4 py-3 bg-white/80 border-2 border-gray-200/60 rounded-xl 
+                      className="block w-full pl-10 pr-4 py-3 bg-gradient-to-r from-white to-emerald-50/50 border-2 border-emerald-200/60 rounded-xl 
                                focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 
-                               hover:border-gray-300 transition-all duration-200
-                               text-gray-900 placeholder-gray-500 text-base"
+                               hover:border-emerald-300 hover:shadow-md transition-all duration-200
+                               text-gray-900 placeholder-gray-500 text-sm font-medium shadow-sm"
                       placeholder="08X-XXX-XXXX"
                     />
                   </div>
@@ -226,12 +222,12 @@ export default function RegisterPage() {
 
                 {/* Password Fields */}
                 <div className="space-y-2">
-                  <label htmlFor="password" className="block text-sm font-semibold text-gray-700">
+                  <label htmlFor="password" className="block text-sm font-bold text-gray-800">
                     รหัสผ่าน
                   </label>
                   <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Lock className="h-5 w-5 text-gray-400 group-focus-within:text-emerald-500 transition-colors duration-200" />
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Lock className="h-4 w-4 text-emerald-500 group-focus-within:text-emerald-600 transition-colors duration-200" />
                     </div>
                     <input
                       id="password"
@@ -241,29 +237,29 @@ export default function RegisterPage() {
                       required
                       value={formData.password}
                       onChange={handleInputChange}
-                      className="block w-full pl-12 pr-12 py-3 bg-white/80 border-2 border-gray-200/60 rounded-xl 
+                      className="block w-full pl-10 pr-10 py-3 bg-gradient-to-r from-white to-emerald-50/50 border-2 border-emerald-200/60 rounded-xl 
                                focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 
-                               hover:border-gray-300 transition-all duration-200
-                               text-gray-900 placeholder-gray-500 text-base"
+                               hover:border-emerald-300 hover:shadow-md transition-all duration-200
+                               text-gray-900 placeholder-gray-500 text-sm font-medium shadow-sm"
                       placeholder="••••••••"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-emerald-500 hover:text-emerald-600 transition-colors duration-200"
                     >
-                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700">
+                  <label htmlFor="confirmPassword" className="block text-sm font-bold text-gray-800">
                     ยืนยันรหัสผ่าน
                   </label>
                   <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Lock className="h-5 w-5 text-gray-400 group-focus-within:text-emerald-500 transition-colors duration-200" />
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Lock className="h-4 w-4 text-emerald-500 group-focus-within:text-emerald-600 transition-colors duration-200" />
                     </div>
                     <input
                       id="confirmPassword"
@@ -273,18 +269,18 @@ export default function RegisterPage() {
                       required
                       value={formData.confirmPassword}
                       onChange={handleInputChange}
-                      className="block w-full pl-12 pr-12 py-3 bg-white/80 border-2 border-gray-200/60 rounded-xl 
+                      className="block w-full pl-10 pr-10 py-3 bg-gradient-to-r from-white to-emerald-50/50 border-2 border-emerald-200/60 rounded-xl 
                                focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 
-                               hover:border-gray-300 transition-all duration-200
-                               text-gray-900 placeholder-gray-500 text-base"
+                               hover:border-emerald-300 hover:shadow-md transition-all duration-200
+                               text-gray-900 placeholder-gray-500 text-sm font-medium shadow-sm"
                       placeholder="••••••••"
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-emerald-500 hover:text-emerald-600 transition-colors duration-200"
                     >
-                      {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
                 </div>
@@ -293,50 +289,50 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="group relative w-full flex justify-center items-center py-4 px-4 border border-transparent text-base font-semibold rounded-2xl text-white 
-                           bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 
+                  className="group relative w-full flex justify-center items-center py-4 px-6 border border-transparent text-sm font-bold rounded-2xl text-white 
+                           bg-gradient-to-r from-emerald-600 via-emerald-700 to-green-600 hover:from-emerald-700 hover:via-emerald-800 hover:to-green-700 
                            focus:outline-none focus:ring-4 focus:ring-emerald-500/50 
                            disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
-                           transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl"
+                           transform hover:scale-[1.02] transition-all duration-200 shadow-xl hover:shadow-2xl
+                           overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-r before:from-white/0 before:via-white/10 before:to-white/0 before:translate-x-[-100%] hover:before:translate-x-[100%] before:transition-transform before:duration-700"
                 >
-                  <span className="absolute left-0 inset-y-0 flex items-center pl-4">
+                  <span className="flex items-center justify-center">
                     {loading ? (
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                     ) : (
-                      <UserPlus className="h-5 w-5 text-white/80 group-hover:text-white transition-colors" />
+                      <UserPlus className="h-5 w-5 text-white mr-2" />
                     )}
+                    {loading ? 'กำลังสมัครสมาชิก...' : 'สมัครสมาชิก'}
                   </span>
-                  {loading ? 'กำลังสมัครสมาชิก...' : 'สมัครสมาชิก'}
-                  {!loading && (
-                    <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                  )}
                 </button>
 
               </form>
 
               {/* Divider */}
-              <div className="my-8">
+              <div className="my-6">
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-300/60"></div>
+                    <div className="w-full border-t border-emerald-200/60"></div>
                   </div>
                   <div className="relative flex justify-center text-sm">
-                    <span className="px-4 bg-white/70 text-gray-500 font-medium">หรือ</span>
+                    <span className="px-6 bg-gradient-to-r from-white/90 to-emerald-50/80 text-emerald-700 font-semibold rounded-full shadow-sm">หรือ</span>
                   </div>
                 </div>
               </div>
 
               {/* Login Link */}
               <div className="text-center">
-                <p className="text-gray-700 text-base font-medium">
-                  มีบัญชีอยู่แล้ว?{' '}
-                  <Link 
-                    href="/login" 
-                    className="font-semibold text-emerald-700 hover:text-green-700 transition-colors duration-200 hover:underline"
-                  >
-                    เข้าสู่ระบบที่นี่
-                  </Link>
-                </p>
+                <div className="bg-gradient-to-r from-emerald-50/50 to-green-50/50 p-4 rounded-2xl border border-emerald-200/30">
+                  <p className="text-gray-800 text-sm font-medium">
+                    มีบัญชีอยู่แล้ว?{' '}
+                    <Link 
+                      href="/login" 
+                      className="font-bold text-emerald-700 hover:text-emerald-800 transition-all duration-200 hover:underline decoration-2 underline-offset-2"
+                    >
+                      เข้าสู่ระบบที่นี่
+                    </Link>
+                  </p>
+                </div>
               </div>
             </div>
           </div>

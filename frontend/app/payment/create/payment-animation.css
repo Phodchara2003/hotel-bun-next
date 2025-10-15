@@ -1,0 +1,175 @@
+/* Custom focus styles with #092724 color */
+.custom-focus {
+  transition: all 0.2s ease-in-out;
+}
+
+.custom-focus:focus {
+  outline: none;
+  border-color: #092724 !important;
+  box-shadow: 0 0 0 2px rgba(9, 39, 36, 0.2) !important;
+  --tw-ring-color: #092724;
+}
+
+.flip-card {
+  background-color: transparent;
+  perspective: 1000px;
+}
+
+.flip-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  transition: transform 0.8s;
+  transform-style: preserve-3d;
+}
+
+.flip-card.flipped .flip-card-inner {
+  transform: rotateY(180deg);
+}
+
+.flip-card-front, .flip-card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.flip-card-back {
+  transform: rotateY(180deg);
+}
+
+/* ป้องกัน QR Code ถูกบัง */
+.flip-card-back img {
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.flip-card-back .bg-white {
+  position: relative;
+  z-index: 5;
+}
+
+.payment-method-selector {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.payment-method-btn {
+  flex: 1;
+  padding: 1.25rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.payment-method-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  transition: left 0.5s ease;
+}
+
+.payment-method-btn:hover::before {
+  left: 100%;
+}
+
+.payment-method-btn:hover {
+  border-color: #092724;
+  background: linear-gradient(135deg, rgba(9, 39, 36, 0.05) 0%, rgba(9, 39, 36, 0.1) 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(9, 39, 36, 0.15);
+}
+
+.payment-method-btn.active {
+  border-color: #092724;
+  background: linear-gradient(135deg, #092724 0%, #0d4e47 100%);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(9, 39, 36, 0.3);
+}
+
+.payment-method-btn.active:hover {
+  background: linear-gradient(135deg, #0d4e47 0%, #092724 100%);
+}
+
+/* Floating animation for icons */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.flip-card-front .inline-flex,
+.flip-card-back .inline-flex {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* ป้องกันการหมุนเมื่อ hover การ์ด */
+.flip-card-front,
+.flip-card-back {
+  pointer-events: auto;
+}
+
+/* เฉพาะ element ย่อยใน card ที่จะมี hover effect */
+.flip-card-front .bg-white,
+.flip-card-back .bg-white {
+  position: relative;
+  overflow: hidden;
+}
+
+.flip-card-front .hover\\:scale-105:hover,
+.flip-card-back .hover\\:scale-105:hover {
+  transform: scale(1.05);
+  transition: transform 0.3s ease;
+}
+
+/* Shimmer effect for cards - ไม่ให้มีผลกับ QR Code */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.flip-card-front .bg-white.bg-opacity-95:hover::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent 30%, rgba(255, 255, 255, 0.5) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out;
+  pointer-events: none;
+}
+
+/* ห้าม shimmer effect บน QR Code */
+.flip-card-back .bg-white:hover::before {
+  display: none;
+}

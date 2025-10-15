@@ -287,10 +287,19 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }) {
               onClick={onMobileClose}
               className={`
                 w-full flex items-center space-x-3 px-4 py-3 rounded-xl
-                bg-gradient-to-r from-amber-500 to-amber-600 text-white
-                hover:from-amber-600 hover:to-amber-700 transition-all duration-200
+                text-white transition-all duration-200
                 ${isCollapsed ? 'justify-center' : ''}
               `}
+              style={{ 
+                background: '#082220',
+                '&:hover': { background: '#0a2926' }
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = '#0a2926';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = '#082220';
+              }}
             >
               <User className="h-5 w-5" />
               {!isCollapsed && <span className="font-medium">เข้าสู่ระบบ</span>}
