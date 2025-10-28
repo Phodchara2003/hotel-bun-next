@@ -7,6 +7,9 @@ import { isStaffOrAdmin, canDeleteBookings, canEditBookings, canManageBookings }
 import ConfirmModal from '../../../components/ConfirmModal';
 import ClientOnly from '../../../components/ClientOnly';
 import Link from 'next/link';
+import DatePicker from 'react-datepicker';
+import "react-datepicker/dist/react-datepicker.css";
+import "../../../styles/custom-datepicker.css";
 import { 
   Calendar, 
   Users, 
@@ -112,6 +115,13 @@ function BookingManagementContent() {
     dateTo: '',
     roomType: ''
   });
+
+  // Report filter states
+  const [reportFilters, setReportFilters] = useState({
+    dateFrom: null,
+    dateTo: null
+  });
+  const [showReportFilters, setShowReportFilters] = useState(false);
 
   const [isFilterVisible, setIsFilterVisible] = useState(true);
   
@@ -328,7 +338,7 @@ function BookingManagementContent() {
   };
 
   // Export bookings data as report
-  const exportBookingsReport = () => {
+  const exportBookingsReport = (filters = {}) => {
     try {
       const today = new Date();
       const formattedDate = today.toLocaleDateString('th-TH', {
@@ -340,6 +350,29 @@ function BookingManagementContent() {
         hour: '2-digit',
         minute: '2-digit'
       });
+
+      // Filter bookings by date range if specified
+      let reportBookings = [...bookings];
+      
+      if (filters.dateFrom || filters.dateTo) {
+        reportBookings = bookings.filter(booking => {
+          const checkInDate = new Date(booking.check_in_date);
+          const fromDate = filters.dateFrom;
+          const toDate = filters.dateTo;
+          
+          let includeBooking = true;
+          
+          if (fromDate && checkInDate < fromDate) {
+            includeBooking = false;
+          }
+          
+          if (toDate && checkInDate > toDate) {
+            includeBooking = false;
+          }
+          
+          return includeBooking;
+        });
+      }
 
       // Helper function to get status config
       const getStatusConfig = (status) => {
@@ -425,7 +458,7 @@ function BookingManagementContent() {
       };
 
       // Prepare report data
-      const reportData = filteredBookings.map((booking, index) => {
+      const reportData = reportBookings.map((booking, index) => {
         const displayStatus = getDisplayStatus(booking);
         // Calculate nights
         const checkIn = booking.check_in_date ? new Date(booking.check_in_date) : null;
@@ -463,7 +496,7 @@ function BookingManagementContent() {
       });
 
       // Calculate financial summary
-      const totalRevenue = filteredBookings.reduce((sum, booking) => {
+      const totalRevenue = reportBookings.reduce((sum, booking) => {
         const amount = parseFloat(booking.total_price) || 0;
         return sum + amount;
       }, 0);
@@ -475,7 +508,7 @@ function BookingManagementContent() {
       }, {});
 
       // Calculate occupancy statistics
-      const totalNights = filteredBookings.reduce((sum, booking) => {
+      const totalNights = reportBookings.reduce((sum, booking) => {
         const checkIn = booking.check_in_date ? new Date(booking.check_in_date) : null;
         const checkOut = booking.check_out_date ? new Date(booking.check_out_date) : null;
         let nights = 0;
@@ -486,10 +519,10 @@ function BookingManagementContent() {
         return sum + nights;
       }, 0);
 
-      const avgStayDuration = filteredBookings.length > 0 ? (totalNights / filteredBookings.length).toFixed(1) : 0;
+      const avgStayDuration = reportBookings.length > 0 ? (totalNights / reportBookings.length).toFixed(1) : 0;
 
       // Calculate room type statistics
-      const roomTypeStats = filteredBookings.reduce((stats, booking) => {
+      const roomTypeStats = reportBookings.reduce((stats, booking) => {
         const roomType = booking.room_type?.name || 'ไม่ระบุประเภท';
         const price = parseFloat(booking.total_price) || 0;
         
@@ -505,6 +538,22 @@ function BookingManagementContent() {
         
         return stats;
       }, {});
+
+      // Function to describe report filter
+      const getReportFilterDescription = () => {
+        if (filters.dateFrom && filters.dateTo) {
+          const fromDate = filters.dateFrom.toLocaleDateString('th-TH');
+          const toDate = filters.dateTo.toLocaleDateString('th-TH');
+          return `กรองตามช่วงวันที่: ${fromDate} ถึง ${toDate}`;
+        } else if (filters.dateFrom) {
+          const fromDate = filters.dateFrom.toLocaleDateString('th-TH');
+          return `กรองตั้งแต่: ${fromDate}`;
+        } else if (filters.dateTo) {
+          const toDate = filters.dateTo.toLocaleDateString('th-TH');
+          return `กรองจนถึง: ${toDate}`;
+        }
+        return 'แสดงข้อมูลทั้งหมด';
+      };
 
       // Create HTML report
       const reportHtml = `
@@ -817,7 +866,7 @@ function BookingManagementContent() {
                 </div>
                 <div class="info-item">
                   <div class="info-label">สถานะการกรอง</div>
-                  <div class="info-value">${getCurrentFilterDescription()}</div>
+                  <div class="info-value">${getReportFilterDescription()}</div>
                 </div>
                 <div class="info-item">
                   <div class="info-label">ผู้ออกรายงาน</div>
@@ -917,7 +966,7 @@ function BookingManagementContent() {
                       </div>
                       <div class="room-stat-item">
                         <span class="room-stat-label">สัดส่วนของการจองทั้งหมด:</span>
-                        <span class="room-stat-value">${((stats.count / filteredBookings.length) * 100).toFixed(1)}%</span>
+                        <span class="room-stat-value">${((stats.count / reportBookings.length) * 100).toFixed(1)}%</span>
                       </div>
                     </div>
                   </div>
@@ -1665,7 +1714,7 @@ function BookingManagementContent() {
               รีเฟรช
             </button>
             <button
-              onClick={exportBookingsReport}
+              onClick={() => setShowReportFilters(!showReportFilters)}
               className="btn-primary flex items-center gap-2"
             >
               <Download className="h-4 w-4" />
@@ -1900,6 +1949,101 @@ function BookingManagementContent() {
             </div>
           </div>
         </div>
+
+        {/* Report Date Filter Modal */}
+        {showReportFilters && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowReportFilters(false);
+              }
+            }}
+          >
+            <div className="bg-white dark:bg-neutral-800 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-700 w-full max-w-md transform transition-all duration-300 scale-100 animate-in fade-in zoom-in-95">
+              {/* Modal Header */}
+              <div className="px-6 py-4 border-b border-neutral-200 dark:border-neutral-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-t-xl">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
+                    <span className="text-xl">📅</span>
+                    เลือกช่วงวันที่สำหรับรายงาน
+                  </h3>
+                  <button
+                    onClick={() => setShowReportFilters(false)}
+                    className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors p-1 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                  >
+                    <span className="text-lg">✕</span>
+                  </button>
+                </div>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+                  หากไม่เลือกจะใช้ข้อมูลทั้งหมด
+                </p>
+              </div>
+              
+              {/* Modal Body */}
+              <div className="px-6 py-6 space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-3">
+                    📅 วันที่เริ่มต้น
+                  </label>
+                  <DatePicker
+                    selected={reportFilters.dateFrom}
+                    onChange={(date) => setReportFilters(prev => ({ ...prev, dateFrom: date }))}
+                    dateFormat="dd/MM/yyyy"
+                    placeholderText="เลือกวันที่เริ่มต้น"
+                    isClearable
+                    showPopperArrow={false}
+                    className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder-neutral-400 dark:placeholder-neutral-500"
+                    calendarClassName="custom-datepicker"
+                    popperClassName="date-picker-popper"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-3">
+                    📅 วันที่สิ้นสุด
+                  </label>
+                  <DatePicker
+                    selected={reportFilters.dateTo}
+                    onChange={(date) => setReportFilters(prev => ({ ...prev, dateTo: date }))}
+                    dateFormat="dd/MM/yyyy"
+                    placeholderText="เลือกวันที่สิ้นสุด"
+                    minDate={reportFilters.dateFrom}
+                    isClearable
+                    showPopperArrow={false}
+                    className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder-neutral-400 dark:placeholder-neutral-500"
+                    calendarClassName="custom-datepicker"
+                    popperClassName="date-picker-popper"
+                  />
+                </div>
+              </div>
+              
+              {/* Modal Footer */}
+              <div className="px-6 py-4 border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900/50 rounded-b-xl flex gap-3">
+                <button
+                  onClick={() => {
+                    exportBookingsReport(reportFilters);
+                    setShowReportFilters(false);
+                  }}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all duration-200 font-medium shadow-lg hover:shadow-xl transform hover:scale-105"
+                >
+                  <Download className="h-4 w-4" />
+                  ส่งออกรายงาน
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setReportFilters({ dateFrom: null, dateTo: null });
+                    setShowReportFilters(false);
+                  }}
+                  className="px-4 py-2.5 bg-neutral-500 hover:bg-neutral-600 text-white rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                >
+                  ยกเลิก
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Bookings Table */}
         <div className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden transform transition-all duration-700 delay-400 ease-out ${
