@@ -29,7 +29,7 @@ export default function BookingDetailsPage() {
   const fetchBookingDetails = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:3001/api/bookings/${bookingId}`);
+      const response = await fetch(`http://localhost:5680/api/bookings/${bookingId}`);
       
       if (response.ok) {
         const result = await response.json();

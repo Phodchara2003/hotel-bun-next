@@ -5054,6 +5054,134 @@ const server = createServer(async (req, res) => {
         }
         break;
 
+      case '/api/admin/email-settings':
+        setCorsHeaders(res);
+        
+        if (req.method === 'GET') {
+          try {
+            console.log('📧 Fetching email settings...');
+            
+            // Try to get email settings from environment variables or database
+            const emailSettings = {
+              gmail_user: process.env.GMAIL_USER || '',
+              gmail_app_password: process.env.GMAIL_APP_PASSWORD || '', // Show actual password for admin settings
+              from_email: process.env.FROM_EMAIL || process.env.GMAIL_USER || '',
+              from_name: process.env.FROM_NAME || 'Hotel System',
+              admin_emails: process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL_1 || ''
+            };
+            
+            sendJSON(res, 200, {
+              success: true,
+              data: emailSettings
+            });
+          } catch (error) {
+            console.error('Error fetching email settings:', error);
+            sendJSON(res, 500, {
+              success: false,
+              message: 'Failed to fetch email settings'
+            });
+          }
+        } else if (req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => {
+            body += chunk.toString();
+          });
+          
+          req.on('end', async () => {
+            try {
+              console.log('📧 Email settings POST body:', body);
+              const data = JSON.parse(body);
+              const { settings } = data;
+              
+              if (!settings) {
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'Settings data is required'
+                });
+                return;
+              }
+              
+              // Validate email format
+              if (settings.gmail_user && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(settings.gmail_user)) {
+                sendJSON(res, 400, {
+                  success: false,
+                  message: 'Invalid Gmail address format'
+                });
+                return;
+              }
+              
+              // Read current .env file
+              const fs = require('fs');
+              const path = require('path');
+              const envPath = path.join(__dirname, '.env');
+              
+              let envContent = '';
+              if (fs.existsSync(envPath)) {
+                envContent = fs.readFileSync(envPath, 'utf8');
+              }
+              
+              // Update environment variables in .env file
+              const updateEnvVar = (content, key, value) => {
+                const regex = new RegExp(`^${key}=.*$`, 'm');
+                if (regex.test(content)) {
+                  return content.replace(regex, `${key}=${value}`);
+                } else {
+                  return content + `\n${key}=${value}`;
+                }
+              };
+              
+              // Update email settings in .env file
+              if (settings.gmail_user !== undefined) {
+                envContent = updateEnvVar(envContent, 'GMAIL_USER', settings.gmail_user);
+                process.env.GMAIL_USER = settings.gmail_user;
+              }
+              
+              if (settings.gmail_app_password !== undefined && settings.gmail_app_password !== '') {
+                envContent = updateEnvVar(envContent, 'GMAIL_APP_PASSWORD', settings.gmail_app_password);
+                process.env.GMAIL_APP_PASSWORD = settings.gmail_app_password;
+              }
+              
+              if (settings.from_email !== undefined) {
+                envContent = updateEnvVar(envContent, 'FROM_EMAIL', settings.from_email);
+                process.env.FROM_EMAIL = settings.from_email;
+              }
+              
+              if (settings.from_name !== undefined) {
+                envContent = updateEnvVar(envContent, 'FROM_NAME', settings.from_name);
+                process.env.FROM_NAME = settings.from_name;
+              }
+              
+              if (settings.admin_emails !== undefined) {
+                envContent = updateEnvVar(envContent, 'ADMIN_EMAILS', settings.admin_emails);
+                process.env.ADMIN_EMAILS = settings.admin_emails;
+              }
+              
+              // Write updated .env file
+              fs.writeFileSync(envPath, envContent);
+              
+              console.log('✅ Email settings updated successfully');
+              
+              sendJSON(res, 200, {
+                success: true,
+                message: 'Email settings updated successfully'
+              });
+              
+            } catch (error) {
+              console.error('❌ Error updating email settings:', error);
+              sendJSON(res, 500, {
+                success: false,
+                message: 'Failed to update email settings: ' + error.message
+              });
+            }
+          });
+        } else {
+          sendJSON(res, 405, {
+            success: false,
+            message: 'Method not allowed'
+          });
+        }
+        break;
+
       case '/api/notifications':
         setCorsHeaders(res);
         

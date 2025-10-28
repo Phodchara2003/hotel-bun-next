@@ -280,7 +280,7 @@ export default function UserManagement() {
   useEffect(() => {
     if (!isAuthenticated || !user || !['admin', 'manager'].includes(user.role)) return;
 
-    const wsUrl = `ws://localhost:3001/ws?userId=${user.id}&role=${user.role}`;
+    const wsUrl = `ws://localhost:5680/ws?userId=${user.id}&role=${user.role}`;
     const websocket = new WebSocket(wsUrl);
 
     websocket.onopen = () => {
@@ -335,7 +335,7 @@ export default function UserManagement() {
   useEffect(() => {
     if (!isAuthenticated || !['admin', 'manager'].includes(user?.role)) return;
 
-    const ws = new WebSocket('ws://localhost:3001/ws');
+    const ws = new WebSocket('ws://localhost:5680/ws');
     
     ws.onopen = () => {
       console.log('WebSocket connected');

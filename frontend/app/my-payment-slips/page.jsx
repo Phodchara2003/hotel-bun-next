@@ -30,7 +30,7 @@ export default function MyPaymentSlips() {
       }
       queryParams.append('customerId', customerId);
 
-      const response = await fetch(`http://localhost:3003/api/payment-slips?${queryParams}`);
+      const response = await fetch(`http://localhost:5680/api/payment-slips?${queryParams}`);
       const result = await response.json();
 
       if (result.success) {
@@ -182,7 +182,7 @@ export default function MyPaymentSlips() {
                   {slip.filePath && (
                     <div className="aspect-video bg-gray-100 rounded-t-lg overflow-hidden">
                       <img
-                        src={`http://localhost:3003/uploads/payment-slips/${slip.fileName}`}
+                        src={`http://localhost:5680/uploads/payment-slips/${slip.fileName}`}
                         alt="Payment Slip"
                         className="w-full h-full object-cover"
                         onError={(e) => {
@@ -269,7 +269,7 @@ export default function MyPaymentSlips() {
                 {selectedSlip.filePath && (
                   <div className="mb-6">
                     <img
-                      src={`http://localhost:3003/uploads/payment-slips/${selectedSlip.fileName}`}
+                      src={`http://localhost:5680/uploads/payment-slips/${selectedSlip.fileName}`}
                       alt="Payment Slip"
                       className="w-full max-h-64 object-contain rounded-lg border"
                     />

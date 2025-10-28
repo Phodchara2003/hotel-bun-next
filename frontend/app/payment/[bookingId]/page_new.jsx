@@ -455,7 +455,7 @@ export default function PaymentPage() {
                               </h3>
                               <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-200">
                                 <img 
-                                  src={`http://localhost:3001${paymentSettings.data.qrCodeUrl}`} 
+                                  src={`http://localhost:5680${paymentSettings.data.qrCodeUrl}`} 
                                   alt="QR Code ธนาคาร" 
                                   className="w-64 h-64 object-contain mx-auto rounded-lg"
                                 />

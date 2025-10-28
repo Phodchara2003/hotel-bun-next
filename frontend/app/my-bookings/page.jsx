@@ -37,7 +37,7 @@ export default function MyBookings() {
       console.log('🔍 Fetching bookings for user:', user.id);
       
       // ใช้ API endpoint ที่ถูกต้องพร้อม headers สำหรับ authentication
-      const response = await fetch('http://localhost:3001/api/bookings', {
+      const response = await fetch('http://localhost:5680/api/bookings', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -170,7 +170,7 @@ export default function MyBookings() {
   const handleCancelBooking = async (bookingId) => {
     setCancelling(true);
     try {
-      const response = await fetch(`http://localhost:3001/api/bookings/${bookingId}`, {
+      const response = await fetch(`http://localhost:5680/api/bookings/${bookingId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
@@ -222,7 +222,7 @@ export default function MyBookings() {
 
     setModifying(true);
     try {
-      const response = await fetch(`http://localhost:3001/api/bookings/${bookingId}`, {
+      const response = await fetch(`http://localhost:5680/api/bookings/${bookingId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'

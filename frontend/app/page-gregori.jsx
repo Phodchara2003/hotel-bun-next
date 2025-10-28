@@ -66,7 +66,7 @@ function HomePageContent() {
 
   const fetchContactSettings = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/admin/contact-settings');
+      const response = await fetch('http://localhost:5680/api/admin/contact-settings');
       const data = await response.json();
       if (data.success) {
         setContactSettings(data.data);

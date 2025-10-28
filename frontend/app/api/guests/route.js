@@ -1,7 +1,7 @@
 // Simple proxy for guest information API
 export async function GET(request) {
   try {
-    const response = await fetch('http://localhost:3003/api/guests', {
+    const response = await fetch('http://localhost:5680/api/guests', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -28,7 +28,7 @@ export async function POST(request) {
   try {
     const body = await request.json();
     
-    const response = await fetch('http://localhost:3003/api/guest-information', {
+    const response = await fetch('http://localhost:5680/api/guest-information', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

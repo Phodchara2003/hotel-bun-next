@@ -98,7 +98,7 @@ export default function PaymentSlipUpload() {
         uploadFormData.append(key, formData[key]);
       });
 
-      const response = await fetch('http://localhost:3003/api/upload-payment-slip', {
+      const response = await fetch('http://localhost:5680/api/upload-payment-slip', {
         method: 'POST',
         body: uploadFormData
       });

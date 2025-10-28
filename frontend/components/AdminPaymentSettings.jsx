@@ -22,7 +22,7 @@ const AdminPaymentSettings = () => {
 
   const loadSettings = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/admin/payment-settings');
+      const response = await fetch('http://localhost:5680/api/admin/payment-settings');
       if (response.ok) {
         const data = await response.json();
         if (data.settings) {
@@ -37,7 +37,7 @@ const AdminPaymentSettings = () => {
   const handleSaveSettings = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3001/api/admin/payment-settings', {
+      const response = await fetch('http://localhost:5680/api/admin/payment-settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

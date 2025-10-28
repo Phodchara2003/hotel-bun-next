@@ -109,9 +109,9 @@ const app = new Elysia()
       return { success: false, message: 'Failed to mark notification as read' };
     }
   })
-  .listen(3001);
+  .listen(process.env.PORT || 5680);
 
-console.log('🦊 Hotel Backend Server is running at http://localhost:3001');
+console.log(`🦊 Hotel Backend Server is running at http://localhost:${process.env.PORT || 5680}`);
 console.log('📋 Available endpoints:');
 console.log('   GET /        - Server info');
 console.log('   GET /health  - Health check');

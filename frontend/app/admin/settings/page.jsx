@@ -17,7 +17,10 @@ import {
   EyeOff,
   AlertCircle,
   CheckCircle,
-  Loader2
+  Loader2,
+  Mail,
+  Key,
+  Lock
 } from 'lucide-react';
 
 export default function AdminSettingsPage() {
@@ -36,6 +39,18 @@ export default function AdminSettingsPage() {
     phone_number: ''
   });
 
+  // Email settings state
+  const [emailSettings, setEmailSettings] = useState({
+    gmail_user: '',
+    gmail_app_password: '',
+    from_email: '',
+    from_name: '',
+    admin_emails: ''
+  });
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [savingEmail, setSavingEmail] = useState(false);
+
   // File upload states
   const [qrFile, setQrFile] = useState(null);
   const [uploadingQR, setUploadingQR] = useState(false);
@@ -49,6 +64,7 @@ export default function AdminSettingsPage() {
         return;
       }
       fetchPaymentSettings();
+      fetchEmailSettings();
     }
   }, [authLoading, isAuthenticated, user, router]);
 
@@ -58,7 +74,7 @@ export default function AdminSettingsPage() {
       setLoading(true);
       console.log('🔍 Fetching payment settings from database...');
       
-      const response = await fetch('http://localhost:3001/api/global-settings', {
+      const response = await fetch('http://localhost:5680/api/global-settings', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -82,6 +98,9 @@ export default function AdminSettingsPage() {
         console.error('❌ Failed to fetch payment settings');
         toast.error('ไม่สามารถโหลดข้อมูลการตั้งค่าได้');
       }
+
+      // Fetch email settings
+      await fetchEmailSettings();
     } catch (error) {
       console.error('❌ Error fetching payment settings:', error);
       toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูล');
@@ -90,9 +109,50 @@ export default function AdminSettingsPage() {
     }
   };
 
+  // Fetch email settings
+  const fetchEmailSettings = async () => {
+    try {
+      console.log('📧 Fetching email settings...');
+      
+      const response = await fetch('http://localhost:5680/api/admin/email-settings', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('📧 Email settings loaded:', result);
+        
+        if (result.success && result.data) {
+          setEmailSettings({
+            gmail_user: result.data.gmail_user || '',
+            gmail_app_password: result.data.gmail_app_password || '',
+            from_email: result.data.from_email || '',
+            from_name: result.data.from_name || '',
+            admin_emails: result.data.admin_emails || ''
+          });
+        }
+      } else {
+        console.log('ℹ️ Email settings not found, using defaults');
+      }
+    } catch (error) {
+      console.error('❌ Error fetching email settings:', error);
+    }
+  };
+
   // Handle input changes
   const handleInputChange = (field, value) => {
     setPaymentSettings(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Handle email input changes
+  const handleEmailInputChange = (field, value) => {
+    setEmailSettings(prev => ({
       ...prev,
       [field]: value
     }));
@@ -107,7 +167,7 @@ export default function AdminSettingsPage() {
     formData.append('qrCode', file);
 
     try {
-      const response = await fetch('http://localhost:3001/api/admin/upload-qr', {
+      const response = await fetch('http://localhost:5680/api/admin/upload-qr', {
         method: 'POST',
         body: formData
       });
@@ -141,7 +201,7 @@ export default function AdminSettingsPage() {
     try {
       console.log('💾 Saving payment settings:', paymentSettings);
       
-      const response = await fetch('http://localhost:3001/api/admin/payment-settings', {
+      const response = await fetch('http://localhost:5680/api/admin/payment-settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -154,7 +214,7 @@ export default function AdminSettingsPage() {
       if (response.ok) {
         const result = await response.json();
         console.log('✅ Payment settings saved:', result);
-        toast.success('บันทึกการตั้งค่าสำเร็จ');
+        toast.success('บันทึกการตั้งค่าการชำระเงินสำเร็จ');
       } else {
         const errorData = await response.json();
         console.error('❌ Save failed:', errorData);
@@ -163,6 +223,42 @@ export default function AdminSettingsPage() {
     } catch (error) {
       console.error('❌ Error saving settings:', error);
       toast.error('เกิดข้อผิดพลาดในการบันทึก');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Save email settings
+  const handleSaveEmail = async () => {
+    setSaving(true);
+    try {
+      console.log('📧 Saving email settings:', emailSettings);
+      const response = await fetch('http://localhost:5680/api/admin/email-settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          settings: emailSettings
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Email settings saved:', result);
+        
+        // โหลดข้อมูลใหม่หลังจากบันทึกสำเร็จ เพื่อแสดงค่าปัจจุบันที่อัปเดตแล้ว
+        await fetchEmailSettings();
+        
+        toast.success('บันทึกการตั้งค่าอีเมลสำเร็จ');
+      } else {
+        const errorData = await response.json();
+        console.error('❌ Email save failed:', errorData);
+        toast.error(errorData.message || 'ไม่สามารถบันทึกการตั้งค่าอีเมลได้');
+      }
+    } catch (error) {
+      console.error('❌ Error saving email settings:', error);
+      toast.error('เกิดข้อผิดพลาดในการบันทึกการตั้งค่าอีเมล');
     } finally {
       setSaving(false);
     }
@@ -310,7 +406,7 @@ export default function AdminSettingsPage() {
                   {paymentSettings.qr_code_url ? (
                     <div className="relative">
                       <img
-                        src={`http://localhost:3001${paymentSettings.qr_code_url}`}
+                        src={`http://localhost:5680${paymentSettings.qr_code_url}`}
                         alt="QR Code"
                         className="w-32 h-32 object-cover rounded-lg border border-gray-300"
                       />
@@ -348,12 +444,144 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
+        {/* Email Settings Card */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mt-6">
+          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+            <div className="flex items-center gap-3">
+              <Mail className="h-5 w-5 text-green-600" />
+              <h2 className="text-xl font-semibold text-gray-900">การตั้งค่าอีเมล</h2>
+            </div>
+            <p className="text-sm text-gray-600 mt-2">
+              จัดการการตั้งค่าอีเมลสำหรับส่งการแจ้งเตือนและยืนยันการจอง
+            </p>
+          </div>
+
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    อีเมลของระบบ (Gmail)
+                  </div>
+                </label>
+                <input
+                  type="email"
+                  value={emailSettings.gmail_user}
+                  onChange={(e) => handleEmailInputChange('gmail_user', e.target.value)}
+                  placeholder="example@gmail.com"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  อีเมล Gmail ที่จะใช้ส่งการแจ้งเตือน
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <div className="flex items-center gap-2">
+                    <Key className="h-4 w-4" />
+                    รหัสผ่านแอป Gmail (App Password)
+                  </div>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={emailSettings.gmail_app_password}
+                    onChange={(e) => handleEmailInputChange('gmail_app_password', e.target.value)}
+                    placeholder="xxxx xxxx xxxx xxxx"
+                    className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  App Password จาก Google Account Settings
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ชื่อผู้ส่ง
+                </label>
+                <input
+                  type="text"
+                  value={emailSettings.from_name}
+                  onChange={(e) => handleEmailInputChange('from_name', e.target.value)}
+                  placeholder="Hotel System"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  ชื่อที่จะแสดงเป็นผู้ส่งอีเมล
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  อีเมลผู้ดูแลระบบ
+                </label>
+                <input
+                  type="email"
+                  value={emailSettings.admin_emails}
+                  onChange={(e) => handleEmailInputChange('admin_emails', e.target.value)}
+                  placeholder="admin1@hotel.com, admin2@hotel.com"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  อีเมลแอดมินที่จะได้รับการแจ้งเตือน (คั่นด้วยจุลภาค)
+                </p>
+              </div>
+            </div>
+
+            {/* Email Instructions */}
+            <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-medium text-blue-900 mb-2">
+                    วิธีการสร้าง Gmail App Password:
+                  </h4>
+                  <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
+                    <li>ไปที่ <a href="https://myaccount.google.com" target="_blank" rel="noopener noreferrer" className="underline">Google Account Settings</a></li>
+                    <li>เลือก Security → 2-Step Verification (เปิดให้เรียบร้อยก่อน)</li>
+                    <li>เลือก Security → App passwords</li>
+                    <li>Select app: Mail, Select device: Other (Custom name)</li>
+                    <li>ตั้งชื่อ: "Hotel Booking System"</li>
+                    <li>คัดลอกรหัส 16 ตัวอักษร (รูปแบบ: xxxx xxxx xxxx xxxx)</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+
+            {/* Email Save Button */}
+            <div className="pt-6 border-t border-gray-200 mt-6">
+              <button
+                onClick={handleSaveEmail}
+                disabled={saving}
+                className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Save className="h-5 w-5" />
+                )}
+                {saving ? 'กำลังบันทึก...' : 'บันทึกการตั้งค่าอีเมล'}
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Preview Modal */}
         {showQRPreview && paymentSettings.qr_code_url && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowQRPreview(false)}>
             <div className="bg-white p-4 rounded-lg max-w-md max-h-[80vh] overflow-auto">
               <img
-                src={`http://localhost:3001${paymentSettings.qr_code_url}`}
+                src={`http://localhost:5680${paymentSettings.qr_code_url}`}
                 alt="QR Code Preview"
                 className="w-full h-auto"
               />

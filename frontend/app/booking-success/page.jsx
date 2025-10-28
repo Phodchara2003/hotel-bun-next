@@ -59,7 +59,7 @@ function BookingSuccessContent() {
 
       console.log('🔍 Fetching booking details for ID:', bookingId);
 
-      const response = await fetch(`http://localhost:3001/api/booking-details?booking_id=${bookingId}`, {
+      const response = await fetch(`http://localhost:5680/api/booking-details?booking_id=${bookingId}`, {
         headers: {
           'Authorization': `Bearer ${user?.token || localStorage.getItem('token')}`
         }

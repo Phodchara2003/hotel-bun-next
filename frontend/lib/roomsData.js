@@ -102,7 +102,7 @@ export const getRoomsData = async (forceRefresh = false) => {
     const randomId = Math.floor(Math.random() * 1000000);
     const sessionId = Math.random().toString(36).substring(7);
     const refreshParam = forceRefresh ? '&force=1' : '';
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5680';
     
     console.log('🔄 Force fetching fresh data from API...', forceRefresh ? '(FORCE REFRESH)' : '');
     

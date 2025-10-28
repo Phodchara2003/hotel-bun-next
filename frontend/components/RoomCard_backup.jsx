@@ -74,9 +74,9 @@ const RoomCard = ({ roomType, hotelId }) => {
         if (img && !allImages.includes(img)) {
           // Convert relative paths to full URLs
           if (img.startsWith('/api/') || img.startsWith('/uploads/')) {
-            allImages.push(`http://localhost:3001${img}`);
+            allImages.push(`http://localhost:5680${img}`);
           } else if (!img.startsWith('http')) {
-            allImages.push(`http://localhost:3001/uploads/room-images/${img}`);
+            allImages.push(`http://localhost:5680/uploads/room-images/${img}`);
           } else {
             allImages.push(img);
           }

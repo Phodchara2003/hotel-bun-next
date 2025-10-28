@@ -53,7 +53,7 @@ export default function CancellationRequestsPage() {
     try {
       setLoading(true);
       console.log('🔍 Fetching cancellation requests...');
-      const response = await fetch('http://localhost:3001/api/cancellation-requests');
+      const response = await fetch('http://localhost:5680/api/cancellation-requests');
       const result = await response.json();
       
       console.log('📊 Cancellation requests response:', result);
@@ -83,7 +83,7 @@ export default function CancellationRequestsPage() {
       setProcessing(true);
       console.log(`⚖️ Processing request ${requestId} with action: ${action}`);
       
-      const response = await fetch('http://localhost:3001/api/cancellation-requests', {
+      const response = await fetch('http://localhost:5680/api/cancellation-requests', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'

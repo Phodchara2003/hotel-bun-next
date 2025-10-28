@@ -177,7 +177,7 @@ function BookingManagementContent() {
   const fetchCancellationRequests = async () => {
     try {
       console.log('🔍 Fetching cancellation requests for bookings...');
-      const response = await fetch('http://localhost:3001/api/cancellation-requests');
+      const response = await fetch('http://localhost:5680/api/cancellation-requests');
       const result = await response.json();
       
       if (result.success && result.data) {
@@ -197,7 +197,7 @@ function BookingManagementContent() {
       setProcessingCancellation(true);
       console.log(`⚖️ Processing request ${requestId} with action: ${action}`);
       
-      const response = await fetch('http://localhost:3001/api/cancellation-requests', {
+      const response = await fetch('http://localhost:5680/api/cancellation-requests', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
@@ -241,7 +241,8 @@ function BookingManagementContent() {
     
     const stats = {
       totalBookings: bookingsData.length,
-      pendingBookings: bookingsData.filter(b => b.status === 'pending').length,
+      pendingBookings: bookingsData.filter(b => b.status === 'pending' && !isBookingExpired(b)).length,
+      expiredBookings: bookingsData.filter(b => isBookingExpired(b)).length,
       confirmedBookings: bookingsData.filter(b => b.status === 'confirmed').length,
       completedBookings: bookingsData.filter(b => b.status === 'completed').length,
       cancelledBookings: bookingsData.filter(b => b.status === 'cancelled').length,
@@ -288,7 +289,12 @@ function BookingManagementContent() {
       booking.guest_name?.toLowerCase().includes(filters.search.toLowerCase()) ||
       booking.guest_email?.toLowerCase().includes(filters.search.toLowerCase());
     
-    const matchesStatus = !filters.status || booking.status === filters.status;
+    const matchesStatus = !filters.status || (() => {
+      if (filters.status === 'expired') {
+        return isBookingExpired(booking);
+      }
+      return booking.status === filters.status;
+    })();
     
     const matchesDateFrom = !filters.dateFrom || (() => {
       const checkInDate = booking.check_in_date || booking.checkInDate;
@@ -307,12 +313,715 @@ function BookingManagementContent() {
     return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo;
   });
 
-  const getStatusBadge = (status) => {
+  // Helper function to check if booking is expired
+  const isBookingExpired = (booking) => {
+    if (booking.status !== 'pending') return false;
+    
+    const today = new Date();
+    const checkinDate = new Date(booking.check_in_date);
+    
+    // Set today to start of day for comparison
+    today.setHours(0, 0, 0, 0);
+    checkinDate.setHours(0, 0, 0, 0);
+    
+    return checkinDate < today;
+  };
+
+  // Export bookings data as report
+  const exportBookingsReport = () => {
+    try {
+      const today = new Date();
+      const formattedDate = today.toLocaleDateString('th-TH', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      const formattedTime = today.toLocaleTimeString('th-TH', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      // Helper function to get status config
+      const getStatusConfig = (status) => {
+        const statusConfigs = {
+          pending: { label: 'รอการยืนยัน' },
+          expired: { label: 'เลยวันเข้าพักแล้ว' },
+          confirmed: { label: 'ยืนยันแล้ว' },
+          checkedin: { label: 'เข้าพักแล้ว' },
+          checkedout: { label: 'ออกแล้ว' },
+          cancelled: { label: 'ยกเลิก' },
+          completed: { label: 'เสร็จสิ้น' }
+        };
+        return statusConfigs[status] || { label: 'ไม่ระบุ' };
+      };
+
+      // Helper function to format payment status
+      const getPaymentStatusLabel = (paymentStatus, bookingStatus) => {
+        const statusMap = {
+          'pending': 'รอชำระ',
+          'paid': 'ชำระแล้ว',
+          'approved': 'อนุมัติแล้ว',
+          'slip_uploaded': 'อัปโหลดสลิป',
+          'verified': 'ตรวจสอบแล้ว',
+          'rejected': 'ปฏิเสธ'
+        };
+        
+        // If booking is confirmed by admin, show payment status
+        if (bookingStatus === 'confirmed') {
+          return 'ชำระแล้ว';
+        }
+        
+        // Handle empty string or null values
+        if (!paymentStatus || paymentStatus.trim() === '') {
+          return 'รอชำระ';
+        }
+        
+        return statusMap[paymentStatus] || paymentStatus || 'ไม่ระบุ';
+      };
+
+      // Helper function to get payment status CSS class
+      const getPaymentStatusClass = (paymentStatus, bookingStatus) => {
+        // If booking is confirmed by admin, show as paid
+        if (bookingStatus === 'confirmed') {
+          return 'payment-paid';
+        }
+        
+        // Handle empty string or null values
+        if (!paymentStatus || paymentStatus.trim() === '') {
+          return 'payment-pending';
+        }
+        
+        const classMap = {
+          'pending': 'payment-pending',
+          'paid': 'payment-paid',
+          'approved': 'payment-approved',
+          'slip_uploaded': 'payment-uploaded',
+          'verified': 'payment-verified',
+          'rejected': 'payment-rejected'
+        };
+        
+        return classMap[paymentStatus] || 'payment-default';
+      };
+
+      // Helper function to format room info
+      const getRoomInfo = (booking) => {
+        if (booking.room_number && booking.room_type) {
+          return `ห้อง ${booking.room_number} (${booking.room_type})`;
+        } else if (booking.room_type) {
+          return booking.room_type;
+        } else if (booking.room_number) {
+          return `ห้อง ${booking.room_number}`;
+        }
+        return 'ไม่ระบุห้อง';
+      };
+
+      // Helper function to format currency
+      const formatCurrency = (amount) => {
+        if (!amount) return '0.00 บาท';
+        return parseFloat(amount).toLocaleString('th-TH', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        }) + ' บาท';
+      };
+
+      // Prepare report data
+      const reportData = filteredBookings.map((booking, index) => {
+        const displayStatus = getDisplayStatus(booking);
+        // Calculate nights
+        const checkIn = booking.check_in_date ? new Date(booking.check_in_date) : null;
+        const checkOut = booking.check_out_date ? new Date(booking.check_out_date) : null;
+        let nights = 0;
+        if (checkIn && checkOut) {
+          const timeDiff = checkOut - checkIn;
+          nights = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+        }
+        
+        const statusConfig = getStatusConfig(displayStatus);
+        
+        return {
+          no: index + 1,
+          booking_id: booking.booking_reference || booking.booking_id || `BK${booking.id}`,
+          guest_name: booking.guest_name || 'ไม่มีข้อมูล',
+          guest_email: booking.guest_email || 'ไม่มีข้อมูล',
+          guest_phone: booking.guest_phone || 'ไม่มีข้อมูล',
+          guest_id_number: booking.guest_id_number || 'ไม่มีข้อมูล',
+          room_info: getRoomInfo(booking),
+          check_in_date: booking.check_in_date ? new Date(booking.check_in_date).toLocaleDateString('th-TH') : 'ไม่มีข้อมูล',
+          check_out_date: booking.check_out_date ? new Date(booking.check_out_date).toLocaleDateString('th-TH') : 'ไม่มีข้อมูล',
+          guests: booking.guests || 'ไม่มีข้อมูล',
+          nights: nights || 'ไม่ระบุ',
+          status: statusConfig.label,
+          statusClass: displayStatus,
+          special_requests: booking.special_requests || 'ไม่มี',
+          created_at: booking.created_at ? new Date(booking.created_at).toLocaleDateString('th-TH') : 'ไม่มีข้อมูล',
+          total_amount: formatCurrency(booking.total_price),
+          payment_status: getPaymentStatusLabel(booking.payment_status, booking.status),
+          payment_class: getPaymentStatusClass(booking.payment_status, booking.status),
+          payment_method: booking.payment_method || 'ไม่ระบุ',
+          confirmation_number: booking.confirmation_number || 'ไม่มี'
+        };
+      });
+
+      // Calculate financial summary
+      const totalRevenue = filteredBookings.reduce((sum, booking) => {
+        const amount = parseFloat(booking.total_price) || 0;
+        return sum + amount;
+      }, 0);
+
+      // Count bookings by status
+      const statusCounts = reportData.reduce((counts, booking) => {
+        counts[booking.statusClass] = (counts[booking.statusClass] || 0) + 1;
+        return counts;
+      }, {});
+
+      // Calculate occupancy statistics
+      const totalNights = filteredBookings.reduce((sum, booking) => {
+        const checkIn = booking.check_in_date ? new Date(booking.check_in_date) : null;
+        const checkOut = booking.check_out_date ? new Date(booking.check_out_date) : null;
+        let nights = 0;
+        if (checkIn && checkOut) {
+          const timeDiff = checkOut - checkIn;
+          nights = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+        }
+        return sum + nights;
+      }, 0);
+
+      const avgStayDuration = filteredBookings.length > 0 ? (totalNights / filteredBookings.length).toFixed(1) : 0;
+
+      // Calculate room type statistics
+      const roomTypeStats = filteredBookings.reduce((stats, booking) => {
+        const roomType = booking.room_type?.name || 'ไม่ระบุประเภท';
+        const price = parseFloat(booking.total_price) || 0;
+        
+        if (!stats[roomType]) {
+          stats[roomType] = {
+            count: 0,
+            totalRevenue: 0
+          };
+        }
+        
+        stats[roomType].count += 1;
+        stats[roomType].totalRevenue += price;
+        
+        return stats;
+      }, {});
+
+      // Create HTML report
+      const reportHtml = `
+        <!DOCTYPE html>
+        <html lang="th">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>รายงานข้อมูลการจอง</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap');
+            
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            
+            body {
+              font-family: 'Noto Sans Thai', -apple-system, BlinkMacSystemFont, sans-serif;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              min-height: 100vh;
+              padding: 20px;
+            }
+            
+            .report-container {
+              max-width: 1200px;
+              margin: 0 auto;
+              background: white;
+              border-radius: 20px;
+              box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+              overflow: hidden;
+            }
+            
+            .report-header {
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+              padding: 40px;
+              text-align: center;
+              position: relative;
+            }
+            
+            .report-header::before {
+              content: '';
+              position: absolute;
+              top: 0;
+              left: 0;
+              right: 0;
+              bottom: 0;
+              background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="80" cy="40" r="1.5" fill="rgba(255,255,255,0.1)"/><circle cx="40" cy="70" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="70" cy="15" r="1.2" fill="rgba(255,255,255,0.1)"/><circle cx="15" cy="60" r="0.8" fill="rgba(255,255,255,0.1)"/></svg>') repeat;
+            }
+            
+            .report-title {
+              font-size: 2.5rem;
+              font-weight: 700;
+              margin-bottom: 10px;
+              position: relative;
+              z-index: 1;
+            }
+            
+            .report-subtitle {
+              font-size: 1.1rem;
+              opacity: 0.9;
+              position: relative;
+              z-index: 1;
+            }
+            
+            .report-info {
+              background: #f8fafc;
+              padding: 30px 40px;
+              border-bottom: 1px solid #e2e8f0;
+            }
+            
+            .info-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+              gap: 20px;
+            }
+            
+            .info-item {
+              background: white;
+              padding: 20px;
+              border-radius: 12px;
+              border: 1px solid #e2e8f0;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            }
+            
+            .info-label {
+              font-size: 0.9rem;
+              color: #64748b;
+              margin-bottom: 5px;
+              font-weight: 500;
+            }
+            
+            .info-value {
+              font-size: 1.1rem;
+              color: #1e293b;
+              font-weight: 600;
+            }
+            
+            .report-content {
+              padding: 40px;
+            }
+            
+            .table-container {
+              border-radius: 12px;
+              border: 1px solid #e2e8f0;
+              box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            }
+            
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              background: white;
+              font-size: 0.9rem;
+            }
+            
+            thead {
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+            }
+            
+            th {
+              padding: 15px 12px;
+              text-align: left;
+              font-weight: 600;
+              border-bottom: 2px solid rgba(255,255,255,0.2);
+              position: sticky;
+              top: 0;
+              z-index: 10;
+            }
+            
+            tbody tr {
+              transition: all 0.2s ease;
+            }
+            
+            tbody tr:nth-child(even) {
+              background: #f8fafc;
+            }
+            
+            tbody tr:hover {
+              background: #e2e8f0;
+              transform: scale(1.01);
+            }
+            
+            td {
+              padding: 12px;
+              border-bottom: 1px solid #e2e8f0;
+              vertical-align: top;
+            }
+            
+            .status-badge {
+              display: inline-block;
+              padding: 4px 12px;
+              border-radius: 20px;
+              font-size: 0.8rem;
+              font-weight: 600;
+              text-align: center;
+              min-width: 80px;
+            }
+            
+            .payment-badge {
+              display: inline-block;
+              padding: 4px 12px;
+              border-radius: 20px;
+              font-size: 0.8rem;
+              font-weight: 600;
+              text-align: center;
+              min-width: 80px;
+            }
+            
+            .payment-pending { background: #fef3c7; color: #92400e; border: 1px solid #fbbf24; }
+            .payment-paid { background: #d1fae5; color: #065f46; border: 1px solid #34d399; }
+            .payment-approved { background: #dbeafe; color: #1e40af; border: 1px solid #60a5fa; }
+            .payment-uploaded { background: #e0e7ff; color: #3730a3; border: 1px solid #818cf8; }
+            .payment-verified { background: #ecfdf5; color: #047857; border: 1px solid #10b981; }
+            .payment-rejected { background: #fee2e2; color: #dc2626; border: 1px solid #f87171; }
+            .payment-default { background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db; }
+            
+            .status-pending { background: #fef3c7; color: #92400e; }
+            .status-confirmed { background: #d1fae5; color: #065f46; }
+            .status-checkedin { background: #dbeafe; color: #1e40af; }
+            .status-checkedout { background: #f3e8ff; color: #7c3aed; }
+            .status-cancelled { background: #fee2e2; color: #dc2626; }
+            .status-expired { background: #fecaca; color: #991b1b; }
+            
+            .room-stats-section {
+              margin: 40px;
+              padding: 30px;
+              background: #f8fafc;
+              border-radius: 15px;
+              border: 1px solid #e2e8f0;
+            }
+            
+            .room-stats-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+              gap: 20px;
+              margin-top: 20px;
+            }
+            
+            .room-stat-card {
+              background: white;
+              border-radius: 12px;
+              padding: 20px;
+              border: 1px solid #e2e8f0;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+              transition: transform 0.2s ease, box-shadow 0.2s ease;
+            }
+            
+            .room-stat-card:hover {
+              transform: translateY(-2px);
+              box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+            }
+            
+            .room-stat-header {
+              border-bottom: 2px solid #3b82f6;
+              padding-bottom: 10px;
+              margin-bottom: 15px;
+            }
+            
+            .room-stat-header h4 {
+              margin: 0;
+              color: #1e40af;
+              font-size: 1.2rem;
+              font-weight: 600;
+              text-align: center;
+            }
+            
+            .room-stat-content {
+              space-y: 10px;
+            }
+            
+            .room-stat-item {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              padding: 8px 0;
+              border-bottom: 1px solid #f1f5f9;
+            }
+            
+            .room-stat-item:last-child {
+              border-bottom: none;
+            }
+            
+            .room-stat-label {
+              font-weight: 500;
+              color: #64748b;
+            }
+            
+            .room-stat-value {
+              font-weight: 600;
+              color: #1e293b;
+            }
+            
+            .room-stat-value.revenue {
+              color: #10b981;
+              font-size: 1.1rem;
+            }
+            
+            .report-footer {
+              background: #f8fafc;
+              padding: 30px 40px;
+              text-align: center;
+              border-top: 1px solid #e2e8f0;
+              color: #64748b;
+            }
+            
+            .no-data {
+              text-align: center;
+              padding: 60px 20px;
+              color: #64748b;
+              font-size: 1.1rem;
+            }
+            
+            @media print {
+              body { background: white; padding: 0; }
+              .report-container { box-shadow: none; border-radius: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="report-container">
+            <div class="report-header">
+              <h1 class="report-title">📊 รายงานข้อมูลการจอง</h1>
+              <p class="report-subtitle">ระบบจัดการโรงแรม</p>
+            </div>
+            
+            <div class="report-info">
+              <div class="info-grid">
+                <div class="info-item">
+                  <div class="info-label">วันที่ออกรายงาน</div>
+                  <div class="info-value">${formattedDate} เวลา ${formattedTime}</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-label">จำนวนการจองทั้งหมด</div>
+                  <div class="info-value">${reportData.length.toLocaleString()} รายการ</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-label">รายได้รวมทั้งหมด</div>
+                  <div class="info-value" style="color: #10b981; font-weight: 700;">${formatCurrency(totalRevenue)}</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-label">จำนวนคืนรวม</div>
+                  <div class="info-value">${totalNights.toLocaleString()} คืน</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-label">ระยะเวลาเข้าพักเฉลี่ย</div>
+                  <div class="info-value">${avgStayDuration} คืน</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-label">สถานะการกรอง</div>
+                  <div class="info-value">${getCurrentFilterDescription()}</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-label">ผู้ออกรายงาน</div>
+                  <div class="info-value">${user?.name || 'ผู้ดูแลระบบ'}</div>
+                </div>
+              </div>
+              
+              ${Object.keys(statusCounts).length > 0 ? `
+                <div style="margin-top: 30px;">
+                  <h3 style="margin-bottom: 15px; color: #1e293b; font-size: 1.1rem;">สรุปการจองตามสถานะ</h3>
+                  <div class="info-grid">
+                    ${Object.entries(statusCounts).map(([status, count]) => `
+                      <div class="info-item" style="text-align: center;">
+                        <div class="info-label">${getStatusConfig(status).label}</div>
+                        <div class="info-value" style="font-size: 1.5rem; color: #4f46e5;">${count} รายการ</div>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+            
+            <div class="report-content">
+              ${reportData.length > 0 ? `
+                <div class="table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th style="width: 40px;">ลำดับ</th>
+                        <th style="width: 100px;">รหัสการจอง</th>
+                        <th style="width: 130px;">ชื่อผู้จอง</th>
+                        <th style="width: 100px;">เบอร์โทร</th>
+                        <th style="width: 120px;">ห้องพัก</th>
+                        <th style="width: 90px;">วันเข้าพัก</th>
+                        <th style="width: 90px;">วันออก</th>
+                        <th style="width: 50px;">คืน</th>
+                        <th style="width: 50px;">คน</th>
+                        <th style="width: 100px;">สถานะ</th>
+                        <th style="width: 100px;">สถานะชำระ</th>
+                        <th style="width: 90px;">ยอดรวม</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${reportData.map(booking => `
+                        <tr>
+                          <td style="text-align: center; font-weight: 600;">${booking.no}</td>
+                          <td><strong>${booking.booking_id}</strong></td>
+                          <td>${booking.guest_name}</td>
+                          <td>${booking.guest_phone}</td>
+                          <td><strong>${booking.room_info}</strong></td>
+                          <td>${booking.check_in_date}</td>
+                          <td>${booking.check_out_date}</td>
+                          <td style="text-align: center;">${booking.nights}</td>
+                          <td style="text-align: center;">${booking.guests}</td>
+                          <td>
+                            <span class="status-badge status-${booking.statusClass}">
+                              ${booking.status}
+                            </span>
+                          </td>
+                          <td style="text-align: center;">
+                            <span class="payment-badge ${booking.payment_class}">${booking.payment_status}</span>
+                          </td>
+                          <td style="text-align: right; font-weight: 600; color: #1e40af;">${booking.total_amount}</td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              ` : `
+                <div class="no-data">
+                  <h3>ไม่มีข้อมูลการจองที่ตรงกับเงื่อนไขการค้นหา</h3>
+                </div>
+              `}
+            </div>
+            
+            ${Object.keys(roomTypeStats).length > 0 ? `
+            <div class="room-stats-section">
+              <h3 style="color: #1e40af; margin-bottom: 20px; text-align: center; font-size: 1.5rem;">📊 สถิติการจองตามประเภทห้อง</h3>
+              <div class="room-stats-grid">
+                ${Object.entries(roomTypeStats).map(([roomType, stats]) => `
+                  <div class="room-stat-card">
+                    <div class="room-stat-header">
+                      <h4>${roomType}</h4>
+                    </div>
+                    <div class="room-stat-content">
+                      <div class="room-stat-item">
+                        <span class="room-stat-label">จำนวนการจอง:</span>
+                        <span class="room-stat-value">${stats.count.toLocaleString()} ครั้ง</span>
+                      </div>
+                      <div class="room-stat-item">
+                        <span class="room-stat-label">รายได้รวม:</span>
+                        <span class="room-stat-value revenue">${formatCurrency(stats.totalRevenue)}</span>
+                      </div>
+                      <div class="room-stat-item">
+                        <span class="room-stat-label">รายได้เฉลี่ยต่อการจอง:</span>
+                        <span class="room-stat-value">${formatCurrency(stats.totalRevenue / stats.count)}</span>
+                      </div>
+                      <div class="room-stat-item">
+                        <span class="room-stat-label">สัดส่วนของการจองทั้งหมด:</span>
+                        <span class="room-stat-value">${((stats.count / filteredBookings.length) * 100).toFixed(1)}%</span>
+                      </div>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            ` : ''}
+            
+            <div class="report-footer">
+              <p>🏨 ระบบจัดการโรงแรม | สร้างโดยระบบอัตโนมัติ</p>
+              <p style="margin-top: 5px; font-size: 0.9rem;">
+                รายงานนี้สร้างขึ้นเมื่อ ${formattedDate} เวลา ${formattedTime}
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Open report in new window
+      const reportWindow = window.open('', '_blank');
+      reportWindow.document.write(reportHtml);
+      reportWindow.document.close();
+      
+      // Add print functionality
+      setTimeout(() => {
+        reportWindow.focus();
+        reportWindow.print();
+      }, 1000);
+
+      toast.success('เปิดรายงานในหน้าต่างใหม่เรียบร้อย');
+    } catch (error) {
+      console.error('Error generating report:', error);
+      toast.error('เกิดข้อผิดพลาดในการสร้างรายงาน');
+    }
+  };
+
+  // Helper function to get filter text
+  const getFilterText = (filter) => {
+    switch (filter) {
+      case 'pending': return 'รอการยืนยัน';
+      case 'confirmed': return 'ยืนยันแล้ว';
+      case 'checkedin': return 'เข้าพักแล้ว';
+      case 'checkedout': return 'ออกแล้ว';
+      case 'cancelled': return 'ยกเลิก';
+      case 'expired': return 'เลยวันเข้าพักแล้ว';
+      case '': return 'ทั้งหมด';
+      default: return 'ทั้งหมด';
+    }
+  };
+
+  // Get current filter description
+  const getCurrentFilterDescription = () => {
+    const filterParts = [];
+    
+    if (filters.status) {
+      filterParts.push(`สถานะ: ${getFilterText(filters.status)}`);
+    }
+    
+    if (filters.search) {
+      filterParts.push(`ค้นหา: "${filters.search}"`);
+    }
+    
+    if (filters.dateFrom && filters.dateTo) {
+      const fromDate = new Date(filters.dateFrom).toLocaleDateString('th-TH');
+      const toDate = new Date(filters.dateTo).toLocaleDateString('th-TH');
+      filterParts.push(`ช่วงวันที่: ${fromDate} - ${toDate}`);
+    } else if (filters.dateFrom) {
+      const fromDate = new Date(filters.dateFrom).toLocaleDateString('th-TH');
+      filterParts.push(`ตั้งแต่วันที่: ${fromDate}`);
+    } else if (filters.dateTo) {
+      const toDate = new Date(filters.dateTo).toLocaleDateString('th-TH');
+      filterParts.push(`ถึงวันที่: ${toDate}`);
+    }
+    
+    if (filters.roomType) {
+      filterParts.push(`ประเภทห้อง: ${filters.roomType}`);
+    }
+    
+    return filterParts.length > 0 ? filterParts.join(', ') : 'ทั้งหมด';
+  };
+
+  // Get display status for a booking
+  const getDisplayStatus = (booking) => {
+    if (isBookingExpired(booking)) {
+      return 'expired';
+    }
+    return booking.status;
+  };
+
+  const getStatusBadge = (status, booking = null) => {
+    // Check if booking is expired
+    const displayStatus = booking ? getDisplayStatus(booking) : status;
+    
     const statusConfig = {
       pending: { 
         label: 'รอการยืนยัน', 
         className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
         icon: Clock
+      },
+      expired: { 
+        label: 'เลยวันเข้าพักแล้ว', 
+        className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+        icon: AlertTriangle
       },
       confirmed: { 
         label: 'ยืนยันแล้ว', 
@@ -341,7 +1050,7 @@ function BookingManagementContent() {
       }
     };
 
-    const config = statusConfig[status] || statusConfig.pending;
+    const config = statusConfig[displayStatus] || statusConfig.pending;
     const Icon = config.icon;
 
     return (
@@ -557,7 +1266,7 @@ function BookingManagementContent() {
         special_requests: editFormData.special_requests.trim()
       };
       
-      const response = await fetch(`http://localhost:3001/api/admin/bookings/${selectedBooking.id}`, {
+      const response = await fetch(`http://localhost:5680/api/admin/bookings/${selectedBooking.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -645,7 +1354,7 @@ function BookingManagementContent() {
     try {
       setCheckinLoading(true);
       
-      const response = await fetch('http://localhost:3001/api/bookings/check-in', {
+      const response = await fetch('http://localhost:5680/api/bookings/check-in', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -695,7 +1404,7 @@ function BookingManagementContent() {
     try {
       setCheckinLoading(true);
       
-      const response = await fetch('http://localhost:3001/api/bookings/check-out', {
+      const response = await fetch('http://localhost:5680/api/bookings/check-out', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -872,7 +1581,7 @@ function BookingManagementContent() {
                 // Try alternative URLs
                 const alternativeUrls = [
                   currentImageUrl.replace('/uploads/', '/uploads/payment-slips/'),
-                  currentImageUrl.replace('http://localhost:3001', ''),
+                  currentImageUrl.replace('http://localhost:5680', ''),
                   currentImageUrl.replace('/uploads/payment-slips/', '/uploads/')
                 ];
                 
@@ -955,7 +1664,10 @@ function BookingManagementContent() {
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               รีเฟรช
             </button>
-            <button className="btn-primary flex items-center gap-2">
+            <button
+              onClick={exportBookingsReport}
+              className="btn-primary flex items-center gap-2"
+            >
               <Download className="h-4 w-4" />
               ส่งออกข้อมูล
             </button>
@@ -963,7 +1675,7 @@ function BookingManagementContent() {
         </div>
 
         {/* Stats Cards */}
-        <div className={`grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4 lg:gap-6 mb-8 transform transition-all duration-700 delay-200 ease-out ${
+        <div className={`grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 sm:gap-4 lg:gap-6 mb-8 transform transition-all duration-700 delay-200 ease-out ${
           isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
         }`}>
           <div className="bg-white dark:bg-neutral-800 rounded-xl p-3 sm:p-6 shadow-lg border border-neutral-200 dark:border-neutral-700">
@@ -986,6 +1698,18 @@ function BookingManagementContent() {
               </div>
               <div className="w-8 h-8 sm:w-12 sm:h-12 bg-yellow-100 dark:bg-yellow-900 rounded-lg flex items-center justify-center">
                 <Clock className="h-4 w-4 sm:h-6 sm:w-6 text-yellow-600 dark:text-yellow-400" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-neutral-800 rounded-xl p-3 sm:p-6 shadow-lg border border-neutral-200 dark:border-neutral-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs sm:text-sm font-medium text-neutral-600 dark:text-neutral-400">เลยวันเข้าพักแล้ว</p>
+                <p className="text-lg sm:text-2xl font-bold text-red-600 dark:text-red-400">{stats.expiredBookings}</p>
+              </div>
+              <div className="w-8 h-8 sm:w-12 sm:h-12 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center">
+                <AlertTriangle className="h-4 w-4 sm:h-6 sm:w-6 text-red-600 dark:text-red-400" />
               </div>
             </div>
           </div>
@@ -1097,6 +1821,7 @@ function BookingManagementContent() {
               >
                 <option value="">ทั้งหมด</option>
                 <option value="pending">รอการยืนยัน</option>
+                <option value="expired">เลยวันเข้าพักแล้ว</option>
                 <option value="confirmed">ยืนยันแล้ว</option>
                 <option value="completed">สำเร็จแล้ว</option>
                 <option value="cancelled">ยกเลิกแล้ว</option>
@@ -1256,7 +1981,7 @@ function BookingManagementContent() {
           ) : (
             <>
               {/* Desktop Table View */}
-              <div className="hidden lg:block overflow-x-auto">
+              <div className="hidden lg:block">
                 <table className="w-full">
                   <thead className="bg-gradient-to-r from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900">
                     <tr>
@@ -1295,7 +2020,7 @@ function BookingManagementContent() {
                             <span className="text-xs font-bold text-white">{booking.id}</span>
                           </div>
                           <div className="text-sm font-semibold text-neutral-900 dark:text-white">
-                            {booking.booking_id || `BK${booking.id}`}
+                            {booking.booking_reference || `BK${booking.id}`}
                           </div>
                         </div>
                       </td>
@@ -1387,7 +2112,7 @@ function BookingManagementContent() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center space-x-2">
-                          {getStatusBadge(booking.status)}
+                          {getStatusBadge(booking.status, booking)}
                           
                           {/* Check-in Status Icon */}
                           {getCheckinStatusIcon(booking)}
@@ -1470,7 +2195,7 @@ function BookingManagementContent() {
                           
 
                           
-                          {canManageBookings(user) && booking.status === 'pending' && (
+                          {canManageBookings(user) && booking.status === 'pending' && !isBookingExpired(booking) && (
                             <>
                               <button
                                 onClick={() => {
@@ -1589,7 +2314,7 @@ function BookingManagementContent() {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      {getStatusBadge(booking.status)}
+                      {getStatusBadge(booking.status, booking)}
                       
                       {/* Check-in Status Icon for Mobile */}
                       {getCheckinStatusIcon(booking)}
@@ -1711,7 +2436,7 @@ function BookingManagementContent() {
                     </div>
                     <div className="flex items-center space-x-2">
                       
-                      {canManageBookings(user) && booking.status === 'pending' && (
+                      {canManageBookings(user) && booking.status === 'pending' && !isBookingExpired(booking) && (
                         <button
                           onClick={() => {
                             setConfirmAction(() => () => handleStatusUpdate(booking.id, 'confirmed'));
@@ -1790,7 +2515,7 @@ function BookingManagementContent() {
                   <label className="block text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-1">
                     สถานะ
                   </label>
-                  {getStatusBadge(selectedBooking.status)}
+                  {getStatusBadge(selectedBooking.status, selectedBooking)}
                 </div>
               </div>
 
@@ -1950,8 +2675,8 @@ function BookingManagementContent() {
                               
                               // Create multiple possible image URLs
                               const imageUrls = [
-                                `http://localhost:3001/uploads/${slip.file_path}`,
-                                `http://localhost:3001/uploads/payment-slips/${slip.file_path}`,
+                                `http://localhost:5680/uploads/${slip.file_path}`,
+                                `http://localhost:5680/uploads/payment-slips/${slip.file_path}`,
                                 `/uploads/${slip.file_path}`,
                                 `/uploads/payment-slips/${slip.file_path}`
                               ];
@@ -2102,18 +2827,22 @@ function BookingManagementContent() {
                         <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
                           ไฟล์หลักฐาน
                         </span>
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          selectedBooking.payment_status === 'approved' 
+                        <span className={`px-3 py-1 text-sm rounded-full font-medium ${
+                          getPaymentStatusClass(selectedBooking.payment_status, selectedBooking.status) === 'payment-approved' 
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+                            : getPaymentStatusClass(selectedBooking.payment_status, selectedBooking.status) === 'payment-paid'
                             ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-                            : selectedBooking.payment_status === 'pending'
+                            : getPaymentStatusClass(selectedBooking.payment_status, selectedBooking.status) === 'payment-pending'
                             ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
-                            : selectedBooking.payment_status === 'rejected'
+                            : getPaymentStatusClass(selectedBooking.payment_status, selectedBooking.status) === 'payment-uploaded'
+                            ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300'
+                            : getPaymentStatusClass(selectedBooking.payment_status, selectedBooking.status) === 'payment-verified'
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300'
+                            : getPaymentStatusClass(selectedBooking.payment_status, selectedBooking.status) === 'payment-rejected'
                             ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
                             : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
                         }`}>
-                          {selectedBooking.payment_status === 'approved' ? 'อนุมัติแล้ว' : 
-                           selectedBooking.payment_status === 'pending' ? 'รอตรวจสอบ' : 
-                           selectedBooking.payment_status === 'rejected' ? 'ปฏิเสธ' : 'ไม่ระบุ'}
+                          {getPaymentStatusLabel(selectedBooking.payment_status, selectedBooking.status)}
                         </span>
                       </div>
                       
@@ -2426,7 +3155,7 @@ function BookingManagementContent() {
                   <div className="flex justify-between">
                     <span className="text-neutral-600 dark:text-neutral-400">สถานะปัจจุบัน:</span>
                     <span className="font-medium">
-                      {getStatusBadge(selectedBookingForCheckin.status)}
+                      {getStatusBadge(selectedBookingForCheckin.status, selectedBookingForCheckin)}
                     </span>
                   </div>
                   {selectedBookingForCheckin.actual_check_in_time && (

@@ -100,14 +100,14 @@ export default function AdminReportsPage() {
       console.log('🔍 Fetching user statistics...');
       
       // Fetch all users with registration dates
-      const usersResponse = await fetch('http://localhost:3001/api/admin/users');
+      const usersResponse = await fetch('http://localhost:5680/api/admin/users');
       const usersResult = await usersResponse.json();
       
       if (usersResult.success) {
         console.log('👥 Users data:', usersResult.users);
         
         // Get users with bookings
-        const bookingsResponse = await fetch('http://localhost:3001/api/admin/bookings/detailed');
+        const bookingsResponse = await fetch('http://localhost:5680/api/admin/bookings/detailed');
         const bookingsResult = await bookingsResponse.json();
         
         let usersWithBookings = [];
@@ -159,10 +159,10 @@ export default function AdminReportsPage() {
       console.log('🏠 Fetching room statistics...');
       
       // Fetch room types and room data
-      const roomTypesResponse = await fetch('http://localhost:3001/api/room-types');
+      const roomTypesResponse = await fetch('http://localhost:5680/api/room-types');
       const roomTypesResult = await roomTypesResponse.json();
       
-      const bookingsResponse = await fetch('http://localhost:3001/api/admin/bookings/detailed');
+      const bookingsResponse = await fetch('http://localhost:5680/api/admin/bookings/detailed');
       const bookingsResult = await bookingsResponse.json();
       
       if (roomTypesResult.success) {
@@ -247,7 +247,7 @@ export default function AdminReportsPage() {
     try {
       console.log('📊 Fetching booking statistics...');
       
-      const bookingsResponse = await fetch('http://localhost:3001/api/admin/bookings/detailed');
+      const bookingsResponse = await fetch('http://localhost:5680/api/admin/bookings/detailed');
       const bookingsResult = await bookingsResponse.json();
       
       if (bookingsResult.success) {
@@ -291,14 +291,14 @@ export default function AdminReportsPage() {
   const fetchUserDetails = async (userId) => {
     setLoadingUserDetails(true);
     try {
-      const response = await fetch(`http://localhost:3001/api/admin/users/${userId}`);
+      const response = await fetch(`http://localhost:5680/api/admin/users/${userId}`);
       const result = await response.json();
       
       if (result.success) {
         console.log('✅ User data fetched:', result.data);
         
         // Get user's bookings
-        const bookingsResponse = await fetch('http://localhost:3001/api/admin/bookings/detailed');
+        const bookingsResponse = await fetch('http://localhost:5680/api/admin/bookings/detailed');
         const bookingsResult = await bookingsResponse.json();
         
         let userBookings = [];
@@ -343,14 +343,14 @@ export default function AdminReportsPage() {
     try {
       console.log('🏨 Fetching stay reports...');
       
-      const bookingsResponse = await fetch('http://localhost:3001/api/admin/bookings/detailed');
+      const bookingsResponse = await fetch('http://localhost:5680/api/admin/bookings/detailed');
       const bookingsResult = await bookingsResponse.json();
       
       if (bookingsResult.success) {
         console.log('📋 Stay reports data:', bookingsResult.data);
         
         // Get room types for mapping
-        const roomTypesResponse = await fetch('http://localhost:3001/api/room-types');
+        const roomTypesResponse = await fetch('http://localhost:5680/api/room-types');
         const roomTypesResult = await roomTypesResponse.json();
         
         let roomTypeMap = {};

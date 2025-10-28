@@ -445,7 +445,7 @@ export default function DetailedBookingsPage() {
                                 <div className="font-medium mb-2">รูปภาพหลักฐาน:</div>
                                 <div className="relative w-full max-w-sm">
                                   <PaymentSlipImage 
-                                    src={`http://localhost:3001${slip.file_path}`}
+                                    src={`http://localhost:5680${slip.file_path}`}
                                     alt="หลักฐานการชำระเงิน"
                                     fileName={slip.file_name}
                                   />

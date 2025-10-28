@@ -83,8 +83,8 @@ if (typeof window !== 'undefined') {
     const method = options.method || 'GET';
     
     // Only track our API calls
-    if (typeof url === 'string' && (url.includes('/api/') || url.includes('localhost:3001'))) {
-      const endpoint = url.replace('http://localhost:3001', '').split('?')[0];
+    if (typeof url === 'string' && (url.includes('/api/') || url.includes('localhost:5680'))) {
+      const endpoint = url.replace('http://localhost:5680', '').split('?')[0];
       const callCount = apiMonitor.track(endpoint, method);
       
       // Block if rate limited

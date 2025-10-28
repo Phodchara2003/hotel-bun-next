@@ -95,7 +95,7 @@ const QRCodePayment = ({
       formData.append('transactionRef2', transactionRef.ref2);
       formData.append('paymentSlip', paymentProof);
 
-      const response = await fetch('http://localhost:3001/api/payment/verify-qr-payment', {
+      const response = await fetch('http://localhost:5680/api/payment/verify-qr-payment', {
         method: 'POST',
         body: formData,
       });

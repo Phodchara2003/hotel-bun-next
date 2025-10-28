@@ -39,7 +39,7 @@ export default function RoomTypesPage() {
     try {
       setLoading(true);
       const token = getAuthToken();
-      const response = await fetch('http://localhost:3001/api/room-types', {
+      const response = await fetch('http://localhost:5680/api/room-types', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

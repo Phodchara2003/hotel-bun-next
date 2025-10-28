@@ -27,7 +27,7 @@ export async function POST(request) {
     console.log('✅ Calling backend forgot-password API...');
 
     // เรียก backend API โดยตรง
-    const backendResponse = await fetch('http://localhost:3001/api/auth/forgot-password', {
+    const backendResponse = await fetch('http://localhost:5680/api/auth/forgot-password', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

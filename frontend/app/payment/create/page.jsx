@@ -680,7 +680,7 @@ export default function CreatePaymentPage() {
                           {paymentSettings.data.qrCodeUrl && (
                             <div className="bg-white rounded-2xl p-4 shadow-2xl border-2 border-white mb-3 relative z-10 w-full max-w-sm">
                               <img 
-                                src={`http://localhost:3001${paymentSettings.data.qrCodeUrl}`} 
+                                src={`http://localhost:5680${paymentSettings.data.qrCodeUrl}`} 
                                 alt="QR Code สำหรับชำระเงิน" 
                                 className="w-80 h-80 object-contain mx-auto block"
                                 style={{ 

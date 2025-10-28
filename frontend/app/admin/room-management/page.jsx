@@ -47,7 +47,7 @@ export default function AdminRoomManagement() {
       setIsLoading(true);
       
       // ดึงข้อมูล room types
-      const roomTypesRes = await fetch('http://localhost:3003/room-types', {
+      const roomTypesRes = await fetch('http://localhost:5680/room-types', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }
@@ -59,7 +59,7 @@ export default function AdminRoomManagement() {
       }
 
       // ดึงข้อมูล global settings
-      const settingsRes = await fetch('http://localhost:3003/api/admin/global-settings', {
+      const settingsRes = await fetch('http://localhost:5680/api/admin/global-settings', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }
@@ -103,7 +103,7 @@ export default function AdminRoomManagement() {
 
       console.log('📤 Sending room data to server:', roomData);
 
-      const response = await fetch(`http://localhost:3003/api/admin/room-types/${editingRoom.id}`, {
+      const response = await fetch(`http://localhost:5680/api/admin/room-types/${editingRoom.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -135,7 +135,7 @@ export default function AdminRoomManagement() {
 
   const handleAddRoom = async () => {
     try {
-      const response = await fetch('http://localhost:3003/api/admin/room-types', {
+      const response = await fetch('http://localhost:5680/api/admin/room-types', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -174,7 +174,7 @@ export default function AdminRoomManagement() {
     if (!confirm('คุณแน่ใจหรือไม่ที่จะลบห้องพักนี้?')) return;
 
     try {
-      const response = await fetch(`http://localhost:3003/api/admin/room-types/${roomId}`, {
+      const response = await fetch(`http://localhost:5680/api/admin/room-types/${roomId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
@@ -195,7 +195,7 @@ export default function AdminRoomManagement() {
 
   const handleUpdateGlobalPrice = async () => {
     try {
-      const response = await fetch('http://localhost:3003/api/admin/global-settings/room_price_per_night', {
+      const response = await fetch('http://localhost:5680/api/admin/global-settings/room_price_per_night', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

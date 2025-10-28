@@ -1,7 +1,7 @@
 // Proxy for guest statistics API
 export async function GET(request) {
   try {
-    const response = await fetch('http://localhost:3003/api/guest-statistics', {
+    const response = await fetch('http://localhost:5680/api/guest-statistics', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

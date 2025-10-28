@@ -28,7 +28,7 @@ export async function GET(request) {
     });
 
     // Forward the request to backend
-    const backendUrl = `http://localhost:3001/api/admin/users?${queryParams}`;
+    const backendUrl = `http://localhost:5680/api/admin/users?${queryParams}`;
     console.log('🎯 Forwarding to:', backendUrl);
     
     const response = await fetch(backendUrl, {

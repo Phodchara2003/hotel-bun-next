@@ -1,6 +1,6 @@
 // Image URL utilities
 const FRONTEND_BASE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3002';
-const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5680';
 
 export const getImageUrl = (imagePath) => {
   if (!imagePath) return `${FRONTEND_BASE_URL}/images/rooms/placeholder.svg`;

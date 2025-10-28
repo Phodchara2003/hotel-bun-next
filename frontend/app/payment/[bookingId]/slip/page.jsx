@@ -74,7 +74,7 @@ export default function PaymentSlipPage() {
       formData.append('slip', slipFile);
       formData.append('bookingId', params.bookingId);
 
-      const response = await fetch(`http://localhost:3001/api/bookings/${params.bookingId}/upload-slip`, {
+      const response = await fetch(`http://localhost:5680/api/bookings/${params.bookingId}/upload-slip`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`

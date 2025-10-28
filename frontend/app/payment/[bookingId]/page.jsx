@@ -285,7 +285,7 @@ export default function PaymentPage() {
 
   const confirmPayment = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/bookings/confirm-payment', {
+      const response = await fetch('http://localhost:5680/api/bookings/confirm-payment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -522,7 +522,7 @@ export default function PaymentPage() {
                             </h3>
                             <div className="bg-white rounded-lg p-6 shadow-lg border-2 border-green-300">
                               <img 
-                                src={`http://localhost:3001${paymentSettings.data.qrCodeUrl}`} 
+                                src={`http://localhost:5680${paymentSettings.data.qrCodeUrl}`} 
                                 alt="QR Code สำหรับชำระเงิน" 
                                 className="w-80 h-80 object-contain mx-auto"
                                 onError={(e) => {

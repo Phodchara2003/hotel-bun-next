@@ -121,7 +121,7 @@ export default function AdminDashboard() {
       if (!token) return;
 
       // ดึงการแจ้งเตือนสำหรับแอดมินที่สร้างหลังจาก lastSeenNotificationTime
-      const response = await fetch(`http://localhost:3001/api/notifications?limit=10&admin_only=true&created_after=${lastSeenNotificationTime}`, {
+      const response = await fetch(`http://localhost:5680/api/notifications?limit=10&admin_only=true&created_after=${lastSeenNotificationTime}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -183,7 +183,7 @@ export default function AdminDashboard() {
         return;
       }
 
-      const response = await fetch('http://localhost:3001/api/notifications/unread-count?admin_only=true', {
+      const response = await fetch('http://localhost:5680/api/notifications/unread-count?admin_only=true', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -213,7 +213,7 @@ export default function AdminDashboard() {
       const token = getAuthToken();
       if (!token) return;
 
-      const url = `http://localhost:3001/api/notifications?admin_only=true${unreadOnly ? '&unread_only=true' : ''}`;
+      const url = `http://localhost:5680/api/notifications?admin_only=true${unreadOnly ? '&unread_only=true' : ''}`;
       const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -384,31 +384,36 @@ export default function AdminDashboard() {
         let available = 0;
         let occupied = 0;
         let maintenance = 0;
+        let totalRooms = 0;
         
-        // Check each room against current bookings
-        rooms.forEach(room => {
-          console.log(`🏠 Checking room ${room.id} (${room.name}):`, {
-            roomStatus: room.status,
-            bookings: recentBookings.filter(b => b.room_id === room.id)
-          });
+        // Check each room type and its sub_rooms
+        rooms.forEach(roomType => {
+          console.log(`� Checking room type: ${roomType.name} (${roomType.sub_rooms?.length || 0} rooms)`);
           
-          // Check if room is currently occupied (has active booking for today)
-          const currentBooking = recentBookings.find(booking => 
-            booking.room_id === room.id && 
-            booking.status === 'confirmed' &&
-            new Date(booking.checkin_date) <= today &&
-            new Date(booking.checkout_date) > today
-          );
-          
-          if (currentBooking) {
-            console.log(`🔴 Room ${room.id} is occupied by booking:`, currentBooking);
-            occupied++;
-          } else if (room.status === 'maintenance' || room.status === 'out_of_order') {
-            console.log(`🛠️ Room ${room.id} is under maintenance`);
-            maintenance++;
-          } else {
-            console.log(`🟢 Room ${room.id} is available`);
-            available++;
+          if (roomType.sub_rooms && Array.isArray(roomType.sub_rooms)) {
+            roomType.sub_rooms.forEach(subRoom => {
+              totalRooms++;
+              console.log(`🏠 Checking sub-room ${subRoom.room_number} (ID: ${subRoom.id}):`, {
+                status: subRoom.status,
+                active_bookings: subRoom.active_bookings
+              });
+              
+              // Check if room is currently occupied (has active bookings)
+              if (subRoom.active_bookings > 0 || subRoom.status === 'occupied') {
+                console.log(`🔴 Room ${subRoom.room_number} is occupied`);
+                occupied++;
+              } else if (subRoom.status === 'maintenance' || subRoom.status === 'out_of_order') {
+                console.log(`🛠️ Room ${subRoom.room_number} is under maintenance`);
+                maintenance++;
+              } else if (subRoom.status === 'available') {
+                console.log(`🟢 Room ${subRoom.room_number} is available`);
+                available++;
+              } else {
+                // Reserved but not occupied
+                console.log(`🟡 Room ${subRoom.room_number} is reserved but not occupied`);
+                occupied++; // Count reserved as occupied for now
+              }
+            });
           }
         });
         
@@ -416,7 +421,7 @@ export default function AdminDashboard() {
           available,
           occupied,
           maintenance,
-          total: rooms.length
+          total: totalRooms
         };
         
         console.log('📊 Final room statistics:', roomStats);

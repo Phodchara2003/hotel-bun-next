@@ -32,7 +32,7 @@ export default function PaymentPage() {
   const fetchBookingDetails = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:3001/api/bookings/${bookingId}`);
+      const response = await fetch(`http://localhost:5680/api/bookings/${bookingId}`);
       if (response.ok) {
         const data = await response.json();
         setBookingDetails(data);
@@ -50,7 +50,7 @@ export default function PaymentPage() {
       // เพิ่ม timestamp เพื่อป้องกัน cache
       const timestamp = new Date().getTime();
       // เรียก admin payment settings เพื่อใช้ข้อมูลที่แอดมินตั้งค่า
-      const response = await fetch(`http://localhost:3001/api/admin/payment-settings?t=${timestamp}`, {
+      const response = await fetch(`http://localhost:5680/api/admin/payment-settings?t=${timestamp}`, {
         method: 'GET',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -78,7 +78,7 @@ export default function PaymentPage() {
       } else {
         console.log('⚠️ Admin API failed, trying fallback...');
         // ลองใช้ API ธรรมดา (ถ้ามี)
-        const fallbackResponse = await fetch('http://localhost:3001/api/simple-payment-settings');
+        const fallbackResponse = await fetch('http://localhost:5680/api/simple-payment-settings');
         if (fallbackResponse.ok) {
           const fallbackResult = await fallbackResponse.json();
           if (fallbackResult.success) {
@@ -325,7 +325,7 @@ function LegacyBankTransfer({ settings, bookingId, amount, language }) {
       {settings.qrCodeUrl ? (
         <div className="flex flex-col items-center mb-6">
           <img
-            src={`http://localhost:3001${settings.qrCodeUrl}`}
+            src={`http://localhost:5680${settings.qrCodeUrl}`}
             alt="QR Code สำหรับชำระเงิน"
             className="w-64 h-64 object-contain border rounded-lg mb-4"
           />

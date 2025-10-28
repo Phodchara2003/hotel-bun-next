@@ -188,7 +188,7 @@ export default function HotelReviews() {
         ...(filterRating && { rating: filterRating.toString() })
       });
 
-      const response = await fetch(`http://localhost:3001/api/reviews/hotel/${hotelId}?${params}`);
+      const response = await fetch(`http://localhost:5680/api/reviews/hotel/${hotelId}?${params}`);
       
       if (!response.ok) {
         throw new Error('ไม่สามารถโหลดรีวิวได้');

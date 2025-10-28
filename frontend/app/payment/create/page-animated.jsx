@@ -573,7 +573,7 @@ export default function CreatePaymentPageAnimated() {
                           {paymentSettings.data.qrCodeUrl && (
                             <div className="bg-white rounded-lg p-4 shadow-lg border-2 border-blue-300 mb-4">
                               <img 
-                                src={`http://localhost:3001${paymentSettings.data.qrCodeUrl}`} 
+                                src={`http://localhost:5680${paymentSettings.data.qrCodeUrl}`} 
                                 alt="QR Code สำหรับชำระเงิน" 
                                 className="w-48 h-48 object-contain mx-auto"
                                 onError={(e) => {

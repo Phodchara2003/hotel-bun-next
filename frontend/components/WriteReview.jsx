@@ -72,7 +72,7 @@ export default function WriteReview({ hotelId, hotelName, onClose, onSuccess }) 
         return;
       }
 
-      const response = await fetch('http://localhost:3001/api/reviews', {
+      const response = await fetch('http://localhost:5680/api/reviews', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

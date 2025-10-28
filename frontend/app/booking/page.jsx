@@ -48,7 +48,7 @@ export default function BookingPage() {
       setLoading(true);
       console.log('🏨 Fetching room types...');
       
-      const response = await fetch('http://localhost:3001/api/room-types');
+      const response = await fetch('http://localhost:5680/api/room-types');
       const data = await response.json();
       
       if (data.success) {
@@ -81,7 +81,7 @@ export default function BookingPage() {
         params.set('bedType', bedType);
       }
       
-      const response = await fetch(`http://localhost:3001/api/rooms/search?${params.toString()}`);
+      const response = await fetch(`http://localhost:5680/api/rooms/search?${params.toString()}`);
       const data = await response.json();
       
       if (data.success) {
@@ -164,7 +164,7 @@ export default function BookingPage() {
       setSelectedRoomType(roomType);
       console.log('🔍 Checking availability for room type:', roomType.name);
 
-      const response = await fetch('http://localhost:3001/api/check-availability', {
+      const response = await fetch('http://localhost:5680/api/check-availability', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -363,7 +363,7 @@ export default function BookingPage() {
               <div className="h-48 bg-gray-200 relative">
                 {roomType.images && roomType.images.length > 0 ? (
                   <img
-                    src={`http://localhost:3001/uploads/${roomType.images[0]}`}
+                    src={`http://localhost:5680/uploads/${roomType.images[0]}`}
                     alt={roomType.name}
                     className="w-full h-full object-cover"
                     onError={(e) => {

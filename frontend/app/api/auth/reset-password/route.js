@@ -46,7 +46,7 @@ export async function POST(request) {
     console.log('📤 Sending to backend:', backendPayload);
 
     // เรียก backend API โดยตรง
-    const backendResponse = await fetch('http://localhost:3001/api/auth/reset-password', {
+    const backendResponse = await fetch('http://localhost:5680/api/auth/reset-password', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

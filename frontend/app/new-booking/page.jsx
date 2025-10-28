@@ -54,7 +54,7 @@ export default function NewBookingPage() {
 
   const fetchRoomTypes = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/room-types');
+      const response = await fetch('http://localhost:5680/api/room-types');
       const data = await response.json();
       
       if (data.success) {
@@ -72,7 +72,7 @@ export default function NewBookingPage() {
 
     setCheckingAvailability(true);
     try {
-      const response = await fetch('http://localhost:3001/api/rooms/check-availability', {
+      const response = await fetch('http://localhost:5680/api/rooms/check-availability', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -184,7 +184,7 @@ export default function NewBookingPage() {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3001/api/bookings', {
+      const response = await fetch('http://localhost:5680/api/bookings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

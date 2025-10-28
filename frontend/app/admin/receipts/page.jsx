@@ -9,7 +9,7 @@ import axios from 'axios';
 import Cookies from 'js-cookie';
 
 // Create API instance
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5680';
 const api = axios.create({
   baseURL: `${API_BASE_URL}/api`,
   timeout: 30000,
@@ -264,7 +264,7 @@ const ReceiptModal = ({ booking, isOpen, onClose, onApprove, onReject, onApprove
                 </div>
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
                   <img
-                    src={`http://localhost:3001/uploads/payment-slips/${booking.payment_file_path}`}
+                    src={`http://localhost:5680/uploads/payment-slips/${booking.payment_file_path}`}
                     alt="ใบเสร็จการชำระเงิน"
                     className="w-full max-h-96 object-contain bg-gray-100"
                     onError={(e) => {
@@ -275,7 +275,7 @@ const ReceiptModal = ({ booking, isOpen, onClose, onApprove, onReject, onApprove
                   <div style={{display: 'none'}} className="p-8 text-center bg-gray-100">
                     <p className="text-gray-500">ไม่สามารถแสดงภาพได้</p>
                     <a
-                      href={`http://localhost:3001/uploads/payment-slips/${booking.payment_file_path}`}
+                      href={`http://localhost:5680/uploads/payment-slips/${booking.payment_file_path}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="mt-2 inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"

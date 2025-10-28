@@ -51,7 +51,7 @@ export default function CheckInHistoryPage() {
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3001/api/bookings/checkin-history');
+      const response = await fetch('http://localhost:5680/api/bookings/checkin-history');
       const result = await response.json();
       
       if (result.success) {

@@ -350,7 +350,7 @@ function HomePageContent() {
     } catch (error) {
       console.error('❌ Room search error:', error);
       if (error.message.includes('fetch')) {
-        toast.error('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้\n\nกรุณาตรวจสอบ:\n• Backend Server ทำงานที่ http://localhost:3001\n• การเชื่อมต่ออินเทอร์เน็ต\n• การตั้งค่า CORS', {
+        toast.error('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้\n\nกรุณาตรวจสอบ:\n• Backend Server ทำงานที่ http://localhost:5680\n• การเชื่อมต่ออินเทอร์เน็ต\n• การตั้งค่า CORS', {
           duration: 6000,
           position: 'top-center',
           style: {
@@ -391,7 +391,7 @@ function HomePageContent() {
 
   const fetchContactSettings = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/admin/contact-settings');
+      const response = await fetch('http://localhost:5680/api/admin/contact-settings');
       const data = await response.json();
       if (data.success) {
         setContactSettings(data.data);

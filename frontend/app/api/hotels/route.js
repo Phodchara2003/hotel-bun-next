@@ -1,7 +1,7 @@
 // Proxy for hotels API
 export async function GET(request) {
   try {
-    const response = await fetch('http://localhost:3003/api/hotels', {
+    const response = await fetch('http://localhost:5680/api/hotels', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

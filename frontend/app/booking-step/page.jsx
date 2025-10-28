@@ -83,10 +83,10 @@ function BookingStepContent() {
     try {
       setLoading(true);
       
-      const hotelsRes = await fetch('http://localhost:3001/api/hotels');
+      const hotelsRes = await fetch('http://localhost:5680/api/hotels');
       const hotelsData = await hotelsRes.json();
       
-      const roomsRes = await fetch(`http://localhost:3001/api/room-types-with-images?t=${Date.now()}`, {
+      const roomsRes = await fetch(`http://localhost:5680/api/room-types-with-images?t=${Date.now()}`, {
         cache: 'no-cache',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -472,7 +472,7 @@ function BookingStepContent() {
       console.log('Sending booking data:', bookingData);
       console.log('🔍 bed_type value:', bookingData.bed_type);
 
-      const response = await fetch('http://localhost:3001/api/bookings', {
+      const response = await fetch('http://localhost:5680/api/bookings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

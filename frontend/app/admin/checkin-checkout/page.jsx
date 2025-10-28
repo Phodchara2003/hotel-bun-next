@@ -60,7 +60,7 @@ export default function CheckInOutPage() {
   const fetchBookings = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3001/api/admin/bookings/detailed');
+      const response = await fetch('http://localhost:5680/api/admin/bookings/detailed');
       const result = await response.json();
       
       if (result.success) {
@@ -110,7 +110,7 @@ export default function CheckInOutPage() {
   const handleCheckIn = async (bookingId) => {
     setActionLoading(true);
     try {
-      const response = await fetch('http://localhost:3001/api/bookings/check-in', {
+      const response = await fetch('http://localhost:5680/api/bookings/check-in', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -144,7 +144,7 @@ export default function CheckInOutPage() {
   const handleCheckOut = async (bookingId) => {
     setActionLoading(true);
     try {
-      const response = await fetch('http://localhost:3001/api/bookings/check-out', {
+      const response = await fetch('http://localhost:5680/api/bookings/check-out', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

@@ -27,7 +27,7 @@ export default function AdminPaymentSlips() {
         queryParams.append('status', filter);
       }
 
-      const response = await fetch(`http://localhost:3003/api/payment-slips?${queryParams}`);
+      const response = await fetch(`http://localhost:5680/api/payment-slips?${queryParams}`);
       const result = await response.json();
 
       if (result.success) {
@@ -45,7 +45,7 @@ export default function AdminPaymentSlips() {
 
   const fetchStatistics = async () => {
     try {
-      const response = await fetch('http://localhost:3003/api/payment-slip-statistics');
+      const response = await fetch('http://localhost:5680/api/payment-slip-statistics');
       const result = await response.json();
 
       if (result.success) {
@@ -58,7 +58,7 @@ export default function AdminPaymentSlips() {
 
   const updateSlipStatus = async (slipId, status, notes = '') => {
     try {
-      const response = await fetch(`http://localhost:3003/api/payment-slips/${slipId}/status`, {
+      const response = await fetch(`http://localhost:5680/api/payment-slips/${slipId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
@@ -97,7 +97,7 @@ export default function AdminPaymentSlips() {
 
     try {
       setIsLoading(true);
-      const response = await fetch(`http://localhost:3003/api/payment-slips/search/${encodeURIComponent(searchQuery)}`);
+      const response = await fetch(`http://localhost:5680/api/payment-slips/search/${encodeURIComponent(searchQuery)}`);
       const result = await response.json();
 
       if (result.success) {
@@ -185,7 +185,7 @@ export default function AdminPaymentSlips() {
 
   const exportSlips = async (format) => {
     try {
-      const response = await fetch(`http://localhost:3003/api/payment-slips-export/${format}`);
+      const response = await fetch(`http://localhost:5680/api/payment-slips-export/${format}`);
       
       if (format === 'csv') {
         const csvData = await response.text();
@@ -360,7 +360,7 @@ export default function AdminPaymentSlips() {
                           <div className="flex items-center">
                             {slip.filePath && (
                               <img
-                                src={`http://localhost:3003/uploads/payment-slips/${slip.fileName}`}
+                                src={`http://localhost:5680/uploads/payment-slips/${slip.fileName}`}
                                 alt="Slip"
                                 className="h-10 w-10 rounded-lg object-cover mr-3"
                                 onError={(e) => {
@@ -463,7 +463,7 @@ export default function AdminPaymentSlips() {
                     {selectedSlip.filePath && (
                       <div className="mb-4">
                         <img
-                          src={`http://localhost:3003/uploads/payment-slips/${selectedSlip.fileName}`}
+                          src={`http://localhost:5680/uploads/payment-slips/${selectedSlip.fileName}`}
                           alt="Payment Slip"
                           className="w-full max-h-96 object-contain rounded-lg border"
                         />

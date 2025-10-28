@@ -78,7 +78,7 @@ export default function PaymentSettingsPage() {
 
       console.log('🔄 Loading payment settings with token:', token.substring(0, 20) + '...');
       
-      const response = await fetch('http://localhost:3001/api/admin/payment-settings', {
+      const response = await fetch('http://localhost:5680/api/admin/payment-settings', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -128,7 +128,7 @@ export default function PaymentSettingsPage() {
 
     try {
       const token = Cookies.get('auth_token');
-      const response = await fetch('http://localhost:3001/api/admin/payment-settings', {
+      const response = await fetch('http://localhost:5680/api/admin/payment-settings', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -185,7 +185,7 @@ export default function PaymentSettingsPage() {
       setSaving(true);
       setMessage({ type: 'info', content: 'กำลังอัปโหลด QR Code...' });
 
-      const response = await fetch('http://localhost:3001/api/simple-payment-settings/qr-upload', {
+      const response = await fetch('http://localhost:5680/api/simple-payment-settings/qr-upload', {
         method: 'POST',
         body: formData
         // ไม่ระบุ Content-Type ให้ browser จัดการ multipart/form-data boundary เอง
@@ -430,7 +430,7 @@ export default function PaymentSettingsPage() {
                             <img 
                               src={settings.promptPay.qrCodeUrl.startsWith('http') 
                                 ? settings.promptPay.qrCodeUrl 
-                                : `http://localhost:3001${settings.promptPay.qrCodeUrl}`} 
+                                : `http://localhost:5680${settings.promptPay.qrCodeUrl}`} 
                               alt="PromptPay QR Code" 
                               className="w-64 h-64 object-contain border border-gray-300 rounded-lg shadow-md"
                               onError={(e) => {

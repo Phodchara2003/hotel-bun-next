@@ -311,7 +311,7 @@ export default function RoomsManagement() {
   const fetchIndividualRooms = async () => {
     try {
       setIndividualRoomsLoading(true);
-      const response = await fetch('http://localhost:3001/api/admin/individual-rooms');
+      const response = await fetch('http://localhost:5680/api/admin/individual-rooms');
       const data = await response.json();
       
       if (data.success) {
@@ -329,7 +329,7 @@ export default function RoomsManagement() {
 
   const handleIndividualRoomStatusChange = async (roomId, newStatus) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/admin/individual-rooms/${roomId}/status`, {
+      const response = await fetch(`http://localhost:5680/api/admin/individual-rooms/${roomId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -368,7 +368,7 @@ export default function RoomsManagement() {
         return;
       }
 
-      const response = await fetch(`http://localhost:3001/api/admin/individual-rooms/${roomId}/bed-type`, {
+      const response = await fetch(`http://localhost:5680/api/admin/individual-rooms/${roomId}/bed-type`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -440,7 +440,7 @@ export default function RoomsManagement() {
 
     setActionLoading(true);
     try {
-      const response = await fetch(`http://localhost:3001/api/admin/individual-rooms/${editingIndividualRoom.id}`, {
+      const response = await fetch(`http://localhost:5680/api/admin/individual-rooms/${editingIndividualRoom.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

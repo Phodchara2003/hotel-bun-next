@@ -43,7 +43,7 @@ function PaymentStepContent() {
       // เพิ่ม timestamp เพื่อป้องกัน cache
       const timestamp = new Date().getTime();
       // เรียก admin payment settings เพื่อใช้ข้อมูลที่แอดมินตั้งค่า
-      const response = await fetch(`http://localhost:3001/api/admin/payment-settings?t=${timestamp}`, {
+      const response = await fetch(`http://localhost:5680/api/admin/payment-settings?t=${timestamp}`, {
         method: 'GET'
       });
       if (response.ok) {
@@ -65,7 +65,7 @@ function PaymentStepContent() {
       } else {
         console.warn('❌ Failed to load admin settings for payment step, falling back to simple settings');
         // Fallback เรียก simple settings
-        const fallbackResponse = await fetch('http://localhost:3001/api/simple-payment-settings');
+        const fallbackResponse = await fetch('http://localhost:5680/api/simple-payment-settings');
         if (fallbackResponse.ok) {
           const fallbackResult = await fallbackResponse.json();
           if (fallbackResult.success && fallbackResult.data) {
@@ -87,7 +87,7 @@ function PaymentStepContent() {
       yesterday.setDate(yesterday.getDate() - 1);
       const since = yesterday.toISOString().split('T')[0];
       
-      const response = await fetch(`http://localhost:3001/api/payment-settings-changes?limit=5&since=${since}`);
+      const response = await fetch(`http://localhost:5680/api/payment-settings-changes?limit=5&since=${since}`);
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.data && result.data.length > 0) {
@@ -138,7 +138,7 @@ function PaymentStepContent() {
       formData.append('user_id', user?.id || 1);
       formData.append('amount', bookingData.total);
 
-      const response = await fetch('http://localhost:3001/api/payment-slip/upload', {
+      const response = await fetch('http://localhost:5680/api/payment-slip/upload', {
         method: 'POST',
         body: formData
       });
@@ -285,12 +285,12 @@ function PaymentStepContent() {
                   <h3 className="text-2xl font-bold text-gray-800 mb-4 text-center">สแกน QR Code เพื่อชำระเงิน</h3>
                   <div className="bg-white p-8 rounded-lg border-2 border-gray-200 shadow-lg">
                     <img
-                      src={`http://localhost:3001${paymentSettings.qrCodeUrl}`}
+                      src={`http://localhost:5680${paymentSettings.qrCodeUrl}`}
                       alt="QR Code สำหรับชำระเงิน"
                       className="w-[28rem] h-[28rem] object-contain"
                       onLoad={() => console.log('QR Code loaded successfully')}
                       onError={(e) => {
-                        console.error('QR Code failed to load:', `http://localhost:3001${paymentSettings.qrCodeUrl}`);
+                        console.error('QR Code failed to load:', `http://localhost:5680${paymentSettings.qrCodeUrl}`);
                         e.target.style.display = 'none';
                         e.target.nextSibling.style.display = 'block';
                       }}

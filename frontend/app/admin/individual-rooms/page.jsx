@@ -69,7 +69,7 @@ export default function IndividualRoomsPage() {
       }
 
       console.log('🔄 Fetching individual rooms from API...');
-      const response = await fetch('http://localhost:3001/api/admin/individual-rooms', {
+      const response = await fetch('http://localhost:5680/api/admin/individual-rooms', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -166,8 +166,8 @@ export default function IndividualRoomsPage() {
     try {
       const token = getAuthToken();
       const url = modalType === 'add' 
-        ? 'http://localhost:3001/api/admin/individual-rooms'
-        : `http://localhost:3001/api/admin/individual-rooms/${selectedRoom.id}`;
+        ? 'http://localhost:5680/api/admin/individual-rooms'
+        : `http://localhost:5680/api/admin/individual-rooms/${selectedRoom.id}`;
       
       const method = modalType === 'add' ? 'POST' : 'PUT';
       
@@ -230,7 +230,7 @@ export default function IndividualRoomsPage() {
 
     try {
       const token = getAuthToken();
-      const response = await fetch(`http://localhost:3001/api/admin/individual-rooms/${room.id}`, {
+      const response = await fetch(`http://localhost:5680/api/admin/individual-rooms/${room.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
