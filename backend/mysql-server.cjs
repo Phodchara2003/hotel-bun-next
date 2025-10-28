@@ -6484,6 +6484,124 @@ const server = createServer(async (req, res) => {
         }
         break;
 
+      case '/api/bookings/auto-update-expired':
+        setCorsHeaders(res);
+        if (req.method === 'POST') {
+          try {
+            console.log('🔄 Starting auto-update of expired bookings...');
+            
+            const today = new Date().toISOString().split('T')[0];
+            console.log('📅 Today:', today);
+            
+            // First, find all rooms that are 'reserved' but don't have active bookings
+            const [orphanedRooms] = await connection.execute(`
+              SELECT r.id, r.room_number, r.status,
+                     (SELECT COUNT(*) FROM bookings b 
+                      WHERE b.room_id = r.id 
+                      AND b.status IN ('confirmed', 'checkedin', 'pending') 
+                      AND b.check_out_date >= ?) as active_bookings
+              FROM rooms r
+              WHERE r.status = 'reserved'
+              HAVING active_bookings = 0
+            `, [today]);
+            
+            // Also find expired bookings that are past check-out date
+            const [expiredBookings] = await connection.execute(`
+              SELECT b.id, b.room_id, b.check_out_date, b.status, r.room_number, r.status as room_status
+              FROM bookings b
+              LEFT JOIN rooms r ON b.room_id = r.id
+              WHERE b.check_out_date < ? 
+              AND b.status NOT IN ('completed')
+            `, [today]);
+            
+            console.log('🏠 Found orphaned reserved rooms:', orphanedRooms.length);
+            console.log('� Found expired bookings:', expiredBookings.length);
+            
+            
+            if (orphanedRooms.length === 0 && expiredBookings.length === 0) {
+              sendJSON(res, 200, {
+                success: true,
+                message: 'NEW ENDPOINT: No expired bookings or orphaned rooms found',
+                updatedCount: 0
+              });
+              return;
+            }
+            
+            let updatedCount = 0;
+            
+            // Update orphaned reserved rooms to available
+            for (const room of orphanedRooms) {
+              console.log(`🏠 Processing orphaned room ${room.room_number} - Status: ${room.status}`);
+              
+              await connection.execute(`
+                UPDATE rooms 
+                SET status = 'available', updated_at = NOW()
+                WHERE id = ?
+              `, [room.id]);
+              
+              updatedCount++;
+              console.log(`✅ Updated orphaned room ${room.room_number} to available`);
+            }
+            
+            // Update expired bookings and their room status
+            for (const booking of expiredBookings) {
+              console.log(`📅 Processing booking ${booking.id} - Room ${booking.room_number} - Status: ${booking.status}`);
+              
+              // Update booking status to completed (regardless of current status)
+              await connection.execute(`
+                UPDATE bookings 
+                SET status = 'completed', updated_at = NOW()
+                WHERE id = ?
+              `, [booking.id]);
+              
+              // Update room status to available if it's not already
+              if (booking.room_status !== 'available') {
+                await connection.execute(`
+                  UPDATE rooms 
+                  SET status = 'available', updated_at = NOW()
+                  WHERE id = ?
+                `, [booking.room_id]);
+              }
+              
+              updatedCount++;
+              console.log(`✅ Updated booking ${booking.id} (${booking.status} → completed) and room ${booking.room_number} to available`);
+            }
+            
+            sendJSON(res, 200, {
+              success: true,
+              message: `Successfully updated ${updatedCount} items (${orphanedRooms.length} orphaned rooms + ${expiredBookings.length} expired bookings)`,
+              updatedCount,
+              orphanedRooms: orphanedRooms.map(r => ({
+                roomId: r.id,
+                roomNumber: r.room_number,
+                oldStatus: r.status,
+                newStatus: 'available'
+              })),
+              expiredBookings: expiredBookings.map(b => ({
+                bookingId: b.id,
+                roomNumber: b.room_number,
+                checkOutDate: b.check_out_date,
+                oldStatus: b.status,
+                newStatus: 'completed'
+              }))
+            });
+            
+          } catch (error) {
+            console.error('❌ Error in auto-update:', error);
+            sendJSON(res, 500, {
+              success: false,
+              message: 'Error updating expired bookings',
+              error: error.message
+            });
+          }
+        } else {
+          sendJSON(res, 405, {
+            success: false,
+            message: 'Method not allowed'
+          });
+        }
+        break;
+
       // ===== CHECK-IN/CHECK-OUT ENDPOINTS =====
       case '/api/bookings/check-in':
         if (req.method === 'POST') {

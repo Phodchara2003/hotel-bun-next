@@ -142,11 +142,60 @@ function BookingManagementContent() {
     }
   };
 
+  // Helper function to format payment status
+  const getPaymentStatusLabel = (paymentStatus, bookingStatus) => {
+    const statusMap = {
+      'pending': 'รอชำระ',
+      'paid': 'ชำระแล้ว',
+      'approved': 'อนุมัติแล้ว',
+      'slip_uploaded': 'อัปโหลดสลิป',
+      'verified': 'ตรวจสอบแล้ว',
+      'rejected': 'ปฏิเสธ'
+    };
+    
+    // If booking is confirmed by admin, show payment status
+    if (bookingStatus === 'confirmed') {
+      return 'ชำระแล้ว';
+    }
+    
+    // Handle empty string or null values
+    if (!paymentStatus || paymentStatus.trim() === '') {
+      return 'รอชำระ';
+    }
+    
+    return statusMap[paymentStatus] || paymentStatus || 'ไม่ระบุ';
+  };
 
+  // Helper function to get payment status CSS class
+  const getPaymentStatusClass = (paymentStatus, bookingStatus) => {
+    // If booking is confirmed by admin, show as paid
+    if (bookingStatus === 'confirmed') {
+      return 'payment-paid';
+    }
+    
+    // Handle empty string or null values
+    if (!paymentStatus || paymentStatus.trim() === '') {
+      return 'payment-pending';
+    }
+    
+    const classMap = {
+      'pending': 'payment-pending',
+      'paid': 'payment-paid',
+      'approved': 'payment-approved',
+      'slip_uploaded': 'payment-uploaded',
+      'verified': 'payment-verified',
+      'rejected': 'payment-rejected'
+    };
+    
+    return classMap[paymentStatus] || 'payment-default';
+  };
 
   useEffect(() => {
     setIsVisible(true);
     if (isAuthenticated && user && isStaffOrAdmin(user)) {
+      // Auto-update expired bookings first
+      autoUpdateExpiredBookings();
+      // Then fetch bookings
       fetchBookings();
       fetchCancellationRequests();
     }
@@ -165,6 +214,12 @@ function BookingManagementContent() {
           acc[booking.status] = (acc[booking.status] || 0) + 1;
           return acc;
         }, {}));
+        console.log('💰 Revenue calculation check:', response.data.map(b => ({
+          id: b.id,
+          status: b.status, 
+          total_price: b.total_price,
+          total_amount: b.total_amount
+        })));
         
         setBookings(response.data);
         calculateStats(response.data);
@@ -249,12 +304,15 @@ function BookingManagementContent() {
   const calculateStats = (bookingsData) => {
     const today = new Date().toISOString().split('T')[0];
     
+    console.log('📊 Calculating stats for bookings:', bookingsData.length);
+    console.log('📊 Sample booking data:', bookingsData[0]);
+    
     const stats = {
       totalBookings: bookingsData.length,
       pendingBookings: bookingsData.filter(b => b.status === 'pending' && !isBookingExpired(b)).length,
       expiredBookings: bookingsData.filter(b => isBookingExpired(b)).length,
       confirmedBookings: bookingsData.filter(b => b.status === 'confirmed').length,
-      completedBookings: bookingsData.filter(b => b.status === 'completed').length,
+      completedBookings: bookingsData.filter(b => b.status === 'completed' || b.status === 'checkedout').length,
       cancelledBookings: bookingsData.filter(b => b.status === 'cancelled').length,
       todayBookings: bookingsData.filter(b => {
         const createdDate = b.created_at || b.createdAt;
@@ -262,11 +320,39 @@ function BookingManagementContent() {
         return date && date.toISOString().split('T')[0] === today;
       }).length,
       totalRevenue: bookingsData
-        .filter(b => b.status === 'completed')
-        .reduce((sum, b) => sum + (b.total_amount || b.totalAmount || b.total_price || b.totalPrice || 0), 0)
+        .filter(b => ['completed', 'checkedout', 'confirmed'].includes(b.status))
+        .reduce((sum, b) => {
+          const amount = parseFloat(b.total_amount || b.totalAmount || b.total_price || b.totalPrice || 0);
+          return sum + amount;
+        }, 0)
     };
     
+    console.log('📊 Calculated stats:', stats);
     setStats(stats);
+  };
+
+  // Auto-update expired bookings and room status
+  const autoUpdateExpiredBookings = async () => {
+    try {
+      console.log('🔄 Checking for expired bookings and updating room status...');
+      const response = await fetch('http://localhost:5680/api/bookings/auto-update-expired', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const result = await response.json();
+      if (result.success) {
+        console.log('✅ Auto-update completed:', result.message);
+        // Silently refresh bookings data if there are updates
+        if (result.updatedCount > 0) {
+          fetchBookings();
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error in auto-update:', error);
+    }
   };
 
   const handleFilterChange = (key, value) => {
@@ -386,54 +472,6 @@ function BookingManagementContent() {
           completed: { label: 'เสร็จสิ้น' }
         };
         return statusConfigs[status] || { label: 'ไม่ระบุ' };
-      };
-
-      // Helper function to format payment status
-      const getPaymentStatusLabel = (paymentStatus, bookingStatus) => {
-        const statusMap = {
-          'pending': 'รอชำระ',
-          'paid': 'ชำระแล้ว',
-          'approved': 'อนุมัติแล้ว',
-          'slip_uploaded': 'อัปโหลดสลิป',
-          'verified': 'ตรวจสอบแล้ว',
-          'rejected': 'ปฏิเสธ'
-        };
-        
-        // If booking is confirmed by admin, show payment status
-        if (bookingStatus === 'confirmed') {
-          return 'ชำระแล้ว';
-        }
-        
-        // Handle empty string or null values
-        if (!paymentStatus || paymentStatus.trim() === '') {
-          return 'รอชำระ';
-        }
-        
-        return statusMap[paymentStatus] || paymentStatus || 'ไม่ระบุ';
-      };
-
-      // Helper function to get payment status CSS class
-      const getPaymentStatusClass = (paymentStatus, bookingStatus) => {
-        // If booking is confirmed by admin, show as paid
-        if (bookingStatus === 'confirmed') {
-          return 'payment-paid';
-        }
-        
-        // Handle empty string or null values
-        if (!paymentStatus || paymentStatus.trim() === '') {
-          return 'payment-pending';
-        }
-        
-        const classMap = {
-          'pending': 'payment-pending',
-          'paid': 'payment-paid',
-          'approved': 'payment-approved',
-          'slip_uploaded': 'payment-uploaded',
-          'verified': 'payment-verified',
-          'rejected': 'payment-rejected'
-        };
-        
-        return classMap[paymentStatus] || 'payment-default';
       };
 
       // Helper function to format room info
@@ -1051,9 +1089,31 @@ function BookingManagementContent() {
 
   // Get display status for a booking
   const getDisplayStatus = (booking) => {
-    if (isBookingExpired(booking)) {
+    // Check for expired bookings
+    const today = new Date();
+    const checkinDate = new Date(booking.check_in_date);
+    
+    today.setHours(0, 0, 0, 0);
+    checkinDate.setHours(0, 0, 0, 0);
+    
+    const isExpired = checkinDate < today;
+    
+    // If check-in date is past and booking was pending, empty, or completed (auto-updated)
+    if (isExpired && (
+      booking.status === 'pending' || 
+      booking.status === 'completed' || 
+      booking.status === '' || 
+      booking.status === null || 
+      booking.status === undefined
+    )) {
       return 'expired';
     }
+    
+    // Handle empty status as pending for non-expired bookings
+    if (booking.status === '' || booking.status === null || booking.status === undefined) {
+      return 'pending';
+    }
+    
     return booking.status;
   };
 
@@ -2142,9 +2202,6 @@ function BookingManagementContent() {
                         วันที่พัก (จอง)
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide">
-                        เวลาจริงที่โรงแรม
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide">
                         จำนวนเงิน
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide">
@@ -2205,48 +2262,6 @@ function BookingManagementContent() {
                           <div className="text-xs text-neutral-500 dark:text-neutral-400">
                             ถึง {formatDate(booking.check_out_date)}
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="space-y-1">
-                          {booking.actual_check_in_time ? (
-                            <>
-                              <div className="text-sm text-green-700 dark:text-green-400 font-medium">
-                                เช็คอิน: {new Date(booking.actual_check_in_time).toLocaleDateString('th-TH', {
-                                  day: '2-digit',
-                                  month: 'short',
-                                  year: 'numeric'
-                                })}
-                              </div>
-                              <div className="text-xs text-green-600 dark:text-green-500">
-                                {new Date(booking.actual_check_in_time).toLocaleTimeString('th-TH', {
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </div>
-                            </>
-                          ) : (
-                            <div className="text-sm text-neutral-400 dark:text-neutral-500">
-                              -
-                            </div>
-                          )}
-                          {booking.actual_check_out_time && (
-                            <>
-                              <div className="text-sm text-purple-700 dark:text-purple-400 font-medium">
-                                เช็คเอ้า: {new Date(booking.actual_check_out_time).toLocaleDateString('th-TH', {
-                                  day: '2-digit',
-                                  month: 'short',
-                                  year: 'numeric'
-                                })}
-                              </div>
-                              <div className="text-xs text-purple-600 dark:text-purple-500">
-                                {new Date(booking.actual_check_out_time).toLocaleTimeString('th-TH', {
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </div>
-                            </>
-                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -2347,8 +2362,12 @@ function BookingManagementContent() {
                                   setConfirmActionType('success');
                                   setShowConfirmModal(true);
                                 }}
-                                className="group relative p-2 rounded-xl bg-green-50 hover:bg-green-100 dark:bg-green-900/30 dark:hover:bg-green-800/40 text-green-600 dark:text-green-400 transition-all duration-200 hover:scale-105"
-                                title="อนุมัติการจอง"
+                                className={`group relative p-2 rounded-xl transition-all duration-200 hover:scale-105 ${
+                                  isBookingExpired(booking) 
+                                    ? 'bg-orange-50 hover:bg-orange-100 dark:bg-orange-900/30 dark:hover:bg-orange-800/40 text-orange-600 dark:text-orange-400' 
+                                    : 'bg-green-50 hover:bg-green-100 dark:bg-green-900/30 dark:hover:bg-green-800/40 text-green-600 dark:text-green-400'
+                                }`}
+                                title={isBookingExpired(booking) ? "อนุมัติการจอง (หมดอายุแล้ว)" : "อนุมัติการจอง"}
                               >
                                 <CheckCircle className="h-4 w-4" />
                                 <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-neutral-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
@@ -2542,35 +2561,6 @@ function BookingManagementContent() {
                       <p className="font-medium text-neutral-900 dark:text-white">
                         {formatDate(booking.check_in_date)} - {formatDate(booking.check_out_date)}
                       </p>
-                    </div>
-                    <div>
-                      <span className="text-neutral-500 dark:text-neutral-400">เวลาจริงที่โรงแรม:</span>
-                      {booking.actual_check_in_time ? (
-                        <div className="space-y-1">
-                          <p className="text-sm text-green-600 dark:text-green-400 font-medium">
-                            เช็คอิน: {new Date(booking.actual_check_in_time).toLocaleString('th-TH', {
-                              day: '2-digit',
-                              month: 'short',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </p>
-                          {booking.actual_check_out_time && (
-                            <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">
-                              เช็คเอ้า: {new Date(booking.actual_check_out_time).toLocaleString('th-TH', {
-                                day: '2-digit',
-                                month: 'short',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-neutral-400 dark:text-neutral-500">
-                          ยังไม่ได้เช็คอินที่โรงแรม
-                        </p>
-                      )}
                     </div>
                   </div>
 
