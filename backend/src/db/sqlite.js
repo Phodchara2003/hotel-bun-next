@@ -205,7 +205,10 @@ const insertSampleData = () => {
 // Initialize database
 const initializeDatabase = () => {
   if (createTables()) {
-    insertSampleData();
+    // Only seed default data in development — never overwrite production data
+    if (process.env.NODE_ENV !== 'production') {
+      insertSampleData();
+    }
   }
 };
 

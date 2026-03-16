@@ -506,7 +506,7 @@ export default function AdminReportsPage() {
           <p className="text-neutral-600 dark:text-neutral-400 mb-6">
             คุณไม่มีสิทธิ์เข้าถึงหน้านี้
           </p>
-          <Link href="/dashboard" className="btn-primary">
+          <Link href="/admin/dashboard" className="btn-primary">
             กลับหน้าหลัก
           </Link>
         </div>

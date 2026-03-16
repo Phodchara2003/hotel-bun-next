@@ -239,8 +239,11 @@ export const AuthProvider = ({ children }) => {
 
   const parseJWT = (token) => {
     try {
-      const payload = token.split('.')[1];
-      return JSON.parse(atob(payload));
+      const raw = token.split('.')[1];
+      // JWT uses base64url — replace url-safe chars and re-add padding
+      const base64 = raw.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = base64.padEnd(base64.length + (4 - base64.length % 4) % 4, '=');
+      return JSON.parse(atob(padded));
     } catch (error) {
       console.error('Error parsing JWT:', error);
       return null;
@@ -261,17 +264,14 @@ export const AuthProvider = ({ children }) => {
 
   const scheduleTokenRefresh = (payload) => {
     const timeRemaining = getTokenTimeRemaining(payload);
-    
-    // Session warnings disabled to prevent screen blocking
-    // Warn when 10 minutes remaining
-    if (false && timeRemaining > 600) {
+
+    if (timeRemaining > 600) {
       setTimeout(() => {
         toast.warning('เซสชันจะหมดอายุในอีก 10 นาที');
       }, (timeRemaining - 600) * 1000);
     }
-    
-    // Final warning at 5 minutes
-    if (false && timeRemaining > 300) {
+
+    if (timeRemaining > 300) {
       setTimeout(() => {
         toast.error('เซสชันจะหมดอายุในอีก 5 นาที กรุณาเซฟงานของคุณ');
       }, (timeRemaining - 300) * 1000);
@@ -387,10 +387,10 @@ export const AuthProvider = ({ children }) => {
       
       const response = await authAPI.login(credentials);
       
-      // Backend returns {success: true, data: {token, user}}
-      if (response.success && response.data && response.data.token && response.data.user) {
-        const token = response.data.token;
-        const userData = response.data.user;
+      // Backend returns {success: true, token, user}
+      if (response.success && response.token && response.user) {
+        const token = response.token;
+        const userData = response.user;
         
         console.log('✅ Login API successful');
         
@@ -444,21 +444,13 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       const response = await authAPI.register(userData);
       
-      // Backend returns {success: true, data: {token, user}}
-      if (response.success && response.data && response.data.token && response.data.user) {
-        const token = response.data.token;
-        const user = response.data.user;
-        
+      // Backend returns {success: true, token, user}
+      if (response.success && response.token && response.user) {
+        const token = response.token;
+        const user = response.user;
+
         console.log('✅ Registration API successful');
-        
-        // Store auth data
-        Cookies.set('auth_token', token, { 
-          expires: 7,
-          path: '/',
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'strict'
-        });
-        
+
         updateStoredUserData(user, token);
         setUser(user);
         

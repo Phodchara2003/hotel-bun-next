@@ -12,7 +12,8 @@
     "build": "next build",
     "start": "next start -p 3680",
     "lint": "next lint",
-    "kill-port": "npx kill-port 3680 5680"
+    "kill-port": "npx kill-port 3680 5680",
+    "test": "bun test __tests__"
   },
   "dependencies": {
     "@elysiajs/swagger": "^1.3.1",

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useLanguage } from '../../../contexts/LanguageContext';
 import { useTranslation } from '../../../translations';
-import WriteReview from '../../../components/WriteReview';
+import WriteReview from '@/components/booking/WriteReview';
 
 const StarRating = ({ rating, size = 'sm' }) => {
   const sizeClasses = {

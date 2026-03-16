@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-hot-toast';
-import LoadingSpinner from '@/components/LoadingSpinner';
-import AdminNavigation from '@/components/AdminNavigation';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import AdminNavigation from '@/components/layout/AdminNavigation';
 import axios from 'axios';
 import Cookies from 'js-cookie';
 

@@ -795,7 +795,15 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
       // Delete the booking (guest info is stored in the bookings table directly)
       const bookingDeleted = await sql`DELETE FROM bookings WHERE id = ${bookingId}`;
       console.log('Booking deletion result:', bookingDeleted);
-      
+
+      // Release the room so it can be booked again
+      if (bookingToDelete.room_id) {
+        await sql`
+          UPDATE rooms SET status = 'available', current_booking_id = NULL
+          WHERE id = ${bookingToDelete.room_id}
+        `;
+      }
+
       // ส่งอีเมลแจ้งเตือนการยกเลิกการจอง (ระบบส่งอัตโนมัติ)
       if (fullBookingDetails.length > 0) {
         try {
@@ -1172,7 +1180,15 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
         WHERE id = ${bookingId}
         RETURNING *
       `;
-      
+
+      // Release room when booking is cancelled or completed
+      if (['cancelled', 'completed'].includes(status) && bookingData.room_id) {
+        await sql`
+          UPDATE rooms SET status = 'available', current_booking_id = NULL
+          WHERE id = ${bookingData.room_id}
+        `;
+      }
+
       console.log('Booking status updated successfully');
       
       // Send notification to user based on status change
@@ -1273,6 +1289,14 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
         RETURNING *
       `;
 
+      // Release the room so it can be booked again
+      if (bookingData.room_id) {
+        await sql`
+          UPDATE rooms SET status = 'available', current_booking_id = NULL
+          WHERE id = ${bookingData.room_id}
+        `;
+      }
+
       // 🚨 ส่งแจ้งเตือนอีเมลแอดมินเกี่ยวกับการยกเลิกจากลูกค้า
       try {
         const userData = {
@@ -1346,6 +1370,14 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
         RETURNING *
       `;
 
+      // Release the room so it can be booked again
+      if (bookingData.room_id) {
+        await sql`
+          UPDATE rooms SET status = 'available', current_booking_id = NULL
+          WHERE id = ${bookingData.room_id}
+        `;
+      }
+
       // Send notification to user
       try {
         const template = NotificationTemplates.BOOKING_CANCELLED(
@@ -1380,30 +1412,6 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
   })
   
   // DELETE endpoints - placed at the end to avoid conflicts with parameterized routes
-  .delete('/admin/clear-all', async ({ headers, set }) => {
-    try {
-      // Authenticate admin
-      const user = await authMiddleware({ headers, set });
-      if (user.error) return user;
-      
-      if (user.role !== 'admin') {
-        set.status = 403;
-        return { error: 'Admin access required' };
-      }
-      
-      // Delete all bookings
-      const result = await sql`DELETE FROM bookings`;
-      
-      return {
-        message: `Cleared all ${result.count} bookings`,
-        success: true
-      };
-    } catch (error) {
-      console.error('Clear all bookings error:', error);
-      set.status = 500;
-      return { error: 'Internal server error' };
-    }
-  })
   .delete('/:id', async ({ params, headers, set }) => {
     try {
       console.log('=== DELETE BOOKING REQUEST ===');
@@ -1439,11 +1447,19 @@ export const bookingRoutes = new Elysia({ prefix: '/bookings' })
       }
       
       console.log('Booking found, proceeding to delete...');
-      
+
       // Delete the booking (guest info is stored in the bookings table directly)
       const bookingDeleted = await sql`DELETE FROM bookings WHERE id = ${bookingId}`;
       console.log('Booking deletion result:', bookingDeleted);
-      
+
+      // Release the room so it can be booked again
+      if (booking[0].room_id) {
+        await sql`
+          UPDATE rooms SET status = 'available', current_booking_id = NULL
+          WHERE id = ${booking[0].room_id}
+        `;
+      }
+
       console.log('DELETE operation completed successfully');
       
       return {

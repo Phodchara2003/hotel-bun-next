@@ -6,7 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import NotificationCenter from '../../components/NotificationCenter';
+import NotificationCenter from '@/components/notifications/NotificationCenter';
 
 export default function ProfilePage() {
   const { user, updateUser, loading: authLoading } = useAuth();

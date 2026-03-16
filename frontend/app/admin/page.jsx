@@ -8,8 +8,8 @@ import { hotelAPI } from '../../lib/api';
 import { getRoomImageUrl, getFallbackRoomImages, getPlaceholderImageUrl, getRoomPlaceholder } from '../../lib/roomImageUtils';
 import { getRoomsData, getFeaturedRooms } from '../../lib/roomsData';
 import { useAuth } from '../../contexts/AuthContext';
-import ClientOnly from '../../components/ClientOnly';
-import { FadeInUp, FadeInLeft, FadeInRight, ScaleIn, StaggerContainer } from '../../components/AnimatedComponents';
+import ClientOnly from '@/components/ui/ClientOnly';
+import { FadeInUp, FadeInLeft, FadeInRight, ScaleIn, StaggerContainer } from '@/components/ui/AnimatedComponents';
 
 export default function AdminPage() {
   return (

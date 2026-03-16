@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
-import AdminNavigation from '../../../components/AdminNavigation';
+import AdminNavigation from '@/components/layout/AdminNavigation';
 import { 
   Clock, 
   User, 

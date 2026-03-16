@@ -12,7 +12,7 @@ import { getRoomById } from '../../../lib/roomsData';
 import { getRoomImageUrl, getRoomPlaceholder } from '../../../lib/roomImageUtils';
 import { useAuth } from '../../../contexts/AuthContext';
 import { formatDateThai, formatDateForInput, calculateNights, dateToString } from '../../../lib/dateUtils';
-import CustomDatePicker from '../../../components/CustomDatePicker';
+import CustomDatePicker from '@/components/booking/CustomDatePicker';
 import toast from 'react-hot-toast';
 
 export default function RoomDetailPage() {

@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Calendar, Users, MapPin, Star, User, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { notificationAPI } from '@/lib/api';
-import ClientOnly from '../../components/ClientOnly';
+import ClientOnly from '@/components/ui/ClientOnly';
 
 export default function BookingStepPage() {
   return (

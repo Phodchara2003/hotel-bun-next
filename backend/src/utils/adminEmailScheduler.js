@@ -1,4 +1,4 @@
-import { automaticAdminEmailNotifications, sendDailyAdminSummaryEmail } from './adminEmailService.js';
+import { automaticAdminEmailNotifications, sendDailyAdminSummaryEmail } from './email/adminEmailService.js';
 import { sql } from '../db/database.js';
 
 /**

@@ -3,7 +3,7 @@ import Cookies from 'js-cookie';
 import toast from 'react-hot-toast';
 import performanceMonitor from './performanceMonitor';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5680';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 // Create axios instance
 const api = axios.create({
@@ -13,6 +13,14 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Decode a JWT payload safely (handles base64url encoding)
+const parseJWTPayload = (token) => {
+  const raw = token.split('.')[1];
+  const base64 = raw.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64.padEnd(base64.length + (4 - base64.length % 4) % 4, '=');
+  return JSON.parse(atob(padded));
+};
 
 // Helper function to get auth token from multiple sources
 const getAuthToken = () => {
@@ -43,7 +51,7 @@ api.interceptors.request.use(
       // Check if token is about to expire (only in development)
       if (process.env.NODE_ENV === 'development') {
         try {
-          const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+          const tokenPayload = parseJWTPayload(token);
           const currentTime = Math.floor(Date.now() / 1000);
           const timeUntilExpiry = tokenPayload.exp - currentTime;
           
@@ -110,7 +118,7 @@ api.interceptors.response.use(
         const currentToken = Cookies.get('auth_token');
         if (currentToken) {
           try {
-            const tokenPayload = JSON.parse(atob(currentToken.split('.')[1]));
+            const tokenPayload = parseJWTPayload(currentToken);
             const currentTime = Math.floor(Date.now() / 1000);
             
             if (tokenPayload.exp < currentTime) {
@@ -399,6 +407,11 @@ export const hotelAPI = {
         error: error.message
       };
     }
+  },
+
+  getContactSettings: async () => {
+    const response = await api.get('/admin/contact-settings');
+    return response.data;
   },
 };
 

@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import api, { bookingAPI } from '../../lib/api';
 import { Calendar, Users, CreditCard, X, Check, Clock, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
-import ConfirmModal from '../../components/ConfirmModal';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 
 
 // Helper function สำหรับแก้ไข timezone issue และรองรับทั้ง ISO string และ YYYY-MM-DD

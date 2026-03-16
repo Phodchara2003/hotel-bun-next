@@ -1,8 +1,6 @@
 import postgres from 'postgres';
 import 'dotenv/config';
 
-console.log('Database URL:', process.env.DATABASE_URL);
-
 // Use a more flexible database configuration
 let sql;
 try {
@@ -29,17 +27,9 @@ try {
 
 export const createTables = async () => {
   try {
-    // Drop existing tables if they exist (in correct order due to dependencies)
-    await sql`DROP TABLE IF EXISTS reviews CASCADE`;
-    await sql`DROP TABLE IF EXISTS bookings CASCADE`;
-    await sql`DROP TABLE IF EXISTS rooms CASCADE`;
-    await sql`DROP TABLE IF EXISTS room_types CASCADE`;
-    await sql`DROP TABLE IF EXISTS hotels CASCADE`;
-    await sql`DROP TABLE IF EXISTS users CASCADE`;
-
     // Users table
     await sql`
-      CREATE TABLE users (
+      CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
@@ -54,7 +44,7 @@ export const createTables = async () => {
 
     // Hotels table
     await sql`
-      CREATE TABLE hotels (
+      CREATE TABLE IF NOT EXISTS hotels (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         description TEXT,
@@ -71,7 +61,7 @@ export const createTables = async () => {
 
     // Room types table
     await sql`
-      CREATE TABLE room_types (
+      CREATE TABLE IF NOT EXISTS room_types (
         id SERIAL PRIMARY KEY,
         hotel_id INTEGER REFERENCES hotels(id) ON DELETE CASCADE,
         name VARCHAR(255) NOT NULL,
@@ -88,7 +78,7 @@ export const createTables = async () => {
 
     // Rooms table
     await sql`
-      CREATE TABLE rooms (
+      CREATE TABLE IF NOT EXISTS rooms (
         id SERIAL PRIMARY KEY,
         hotel_id INTEGER REFERENCES hotels(id) ON DELETE CASCADE,
         room_type_id INTEGER REFERENCES room_types(id) ON DELETE CASCADE,
@@ -103,7 +93,7 @@ export const createTables = async () => {
 
     // Bookings table
     await sql`
-      CREATE TABLE bookings (
+      CREATE TABLE IF NOT EXISTS bookings (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         hotel_id INTEGER REFERENCES hotels(id) ON DELETE CASCADE,
@@ -127,7 +117,7 @@ export const createTables = async () => {
 
     // Notifications table
     await sql`
-      CREATE TABLE notifications (
+      CREATE TABLE IF NOT EXISTS notifications (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         booking_id INTEGER REFERENCES bookings(id) ON DELETE CASCADE,
@@ -142,7 +132,7 @@ export const createTables = async () => {
 
     // Reviews table
     await sql`
-      CREATE TABLE reviews (
+      CREATE TABLE IF NOT EXISTS reviews (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         hotel_id INTEGER REFERENCES hotels(id) ON DELETE CASCADE,
@@ -164,9 +154,8 @@ export const createTables = async () => {
 export const insertSampleData = async () => {
   try {
     // Insert demo users (regular user + admin)
-    const bcrypt = await import('bcryptjs');
-    const userPassword = await bcrypt.hash('password123', 10);
-    const adminPassword = await bcrypt.hash('admin123', 10);
+    const userPassword = await Bun.password.hash('password123', { algorithm: 'bcrypt', cost: 10 });
+    const adminPassword = await Bun.password.hash('admin123', { algorithm: 'bcrypt', cost: 10 });
     
     await sql`
       INSERT INTO users (first_name, last_name, email, phone, password, role)

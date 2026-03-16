@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { bookingAPI } from '../../../lib/api';
 import { isStaffOrAdmin, canDeleteBookings, canEditBookings, canManageBookings } from '../../../lib/permissions';
-import ConfirmModal from '../../../components/ConfirmModal';
-import ClientOnly from '../../../components/ClientOnly';
+import ConfirmModal from '@/components/ui/ConfirmModal';
+import ClientOnly from '@/components/ui/ClientOnly';
 import Link from 'next/link';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
@@ -1642,7 +1642,7 @@ function BookingManagementContent() {
           <p className="text-neutral-600 dark:text-neutral-400 mb-6">
             คุณไม่มีสิทธิ์เข้าถึงหน้านี้
           </p>
-          <Link href="/dashboard" className="btn-primary">
+          <Link href="/admin/dashboard" className="btn-primary">
             กลับหน้าหลัก
           </Link>
         </div>

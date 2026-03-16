@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTranslation } from '@/translations';
-import QRCodePayment from '@/components/QRCodePayment';
+import QRCodePayment from '@/components/payment/QRCodePayment';
 
 function PaymentContent() {
   const searchParams = useSearchParams();

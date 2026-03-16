@@ -8,9 +8,9 @@ import { getRoomImageUrl, getFallbackRoomImages, getPlaceholderImageUrl, getRoom
 import { getRoomsData, getFeaturedRooms } from '../lib/roomsData';
 import { dateToString } from '../lib/dateUtils';
 import { useAuth } from '../contexts/AuthContext';
-import ClientOnly from '../components/ClientOnly';
-import ModernDatePicker from '../components/ModernDatePicker';
-import { FadeInUp, FadeInLeft, FadeInRight, ScaleIn, StaggerContainer } from '../components/AnimatedComponents';
+import ClientOnly from '@/components/ui/ClientOnly';
+import ModernDatePicker from '@/components/booking/ModernDatePicker';
+import { FadeInUp, FadeInLeft, FadeInRight, ScaleIn, StaggerContainer } from '@/components/ui/AnimatedComponents';
 import toast from 'react-hot-toast';
 
 export default function HomePage() {
@@ -73,20 +73,6 @@ function HomePageContent() {
       
       // ลบ cache ถ้าต้องการ force refresh
       if (forceRefresh) {
-        // Clear browser cache for API endpoints
-        if ('caches' in window) {
-          try {
-            const cacheNames = await caches.keys();
-            await Promise.all(
-              cacheNames.map(cacheName => caches.delete(cacheName))
-            );
-            console.log('All caches cleared');
-          } catch (error) {
-            console.log('Cache clearing error:', error);
-          }
-        }
-        
-        // Clear localStorage cache
         try {
           Object.keys(localStorage).forEach(key => {
             if (key.includes('room') || key.includes('cache')) {
@@ -391,10 +377,9 @@ function HomePageContent() {
 
   const fetchContactSettings = async () => {
     try {
-      const response = await fetch('http://localhost:5680/api/admin/contact-settings');
-      const data = await response.json();
-      if (data.success) {
-        setContactSettings(data.data);
+      const response = await hotelAPI.getContactSettings();
+      if (response.success) {
+        setContactSettings(response.data);
       }
     } catch (error) {
       console.error('Error fetching contact settings:', error);

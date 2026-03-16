@@ -1,5 +1,5 @@
 import dynamic from 'next/dynamic';
-import ClientOnly from '../../components/ClientOnly';
+import ClientOnly from '@/components/ui/ClientOnly';
 
 const LoginPageClient = dynamic(() => import('../../components/LoginPageClient'), {
   ssr: false,
